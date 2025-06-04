@@ -48,6 +48,7 @@ if "READTHEDOCS" not in os.environ:
     from etrago import Etrago
 
 args = {
+    "nuts_3_map" : "germany-de-nuts-3-regions.geojson",
     # Setup and Configuration:
     "db": "egon-data-wam02",  # database session # "egon-data-wam02"
     "gridversion": None,  # None for model_draft or Version number
@@ -710,9 +711,6 @@ def run_etrago(args, json_path):
     #import pdb
     #pdb.set_trace()
 
-    # set interest components to extendable
-
-
     # sensitivity test
     # change capital_cost of Electrolyser
     # etrago.network.links.loc[etrago.network.links.carrier == "CH4_to_H2", "capital_cost"] *= 2
@@ -725,7 +723,14 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
-    etrago.spatial_clustering_gas()    
+    etrago.spatial_clustering_gas()
+
+    # set interest components to extendable
+
+    etrago.add_extendable_solar_to_interest_area()
+
+    import pdb
+    pdb.set_trace()
 
     # snapshot clustering
     etrago.snapshot_clustering()

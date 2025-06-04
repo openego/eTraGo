@@ -112,7 +112,10 @@ from etrago.tools.utilities import (
     update_busmap,
     adjust_chp_model,
     adjust_PtH2_model,
-    levelize_abroad_inland_parameters
+    levelize_abroad_inland_parameters,
+    find_interest_buses,
+    find_links_connected_to_interest_buses,
+    add_extendable_solar_to_interest_area
 )
 
 logger = logging.getLogger(__name__)
@@ -386,6 +389,12 @@ class Etrago:
     adjust_chp_model = adjust_chp_model
     
     levelize_abroad_inland_parameters = levelize_abroad_inland_parameters
+
+    find_interest_buses = find_interest_buses
+
+    find_links_connected_to_interest_buses = find_links_connected_to_interest_buses
+
+    add_extendable_solar_to_interest_area = add_extendable_solar_to_interest_area
 
 
     def dc_lines(self):

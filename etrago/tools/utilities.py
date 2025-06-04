@@ -42,6 +42,7 @@ import sqlalchemy.exc
 if "READTHEDOCS" not in os.environ:
     from shapely.geometry import LineString, Point
     import geopandas as gpd
+    import re
 
     from etrago.tools import db
 
@@ -3895,4 +3896,137 @@ def levelize_abroad_inland_parameters(self):
                     logger.warning(f"⚠️ {parameter} doesn't exist for Carrier '{carrier}' in {component_type}.")
                     
         logger.info(f"✅ All required parameters for inland and abroad {component_type} are levelized.")
-     
+
+
+def find_interest_buses(self):
+    """
+    Identifiziere alle Busse innerhalb von Regionen, deren Name
+    in args["interest_area"] als Teilstring vorkommt.
+
+    args["interest_area"] ist eine Liste von Namensfragmenten.
+    """
+    args = self.args
+
+    # GeoJSON einlesen
+    nuts = gpd.read_file(args["nuts_3_map"])
+    nuts["NUTS_NAME"] = nuts["NUTS_NAME"].str.strip()
+
+    # Matchen über str.contains für alle Einträge in args["interest_area"]
+    area_filter = args["interest_area"]
+    mask = nuts["NUTS_NAME"].apply(lambda name: any(area.lower() in name.lower() for area in area_filter))
+    interest_area = nuts[mask]
+
+    if interest_area.empty:
+        raise ValueError(f"Keine Region mit Teilstrings {area_filter} in GeoJSON gefunden.")
+
+    # Busse zu GeoDataFrame
+    buses = gpd.GeoDataFrame(
+        self.network.buses.copy(),
+        geometry=gpd.points_from_xy(self.network.buses.x, self.network.buses.y),
+        crs="EPSG:4326"
+    )
+
+    # CRS-Anpassung
+    buses = buses.to_crs(interest_area.crs)
+
+    # Leere Geometrien ausschließen
+    interest_area = interest_area[~interest_area.geometry.is_empty & interest_area.geometry.notnull()]
+
+    # Räumlicher Schnitt
+    buses_in_area = buses[buses.geometry.within(interest_area.unary_union)]
+
+    # print(f"{len(buses_in_area)} Busse in {area_filter} gefunden.")
+
+    return buses_in_area
+
+def find_links_connected_to_interest_buses(self):
+    # find buses in interst area
+    gdf_buses_interest = find_interest_buses(self)
+    buses_of_interest = gdf_buses_interest.index.tolist()
+
+    # Links where bus0 or bus1 is in the area of interest
+    links = n.links.copy()
+    connected_links = links[
+        (links["bus0"].isin(buses_of_interest)) |
+        (links["bus1"].isin(buses_of_interest))
+    ]
+
+    return connected_links
+
+
+def get_next_index(etrago, component="Generator", carrier="solar_rooftop"):
+    """
+    Gibt den nächsten freien Index im Format '{int} {carrier}' für das angegebene
+    PyPSA-Komponentenobjekt (z.B. 'Generator' oder 'Link') zurück.
+
+    Beispiel: "17 solar_rooftop"
+    """
+    n = etrago.network.copy()
+    comp_df = getattr(n, component.lower() + "s")
+
+    # Nur Komponenten mit dem angegebenen Carrier
+    filtered = comp_df[comp_df.carrier == carrier]
+
+    used_ids = []
+    for idx in filtered.index:
+        pattern = rf"(\d+)\s+{re.escape(carrier)}"
+        match = re.match(pattern, idx)
+        if match:
+            used_ids.append(int(match.group(1)))
+
+    next_id = max(used_ids) + 1 if used_ids else 0
+    return f"{next_id} {carrier}"
+
+
+def add_extendable_solar_to_interest_area(self):
+    # buses in ingolstadt
+    buses_ingolstadt = find_interest_buses(self)
+    bus_list = buses_ingolstadt.index.to_list()
+    # generator solar_rooftop from interest_area
+
+    #generators_interest = n.generators[n.generators.bus.isin(bus_list)]
+
+    # locate existing solar_rooftop in interest area
+    gens = self.network.generators.copy()
+    interest_solar_gen = gens[
+        (gens.carrier == "solar_rooftop") &
+        (gens.bus.isin(bus_list))
+        ]
+
+    print(interest_solar_gen)
+
+    # Determine the attributes for new generators by copying from similar existing generators
+    default_attrs = ['start_up_cost', 'shut_down_cost', 'min_up_time',
+                     'min_down_time', 'up_time_before', 'down_time_before',
+                     'ramp_limit_up', 'ramp_limit_down', 'ramp_limit_start_up',
+                     'ramp_limit_shut_down']
+
+    solar_attrs = {attr: interest_solar_gen.get(attr, 0) for attr in default_attrs}
+
+    # timeseries of existing solar_rooftop in interest area
+    pv_time_series = self.network.generators_t.p_max_pu.loc[:, interest_solar_gen.index]
+
+    # deactivate existing solar_rooftop in interest area
+    self.network.generators.loc[interest_solar_gen.index, "p_nom"] = 0
+
+    # == Add the solar generator with the new ID ==
+
+    # = get new solar_rooftop gen_id =
+
+    solar_gen_id = get_next_index(self, component="Generator", carrier="solar_rooftop")
+
+    # take marginal_cost from existing gens
+    marginal_cost_value = interest_solar_gen["marginal_cost"].iloc[0]
+
+    # Add the solar generator with the new ID
+    self.network.add("Generator", solar_gen_id, bus=interest_solar_gen.bus.iloc[0], p_nom=100, carrier="solar_rooftop",
+          marginal_cost=marginal_cost_value,
+          capital_cost=37361.94, p_max_pu=1, control="PV", p_nom_extendable=True, **solar_attrs)
+
+    # take time series from exisiting solar_gen
+    self.network.generators_t.p_max_pu[solar_gen_id] = pv_time_series
+
+    # set scn_name
+    self.network.generators.loc[solar_gen_id, "scn_name"] = "eGon2035"
+
+    print(f"Time series for Solar generator {solar_gen_id} added successfully.")
