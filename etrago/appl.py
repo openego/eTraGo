@@ -768,6 +768,10 @@ def run_etrago(args, json_path):
 
     etrago.add_extendable_heat_pumps_to_interest_area()
 
+    # add waste_CHP in Ingolstadt
+
+    etrago.add_waste_CHP_ingolstadt()
+
     #etrago.set_battery_interest_area_p_nom_min()
 
     # lcolumns = ["bus0", "bus1", "carrier", "p_nom", "p_nom_opt", "marginal_cost", "capital_cost","p_nom_extendable"]

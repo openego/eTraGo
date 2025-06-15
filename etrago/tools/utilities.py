@@ -3927,13 +3927,16 @@ def find_interest_buses(self):
     )
 
     # CRS-Anpassung
-    buses = buses.to_crs(interest_area.crs)
+    # buses = buses.to_crs(interest_area.crs)
+    if interest_area.crs != "EPSG:4326":
+        interest_area = interest_area.to_crs("EPSG:4326")
 
     # Leere Geometrien ausschließen
     interest_area = interest_area[~interest_area.geometry.is_empty & interest_area.geometry.notnull()]
 
     # Räumlicher Schnitt
-    buses_in_area = buses[buses.geometry.within(interest_area.unary_union)]
+    #buses_in_area = buses[buses.geometry.within(interest_area.unary_union)]
+    buses_in_area = buses[buses.geometry.within(interest_area.buffer(0.005).unary_union)]
 
     # print(f"{len(buses_in_area)} Busse in {area_filter} gefunden.")
 
@@ -4021,7 +4024,7 @@ def add_extendable_solar_to_interest_area(self):
     # Add the solar generator with the new ID
     self.network.add("Generator", solar_gen_id, bus=interest_solar_gen.bus.iloc[0], p_nom=100, p_nom_min = 100 , carrier="solar_rooftop",
           marginal_cost=marginal_cost_value,
-          capital_cost=23311.26447, p_max_pu=1, control="PV", p_nom_extendable=True, **solar_attrs)
+          capital_cost=17483.44835, p_max_pu=1, control="PV", p_nom_extendable=True, **solar_attrs)
 
     # take time series from exisiting solar_gen
     self.network.generators_t.p_max_pu[solar_gen_id] = pv_time_series
@@ -4184,3 +4187,80 @@ def set_battery_interest_area_p_nom_min(self):
     self.network.storage_units.loc[mask, "p_nom_min"] = 0
 
     print(f"Für {mask.sum()} Batterien in der interest area wurde p_nom_min = 0 gesetzt.")
+
+def add_waste_CHP_ingolstadt(self):
+    """
+    add waste_CHP-Powerplant, located in Ingolstadt
+    """
+    # Add new bus with additional attributes
+    new_bus = str(self.network.buses.index.astype(np.int64).max() + 1)
+    self.network.add("Bus",
+                     new_bus,
+                     carrier="waste",
+                     v_nom=1.0,
+                     x=11.491169,
+                     y=48.764725
+                     )
+    self.network.buses.at[new_bus, "scn_name"] = "eGon2035"
+    self.network.buses.at[new_bus, "country"] = "DE"
+
+    # Add new generator for waste_carrier with additional attributes
+
+    self.network.add("Generator",
+                     name=f"{new_bus} waste",
+                     bus=new_bus,
+                     carrier="waste",
+                     p_nom=10000,
+                     p_nom_extendable=False,
+                     marginal_cost=0,
+                     capital_cost=0,
+                     efficiency=1.0
+                     )
+
+    self.network.generators.at[f"{new_bus} waste", "scn_name"] = "eGon2035"
+
+    bus_ingolstadt = find_interest_buses(self)
+    bus_list = bus_ingolstadt.index.to_list()
+    print(bus_ingolstadt)
+    print(self.network.generators[self.network.generators.bus.isin(bus_list)])
+
+    # Add Link waste -> electricity
+    ac_buses = bus_ingolstadt[bus_ingolstadt.carrier == "AC"]
+    ac_bus = ac_buses.index[0]
+    # create new link_id
+    new_link_id = str(self.network.links.index.astype(int).max() + 1)
+
+    self.network.add("Link",
+                     name=new_link_id,
+                     bus0=new_bus,
+                     bus1=ac_bus,
+                     carrier="waste_CHP",
+                     p_nom=18.24,
+                     p_nom_min=18.24,
+                     marginal_cost=27.8042,
+                     p_nom_extendable=False,
+                     efficiency=0.2102
+                     )
+
+    # Add Link waste -> central_heat
+    # create new link_id
+    new_link_id = str(self.network.links.index.astype(int).max() + 1)
+    central_heat_buses = bus_ingolstadt[bus_ingolstadt.carrier == "central_heat"]
+    central_heat_bus = central_heat_buses.index[0]
+
+    self.network.add("Link",
+                     name=new_link_id,
+                     bus0=new_bus,
+                     bus1=central_heat_bus,
+                     carrier="waste_CHP_heat",
+                     p_nom=45.0,
+                     p_nom_min=45.0,
+                     marginal_cost=27.8042,
+                     p_nom_extendable=False,
+                     efficiency=0.7635
+                     )
+
+    connected_links = find_links_connected_to_interest_buses(self)
+    lcolumns = ["bus0", "bus1", "carrier", "p_nom", "p_nom_opt", "marginal_cost", "capital_cost", "efficiency",
+                "p_nom_extendable", "p_nom_max", "p_nom_min", "p_min_pu", "p_max_pu", "p_set"]
+    print(connected_links[lcolumns])

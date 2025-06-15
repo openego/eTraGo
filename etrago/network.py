@@ -118,7 +118,8 @@ from etrago.tools.utilities import (
     add_extendable_solar_to_interest_area,
     add_extendable_links_without_efficiency,
     add_extendable_heat_pumps_to_interest_area,
-    set_battery_interest_area_p_nom_min
+    set_battery_interest_area_p_nom_min,
+    add_waste_CHP_ingolstadt
 )
 
 logger = logging.getLogger(__name__)
@@ -404,6 +405,8 @@ class Etrago:
     add_extendable_heat_pumps_to_interest_area = add_extendable_heat_pumps_to_interest_area
 
     set_battery_interest_area_p_nom_min = set_battery_interest_area_p_nom_min
+
+    add_waste_CHP_ingolstadt = add_waste_CHP_ingolstadt
 
 
     def dc_lines(self):
