@@ -115,7 +115,10 @@ from etrago.tools.utilities import (
     levelize_abroad_inland_parameters,
     find_interest_buses,
     find_links_connected_to_interest_buses,
-    add_extendable_solar_to_interest_area
+    add_extendable_solar_to_interest_area,
+    add_extendable_links_without_efficiency,
+    add_extendable_heat_pumps_to_interest_area,
+    set_battery_interest_area_p_nom_min
 )
 
 logger = logging.getLogger(__name__)
@@ -395,6 +398,12 @@ class Etrago:
     find_links_connected_to_interest_buses = find_links_connected_to_interest_buses
 
     add_extendable_solar_to_interest_area = add_extendable_solar_to_interest_area
+
+    add_extendable_links_without_efficiency = add_extendable_links_without_efficiency
+
+    add_extendable_heat_pumps_to_interest_area = add_extendable_heat_pumps_to_interest_area
+
+    set_battery_interest_area_p_nom_min = set_battery_interest_area_p_nom_min
 
 
     def dc_lines(self):

@@ -702,6 +702,8 @@ def run_etrago(args, json_path):
     """
     etrago = Etrago(args, json_path=json_path)
 
+    print(datetime.datetime.now())
+
     # import network from database
     etrago.build_network_from_db()
 
@@ -724,13 +726,6 @@ def run_etrago(args, json_path):
     # spatial clustering
     etrago.spatial_clustering()
     etrago.spatial_clustering_gas()
-
-    # set interest components to extendable
-
-    etrago.add_extendable_solar_to_interest_area()
-
-    import pdb
-    pdb.set_trace()
 
     # snapshot clustering
     etrago.snapshot_clustering()
@@ -764,6 +759,26 @@ def run_etrago(args, json_path):
         n.links.ramp_limit_down = np.nan
         n.generators.ramp_limit_up = np.nan
         n.generators.ramp_limit_down = np.nan
+
+    # set interest components to extendable
+
+    etrago.add_extendable_solar_to_interest_area()
+
+    etrago.add_extendable_links_without_efficiency()
+
+    etrago.add_extendable_heat_pumps_to_interest_area()
+
+    #etrago.set_battery_interest_area_p_nom_min()
+
+    # lcolumns = ["bus0", "bus1", "carrier", "p_nom", "p_nom_opt", "marginal_cost", "capital_cost","p_nom_extendable"]
+    lcolumns = ["p_nom", "p_nom_opt", "marginal_cost", "capital_cost", "p_nom_extendable"]
+
+    connected_links = etrago.find_links_connected_to_interest_buses()
+
+    print(connected_links[lcolumns])
+
+    #import pdb
+    #pdb.set_trace()
 
     # start linear optimal powerflow calculations
     etrago.optimize()

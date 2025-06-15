@@ -3945,7 +3945,7 @@ def find_links_connected_to_interest_buses(self):
     buses_of_interest = gdf_buses_interest.index.tolist()
 
     # Links where bus0 or bus1 is in the area of interest
-    links = n.links.copy()
+    links = self.network.links.copy()
     connected_links = links[
         (links["bus0"].isin(buses_of_interest)) |
         (links["bus1"].isin(buses_of_interest))
@@ -4019,9 +4019,9 @@ def add_extendable_solar_to_interest_area(self):
     marginal_cost_value = interest_solar_gen["marginal_cost"].iloc[0]
 
     # Add the solar generator with the new ID
-    self.network.add("Generator", solar_gen_id, bus=interest_solar_gen.bus.iloc[0], p_nom=100, carrier="solar_rooftop",
+    self.network.add("Generator", solar_gen_id, bus=interest_solar_gen.bus.iloc[0], p_nom=100, p_nom_min = 100 , carrier="solar_rooftop",
           marginal_cost=marginal_cost_value,
-          capital_cost=37361.94, p_max_pu=1, control="PV", p_nom_extendable=True, **solar_attrs)
+          capital_cost=23311.26447, p_max_pu=1, control="PV", p_nom_extendable=True, **solar_attrs)
 
     # take time series from exisiting solar_gen
     self.network.generators_t.p_max_pu[solar_gen_id] = pv_time_series
@@ -4029,4 +4029,158 @@ def add_extendable_solar_to_interest_area(self):
     # set scn_name
     self.network.generators.loc[solar_gen_id, "scn_name"] = "eGon2035"
 
+    generators_interest = self.network.generators[self.network.generators.bus.isin(bus_list)]
+    cgens = ["bus", "carrier", "p_nom", "p_nom_opt", "p_nom_extendable", "marginal_cost", "capital_cost"]
+    print(generators_interest[cgens])
+
     print(f"Time series for Solar generator {solar_gen_id} added successfully.")
+
+def add_extendable_links_without_efficiency(self):
+    """
+    Dupliziert gasbasierte Links ohne Zeitreihe als investierbare Variante.
+    Setzt capital_cost und ggf. marginal_cost aus zentralem Mapping.
+    """
+
+    carriers = [
+        "central_gas_CHP",
+        "central_gas_CHP_heat",
+        "central_gas_boiler",
+        "industrial_gas_CHP",
+        "central_resistive_heater"
+    ]
+
+    copy_p_nom_carriers = [
+        "central_gas_CHP",
+        "central_gas_CHP_heat",
+        "industrial_gas_CHP"
+    ]
+
+    capital_cost_map = {
+        "central_gas_CHP": 41295.88,
+        "central_gas_CHP_heat": 41295.88,
+        "central_gas_boiler": 3754.17,
+        "industrial_gas_CHP": 41295.88,
+        "central_resistive_heater": 5094.87
+    }
+
+    marginal_cost_map = {
+        "central_resistive_heater": 1.0582,
+        "central_gas_CHP_heat":4.1125
+        # andere Komponenten behalten vorhandene marginal_cost
+    }
+
+    connected_links = find_links_connected_to_interest_buses(self)
+    gas_links = connected_links[connected_links.carrier.isin(carriers)]
+
+    next_link_id = max([int(i) for i in self.network.links.index if str(i).isdigit()]) + 1
+
+    default_attrs = [
+        'efficiency',
+        'start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time',
+        'up_time_before', 'down_time_before',
+        'ramp_limit_up', 'ramp_limit_down',
+        'ramp_limit_start_up', 'ramp_limit_shut_down',
+        "p_nom_mod", "marginal_cost_quadratic", "stand_by_cost"
+    ]
+
+    for old_index, row in gas_links.iterrows():
+        self.network.links.at[old_index, "p_nom"] = 0
+
+        link_attrs = {attr: row.get(attr, 0) for attr in default_attrs}
+        carrier = row.carrier
+
+        link_attrs["capital_cost"] = capital_cost_map.get(carrier, 0)
+        link_attrs["marginal_cost"] = marginal_cost_map.get(carrier, row.get("marginal_cost", 0))
+
+        # Optional: p_nom übernehmen
+        if carrier in copy_p_nom_carriers:
+            link_attrs["p_nom"] = row.p_nom
+            link_attrs["p_nom_min"] = row.p_nom
+
+        new_index = str(next_link_id)
+        next_link_id += 1
+
+        self.network.add("Link",
+              name=new_index,
+              bus0=row.bus0,
+              bus1=row.bus1,
+              carrier=carrier,
+              p_nom_extendable=True,
+              **link_attrs)
+
+        self.network.links.at[new_index, "scn_name"] = "eGon2035"
+        print(f"Neuer Link {new_index} ({carrier}) hinzugefügt.")
+
+def add_extendable_heat_pumps_to_interest_area(self):
+    """
+    Dupliziert zentrale und ländliche Wärmepumpen in der Region.
+    Setzt investierbare Variante, kopiert 'efficiency'-Zeitreihe,
+    und übernimmt spezifische Kostenparameter.
+    """
+
+    heat_pump_carriers = ["central_heat_pump", "rural_heat_pump"]
+
+    capital_cost_map = {
+        "central_heat_pump": 64289.94,
+        "rural_heat_pump": 74910.98
+    }
+
+    marginal_cost_map = {
+        "central_heat_pump": 2.4868
+        # rural_heat_pump bleibt bei vorhandenem Wert
+    }
+
+    connected_links = find_links_connected_to_interest_buses(self)
+    hp_links = connected_links[connected_links.carrier.isin(heat_pump_carriers)]
+
+    next_link_id = max([int(i) for i in self.network.links.index if str(i).isdigit()]) + 1
+
+    default_attrs = [
+        'efficiency',
+        'start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time',
+        'up_time_before', 'down_time_before',
+        'ramp_limit_up', 'ramp_limit_down',
+        'ramp_limit_start_up', 'ramp_limit_shut_down',
+        "p_nom_mod", "marginal_cost_quadratic", "stand_by_cost"
+    ]
+
+    for old_index, row in hp_links.iterrows():
+        self.network.links.at[old_index, "p_nom"] = 0
+        carrier = row.carrier
+
+        link_attrs = {attr: row.get(attr, 0) for attr in default_attrs}
+        link_attrs["capital_cost"] = capital_cost_map.get(carrier, 0)
+        link_attrs["marginal_cost"] = marginal_cost_map.get(carrier, row.get("marginal_cost", 0))
+
+        new_index = str(next_link_id)
+        next_link_id += 1
+
+        self.network.add("Link",
+              name=new_index,
+              bus0=row.bus0,
+              bus1=row.bus1,
+              carrier=carrier,
+              p_nom_extendable=True,
+              **link_attrs)
+
+        if old_index in self.network.links_t.efficiency.columns:
+            self.network.links_t.efficiency[new_index] = self.network.links_t.efficiency[old_index].copy()
+
+        self.network.links.at[new_index, "scn_name"] = "eGon2035"
+        print(f"Wärmepumpe {new_index} ({carrier}) erfolgreich dupliziert mit Zeitreihe.")
+
+def set_battery_interest_area_p_nom_min(self):
+    """
+    Setzt p_nom_min = 0 für alle Batterien (storage_units) in der interest area.
+    """
+    # Busse in der Region bestimmen
+    buses_ingolstadt = find_interest_buses(self)
+    bus_list = buses_ingolstadt.index.to_list()
+
+    # Filtermaske: nur Batterien in der Region
+    mask = (self.network.storage_units.bus.isin(bus_list)) & (self.network.storage_units.carrier == "battery")
+
+    # Setze p_nom_min = 0 direkt in der Original-Tabelle
+    self.network.storage_units.loc[mask, "p_nom_min"] = 0
+
+    print(f"Für {mask.sum()} Batterien in der interest area wurde p_nom_min = 0 gesetzt.")
