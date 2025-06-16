@@ -30,6 +30,7 @@ if "READTHEDOCS" not in os.environ:
     import pandas as pd
 
     from etrago.cluster.electrical import postprocessing, preprocessing
+    from etrago.cluster.spatial import group_links
     from etrago.tools.constraints import Constraints
 
     logger = logging.getLogger(__name__)
@@ -43,7 +44,8 @@ __copyright__ = (
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, ClaraBuettner, CarlosEpia"
 
-from etrago.tools.utilities import adjust_PtH2_model, adjust_chp_model
+from etrago.tools.utilities import adjust_chp_model, adjust_PtH2_model
+
 
 def market_optimization(self):
     logger.info("Start building pre market model")
@@ -86,7 +88,6 @@ def market_optimization(self):
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
         self.pre_market_model.export_to_csv_folder(path + "/pre_market")
-
     logger.info("Preparing short-term UC market model")
 
     build_shortterm_market_model(self, unit_commitment)
@@ -175,16 +176,39 @@ def optimize_with_rolling_horizon(
 
         if not n.stores.empty:
             stores_no_dsm = n.stores[
-                ~n.stores.carrier.isin(["dsm", "battery_storage"])
+                ~n.stores.carrier.isin(
+                    [
+                        "PtH2_waste_heat",
+                        "PtH2_O2",
+                        "dsm",
+                        "battery_storage",
+                        "central_heat_store",
+                        "H2_overground",
+                        "CH4",
+                        "H2_underground",
+                    ]
+                )
             ].index
-            n.stores.loc[stores_no_dsm, "e_initial"] = n.stores_t.e.loc[
-                snapshots[start - 1], stores_no_dsm
-            ]
+            if start != 0:
+                n.stores.loc[stores_no_dsm, "e_initial"] = n.stores_t.e.loc[
+                    snapshots[start - 1], stores_no_dsm
+                ]
+            else:
+                n.stores.loc[stores_no_dsm, "e_initial"] = (
+                    pre_market.stores_t.e.loc[
+                        snapshots[start - 1], stores_no_dsm
+                    ]
+                )
 
             # Select seasonal stores
             seasonal_stores = n.stores.index[
                 n.stores.carrier.isin(
-                    ["central_heat_store", "H2_overground", "CH4", "H2_underground"]
+                    [
+                        "central_heat_store",
+                        "H2_overground",
+                        "CH4",
+                        "H2_underground",
+                    ]
                 )
             ]
 
@@ -196,15 +220,15 @@ def optimize_with_rolling_horizon(
             # Set e at the end of the horizon
             # by setting e_max_pu and e_min_pu
             n.stores_t.e_max_pu.loc[snapshots[end - 1], seasonal_stores] = (
-                pre_market.stores_t.e.loc[
-                    snapshots[end - 1], seasonal_stores
-                ].div(pre_market.stores.e_nom_opt[seasonal_stores])
+                pre_market.stores_t.e.loc[snapshots[end - 1], seasonal_stores]
+                .div(pre_market.stores.e_nom_opt[seasonal_stores])
+                .clip(lower=0.0)
                 * 1.01
             )
             n.stores_t.e_min_pu.loc[snapshots[end - 1], seasonal_stores] = (
-                pre_market.stores_t.e.loc[
-                    snapshots[end - 1], seasonal_stores
-                ].div(pre_market.stores.e_nom_opt[seasonal_stores])
+                pre_market.stores_t.e.loc[snapshots[end - 1], seasonal_stores]
+                .div(pre_market.stores.e_nom_opt[seasonal_stores])
+                .clip(lower=0.0)
                 * 0.99
             )
             n.stores_t.e_min_pu.fillna(0.0, inplace=True)
@@ -221,16 +245,50 @@ def optimize_with_rolling_horizon(
                 n.storage_units.state_of_charge_initial = (
                     pre_market.storage_units_t.state_of_charge.iloc[-1]
                 )
+                seasonal_storage = pre_market.storage_units[
+                    pre_market.storage_units.carrier == "reservoir"
+                ].index
+
+                soc_value = pre_market.storage_units_t.state_of_charge.loc[
+                    snapshots[end - 1], seasonal_storage
+                ]
+
+                args_addition = {
+                    "pre_market_seasonal_soc": soc_value,
+                }
+
+                extra_functionality = Constraints(
+                    {**args, **args_addition}, False, apply_on="market_model"
+                ).functionality
 
             elif i == len(starting_points) - 1:
+                if len(snapshots) > 1000:
+                    extra_functionality = Constraints(
+                        args, False, apply_on="last_market_model"
+                    ).functionality
+            else:
+                seasonal_storage = pre_market.storage_units[
+                    pre_market.storage_units.carrier == "reservoir"
+                ].index
+
+                soc_value = pre_market.storage_units_t.state_of_charge.loc[
+                    snapshots[end - 1], seasonal_storage
+                ]
+
+                args_addition = {
+                    "pre_market_seasonal_soc": soc_value,
+                }
+
                 extra_functionality = Constraints(
-                    args, False, apply_on="last_market_model"
+                    {**args, **args_addition}, False, apply_on="market_model"
                 ).functionality
 
         status, condition = n.optimize(
             sns,
             solver_name=solver_name,
             extra_functionality=extra_functionality,
+            assign_all_duals=True,
+            linearized_unit_commitment=True,
         )
 
         if status != "ok":
@@ -353,7 +411,12 @@ def build_market_model(self, unit_commitment=False):
     net.generators_t.p_max_pu = self.network_tsa.generators_t.p_max_pu
 
     # Set stores and storage_units to cyclic
-    net.stores.loc[net.stores.carrier != "battery_storage", "e_cyclic"] = True
+    if len(self.network_tsa.snapshots) > 1000:
+        net.stores.loc[net.stores.carrier != "battery_storage", "e_cyclic"] = (
+            True
+        )
+        net.storage_units.cyclic_state_of_charge = True
+    net.stores.loc[net.stores.carrier == "dsm", "e_cyclic"] = False
     net.storage_units.cyclic_state_of_charge = True
 
     self.pre_market_model = net
@@ -365,46 +428,152 @@ def build_market_model(self, unit_commitment=False):
 
     self.pre_market_model.links.loc[
         self.pre_market_model.links.carrier.isin(
-            ["CH4", "DC", "AC", "H2_grid"]), "p_min_pu"] = -1.0
+            ["CH4", "DC", "AC", "H2_grid", "H2_saltcavern"]
+        ),
+        "p_min_pu",
+    ] = -1.0
 
     self.pre_market_model = adjust_PtH2_model(self)
     logger.info("PtH2-Model adjusted in pre_market_network")
 
     self.pre_market_model = adjust_chp_model(self)
-    logger.info("CHP model in foreign countries adjusted in pre_market_network")
+    logger.info(
+        "CHP model in foreign countries adjusted in pre_market_network"
+    )
 
     # Set country tags for market model
     self.buses_by_country(apply_on="pre_market_model")
     self.geolocation_buses(apply_on="pre_market_model")
 
+    self.market_model = self.pre_market_model.copy()
+
+    self.pre_market_model.links, self.pre_market_model.links_t = group_links(
+        self.pre_market_model,
+        carriers=[
+            "central_heat_pump",
+            "central_resistive_heater",
+            "rural_heat_pump",
+            "rural_resistive_heater",
+            "BEV_charger",
+            "dsm",
+            "central_gas_boiler",
+            "rural_gas_boiler",
+        ],
+    )
+    self.pre_market_model.links.min_up_time = (
+        self.pre_market_model.links.min_up_time.astype(int)
+    )
+    self.pre_market_model.links.down_up_time = (
+        self.pre_market_model.links.min_down_time.astype(int)
+    )
+    self.pre_market_model.links.down_time_before = (
+        self.pre_market_model.links.down_time_before.astype(int)
+    )
+    self.pre_market_model.links.up_time_before = (
+        self.pre_market_model.links.up_time_before.astype(int)
+    )
+    self.pre_market_model.links.min_down_time = (
+        self.pre_market_model.links.min_down_time.astype(int)
+    )
+    self.pre_market_model.links.min_up_time = (
+        self.pre_market_model.links.min_up_time.astype(int)
+    )
+
 
 def build_shortterm_market_model(self, unit_commitment=False):
-    m = self.pre_market_model.copy()
 
-    m.storage_units.p_nom_extendable = False
-    m.stores.e_nom_extendable = False
-    m.links.p_nom_extendable = False
-    m.lines.s_nom_extendable = False
+    self.market_model.storage_units.loc[
+        self.market_model.storage_units.p_nom_extendable, "p_nom"
+    ] = self.pre_market_model.storage_units.loc[
+        self.pre_market_model.storage_units.p_nom_extendable, "p_nom_opt"
+    ].clip(
+        lower=0
+    )
+    self.market_model.stores.loc[
+        self.market_model.stores.e_nom_extendable, "e_nom"
+    ] = self.pre_market_model.stores.loc[
+        self.pre_market_model.stores.e_nom_extendable, "e_nom_opt"
+    ].clip(
+        lower=0
+    )
 
-    m.storage_units.p_nom = m.storage_units.p_nom_opt.clip(lower=0)
-    m.stores.e_nom = m.stores.e_nom_opt.clip(lower=0)
-    m.links.p_nom = m.links.p_nom_opt.clip(lower=0)
-    m.lines.s_nom = m.lines.s_nom_opt.clip(lower=0)
+    # Fix oder of bus0 and bus1 of DC links
+    dc_links = self.market_model.links[self.market_model.links.carrier == "DC"]
+    bus0 = dc_links[dc_links.bus0.astype(int) < dc_links.bus1.astype(int)].bus1
+    bus1 = dc_links[dc_links.bus0.astype(int) < dc_links.bus1.astype(int)].bus0
+    self.market_model.links.loc[bus0.index, "bus0"] = bus0.values
+    self.market_model.links.loc[bus1.index, "bus1"] = bus1.values
 
-    m.stores.e_cyclic = False
-    m.storage_units.cyclic_state_of_charge = False
+    dc_links = self.pre_market_model.links[
+        self.pre_market_model.links.carrier == "DC"
+    ]
+    bus0 = dc_links[dc_links.bus0.astype(int) < dc_links.bus1.astype(int)].bus1
+    bus1 = dc_links[dc_links.bus0.astype(int) < dc_links.bus1.astype(int)].bus0
+    self.pre_market_model.links.loc[bus0.index, "bus0"] = bus0.values
+    self.pre_market_model.links.loc[bus1.index, "bus1"] = bus1.values
 
-    self.market_model = m
+    grouped_links = (
+        self.market_model.links.loc[self.market_model.links.p_nom_extendable]
+        .groupby(["carrier", "bus0", "bus1"])
+        .p_nom.sum()
+        .reset_index()
+    )
+    for link in grouped_links.index:
+        print(link)
+        bus0 = grouped_links.loc[link, "bus0"]
+        bus1 = grouped_links.loc[link, "bus1"]
+        carrier = grouped_links.loc[link, "carrier"]
+
+        self.market_model.links.loc[
+            (self.market_model.links.bus0 == bus0)
+            & (self.market_model.links.bus1 == bus1)
+            & (self.market_model.links.carrier == carrier),
+            "p_nom",
+        ] = (
+            self.pre_market_model.links.loc[
+                (self.pre_market_model.links.bus0 == bus0)
+                & (self.pre_market_model.links.bus1 == bus1)
+                & (self.pre_market_model.links.carrier == carrier),
+                "p_nom_opt",
+            ]
+            .clip(lower=0)
+            .values
+        )
+
+    self.market_model.lines.loc[
+        self.market_model.lines.s_nom_extendable, "s_nom"
+    ] = self.pre_market_model.lines.loc[
+        self.pre_market_model.lines.s_nom_extendable, "s_nom_opt"
+    ].clip(
+        lower=0
+    )
+
+    self.market_model.storage_units.p_nom_extendable = False
+    self.market_model.stores.e_nom_extendable = False
+    self.market_model.links.p_nom_extendable = False
+    self.market_model.lines.s_nom_extendable = False
+
+    self.market_model.mremove(
+        "Store",
+        self.market_model.stores[self.market_model.stores.e_nom == 0].index,
+    )
+    self.market_model.stores.e_cyclic = False
+    self.market_model.storage_units.cyclic_state_of_charge = False
 
     if unit_commitment:
         set_unit_commitment(self, apply_on="market_model")
 
-    self.market_model.links.loc[self.market_model.links.carrier.isin(
-        ["CH4", "DC", "AC", "H2_grid"]), "p_min_pu"] = -1.0
+    self.market_model.links.loc[
+        self.market_model.links.carrier.isin(
+            ["CH4", "DC", "AC", "H2_grid", "H2_saltcavern"]
+        ),
+        "p_min_pu",
+    ] = -1.0
 
     # Set country tags for market model
     self.buses_by_country(apply_on="market_model")
     self.geolocation_buses(apply_on="market_model")
+
 
 def set_unit_commitment(self, apply_on):
 
@@ -424,9 +593,9 @@ def set_unit_commitment(self, apply_on):
     )
     unit_commitment = pd.read_csv(unit_commitment_fpath, index_col=0)
     unit_commitment.fillna(0, inplace=True)
-    committable_attrs = network.generators.carrier.isin(unit_commitment).to_frame(
-        "committable"
-    )
+    committable_attrs = network.generators.carrier.isin(
+        unit_commitment
+    ).to_frame("committable")
 
     for attr in unit_commitment.index:
         default = component_attrs["Generator"].default[attr]
@@ -439,7 +608,9 @@ def set_unit_commitment(self, apply_on):
 
     network.generators[committable_attrs.columns] = committable_attrs
     network.generators.min_up_time = network.generators.min_up_time.astype(int)
-    network.generators.min_down_time = network.generators.min_down_time.astype(int)
+    network.generators.min_down_time = network.generators.min_down_time.astype(
+        int
+    )
 
     # Tadress link carriers i.e. OCGT
     committable_links = network.links.carrier.isin(unit_commitment).to_frame(
@@ -459,10 +630,9 @@ def set_unit_commitment(self, apply_on):
     network.links.min_up_time = network.links.min_up_time.astype(int)
     network.links.min_down_time = network.links.min_down_time.astype(int)
 
-
-    network.generators.loc[network.generators.committable, "ramp_limit_down"].fillna(
-        1.0, inplace=True
-    )
+    network.generators.loc[
+        network.generators.committable, "ramp_limit_down"
+    ].fillna(1.0, inplace=True)
     network.links.loc[network.links.committable, "ramp_limit_down"].fillna(
         1.0, inplace=True
     )
@@ -474,21 +644,25 @@ def set_unit_commitment(self, apply_on):
 
         # Set all start_up and shut_down cost to 0 to simpify unit committment
         network.generators.loc[
-            network.generators.committable, "start_up_cost"] = 0.0
+            network.generators.committable, "start_up_cost"
+        ] = 0.0
         network.generators.loc[
-            network.generators.committable, "shut_down_cost"] = 0.0
+            network.generators.committable, "shut_down_cost"
+        ] = 0.0
+
+    logger.info(f"Unit commitment set for {apply_on}")
 
 
 def gas_clustering_market_model(self):
     from etrago.cluster.gas import (
+        gas_postprocessing,
         preprocessing as gas_preprocessing,
-        gas_postprocessing
-        
-        )
+    )
+
     ch4_network, weight_ch4, n_clusters_ch4 = gas_preprocessing(
         self, "CH4", apply_on="market_model"
     )
-    
+
     df = pd.DataFrame(
         {
             "country": ch4_network.buses.country.unique(),
@@ -497,25 +671,24 @@ def gas_clustering_market_model(self):
         columns=["country", "marketzone"],
     )
 
-    df.loc[(df.country == "DE") | (df.country == "LU"), "marketzone"] = (
-        "DE/LU"
-    )
+    df.loc[(df.country == "DE") | (df.country == "LU"), "marketzone"] = "DE/LU"
 
     df["cluster"] = df.groupby(df.marketzone).grouper.group_info[0]
 
     for i in ch4_network.buses.country.unique():
-        ch4_network.buses.loc[ch4_network.buses.country == i, "cluster"] = df.loc[
-            df.country == i, "cluster"
-        ].values[0]
+        ch4_network.buses.loc[ch4_network.buses.country == i, "cluster"] = (
+            df.loc[df.country == i, "cluster"].values[0]
+        )
 
     busmap = pd.Series(
-        ch4_network.buses.cluster.astype(int).astype(str), ch4_network.buses.index
-    )    
-    
-    if "H2_grid" in self.network.links.carrier.unique():  
+        ch4_network.buses.cluster.astype(int).astype(str),
+        ch4_network.buses.index,
+    )
+
+    if "H2_grid" in self.network.links.carrier.unique():
         h2_network, weight_h2, n_clusters_h2 = gas_preprocessing(
             self, "H2_grid", apply_on="market_model"
-        )        
+        )
 
         df_h2 = pd.DataFrame(
             {
@@ -525,21 +698,28 @@ def gas_clustering_market_model(self):
             columns=["country", "marketzone"],
         )
 
-        df_h2.loc[(df.country == "DE") | (df_h2.country == "LU"), "marketzone"] = (
-            "DE/LU"
-        )
+        df_h2.loc[
+            (df.country == "DE") | (df_h2.country == "LU"), "marketzone"
+        ] = "DE/LU"
 
-        df_h2["cluster"] = df_h2.groupby(df_h2.marketzone).grouper.group_info[0] + len(df)
+        df_h2["cluster"] = df_h2.groupby(df_h2.marketzone).grouper.group_info[
+            0
+        ] + len(df)
 
         for i in h2_network.buses.country.unique():
-            h2_network.buses.loc[h2_network.buses.country == i, "cluster"] = df_h2.loc[
-                df_h2.country == i, "cluster"
-            ].values[0]
+            h2_network.buses.loc[h2_network.buses.country == i, "cluster"] = (
+                df_h2.loc[df_h2.country == i, "cluster"].values[0]
+            )
 
         busmap = pd.concat(
-            [busmap,  pd.Series(
-                h2_network.buses.cluster.astype(int).astype(str), h2_network.buses.index
-            )])
+            [
+                busmap,
+                pd.Series(
+                    h2_network.buses.cluster.astype(int).astype(str),
+                    h2_network.buses.index,
+                ),
+            ]
+        )
 
     medoid_idx = pd.Series()
     # Set country tags for market model
@@ -547,4 +727,5 @@ def gas_clustering_market_model(self):
     self.geolocation_buses(apply_on="pre_market_model")
 
     self.pre_market_model, busmap_new = gas_postprocessing(
-        self, busmap, medoid_idx = medoid_idx, apply_on="market_model")
+        self, busmap, medoid_idx=medoid_idx, apply_on="market_model"
+    )

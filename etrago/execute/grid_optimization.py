@@ -95,20 +95,21 @@ def grid_optimization(
 
     # Replacevery small values with zero to avoid numerical problems
     self.network.generators_t.p_max_pu.where(
-        self.network.generators_t.p_max_pu.abs() > 1e-7,
+        self.network.generators_t.p_max_pu.abs() > 1e-5,
         other=0.0,
         inplace=True,
     )
     self.network.generators_t.p_min_pu.where(
-        self.network.generators_t.p_min_pu.abs() > 1e-7,
+        self.network.generators_t.p_min_pu.abs() > 1e-5,
         other=0.0,
         inplace=True,
     )
     self.network.links_t.p_max_pu.where(
-        self.network.links_t.p_max_pu.abs() > 1e-7, other=0.0, inplace=True
+        self.network.links_t.p_max_pu.abs() > 1e-5, other=0.0, inplace=True
     )
+
     self.network.links_t.p_min_pu.where(
-        self.network.links_t.p_min_pu > 1e-7, other=0.0, inplace=True
+        self.network.links_t.p_min_pu.abs() > 1e-5, other=0.0, inplace=True
     )
 
     self.network.links.loc[
@@ -164,7 +165,7 @@ def fix_chp_generation(self):
     # model
     self.network.generators_t.p_max_pu.loc[:, gens_fixed] = (
         self.market_model.generators_t.p[gens_fixed].mul(
-            1 / self.market_model.generators.p_nom[gens_fixed]
+            1.01 / self.market_model.generators.p_nom[gens_fixed]
         )
     )
 
@@ -172,7 +173,7 @@ def fix_chp_generation(self):
     # model
     self.network.generators_t.p_min_pu.loc[:, gens_fixed] = (
         self.market_model.generators_t.p[gens_fixed].mul(
-            1 / self.market_model.generators.p_nom[gens_fixed]
+            0.99 / self.market_model.generators.p_nom[gens_fixed]
         )
     )
 
@@ -180,14 +181,14 @@ def fix_chp_generation(self):
     # Set p_max_pu of links using results from (disaggregated) market model
     self.network.links_t.p_max_pu.loc[:, links_fixed] = (
         self.market_model.links_t.p0[links_fixed].mul(
-            1 / self.market_model.links.p_nom[links_fixed]
+            1.01 / self.market_model.links.p_nom[links_fixed]
         )
     )
 
     # Set p_min_pu of links using results from (disaggregated) market model
     self.network.links_t.p_min_pu.loc[:, links_fixed] = (
         self.market_model.links_t.p0[links_fixed].mul(
-            1 / self.market_model.links.p_nom[links_fixed]
+            0.99 / self.market_model.links.p_nom[links_fixed]
         )
     )
 
@@ -243,7 +244,7 @@ def add_redispatch_generators(
 
     links_redispatch = self.network.links[
         (
-            self.network.links.carrier.isin(["OCGT"])
+            self.network.links.carrier.isin(["OCGT", "CCGT"])
             & (~self.network.links.index.str.contains("ramp"))
         )
     ].index
@@ -253,6 +254,7 @@ def add_redispatch_generators(
         data=management_cost,
     )
     management_cost_carrier["OCGT"] = management_cost
+    management_cost_carrier["CCGT"] = management_cost
     if fre_mangement_fee:
         management_cost_carrier[
             ["wind_onshore", "wind_offshore", "solar", "solar_rooftop"]
@@ -310,16 +312,16 @@ def add_redispatch_generators(
     # Fix link dispatch (gas turbines) from market simulation
     # Set p_max_pu of links using results from (disaggregated) market model
     self.network.links_t.p_max_pu.loc[:, links_redispatch] = (
-        self.market_model.links_t.p0[links_redispatch].mul(
-            1 / self.market_model.links.p_nom[links_redispatch]
-        )
+        self.market_model.links_t.p0[links_redispatch]
+        .clip(lower=0.0)
+        .mul(1 / self.market_model.links.p_nom[links_redispatch])
     )
 
     # Set p_min_pu of links using results from (disaggregated) market model
     self.network.links_t.p_min_pu.loc[:, links_redispatch] = (
-        self.market_model.links_t.p0[links_redispatch].mul(
-            1 / self.market_model.links.p_nom[links_redispatch]
-        )
+        self.market_model.links_t.p0[links_redispatch]
+        .clip(lower=0.0)
+        .mul(1 / self.market_model.links.p_nom[links_redispatch])
     )
 
     # Calculate costs for redispatch

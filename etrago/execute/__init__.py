@@ -218,7 +218,6 @@ def run_lopf(etrago, extra_functionality, method):
                 solver_name=etrago.args["solver"],
                 solver_options=etrago.args["solver_options"],
                 extra_functionality=extra_functionality,
-                formulation=etrago.args["model_formulation"],
             )
             if status != "ok":
                 logger.warning(
@@ -429,32 +428,32 @@ def optimize(self):
     """
 
     if self.args["method"]["market_optimization"]["active"]:
-        self.market_optimization()        
-        
-        self.network = self.adjust_PtH2_model(apply_on='grid_model')
+        self.market_optimization()
+
+        self.network = self.adjust_PtH2_model(apply_on="grid_model")
         logger.info("PtH2-Model adjusted in network")
 
-        self.network = self.adjust_chp_model(apply_on='grid_model')
+        self.network = self.adjust_chp_model(apply_on="grid_model")
         logger.info("CHP model in foreign countries adjusted in network")
         # self.market_results_to_grid()
 
         self.grid_optimization()
 
     elif self.args["method"]["type"] == "lopf":
-        
-        self.network = self.adjust_PtH2_model(apply_on='grid_model')
+
+        self.network = self.adjust_PtH2_model(apply_on="grid_model")
         logger.info("PtH2-Model adjusted in network")
 
-        self.network = self.adjust_chp_model(apply_on='grid_model')
+        self.network = self.adjust_chp_model(apply_on="grid_model")
         logger.info("CHP model in foreign countries adjusted in network")
 
         self.lopf()
 
     elif self.args["method"]["type"] == "sclopf":
-        
-        self.network = self.adjust_PtH2_model(apply_on='grid_model')
+
+        self.network = self.adjust_PtH2_model(apply_on="grid_model")
         logger.info("PtH2-Model adjusted in network")
-        
+
         self.sclopf(
             post_lopf=False,
             n_process=4,
