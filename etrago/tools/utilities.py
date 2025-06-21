@@ -4024,7 +4024,7 @@ def add_extendable_solar_to_interest_area(self):
     # Add the solar generator with the new ID
     self.network.add("Generator", solar_gen_id, bus=interest_solar_gen.bus.iloc[0], p_nom=93.83, p_nom_min = 93.83 , carrier="solar_rooftop",
           marginal_cost=marginal_cost_value,
-          capital_cost=17483.44835, p_max_pu=1, control="PV", p_nom_extendable=True, **solar_attrs)
+          capital_cost=46888.32, p_max_pu=1, control="PV", p_nom_extendable=True, **solar_attrs)
 
     # take time series from exisiting solar_gen
     self.network.generators_t.p_max_pu[solar_gen_id] = pv_time_series
@@ -4062,11 +4062,11 @@ def add_extendable_links_without_efficiency(self):
 
     # Investitionskosten (annuitisiert, in €/MW/a)
     capital_cost_map = {
-        "central_gas_CHP": 41295.88,
-        "central_gas_CHP_heat": 41295.88,
-        "central_gas_boiler": 3754.17,
-        "industrial_gas_CHP": 41295.88,
-        "central_resistive_heater": 5094.87
+        "central_gas_CHP": 60819.81,
+        "central_gas_CHP_heat": 60819.81,
+        "central_gas_boiler": 5711.883,
+        "industrial_gas_CHP": 60819.81,
+        "central_resistive_heater": 6147.776
     }
 
     # Variable Betriebskosten (€/MWh)
@@ -4130,8 +4130,8 @@ def add_extendable_heat_pumps_to_interest_area(self):
     heat_pump_carriers = ["central_heat_pump", "rural_heat_pump"]
 
     capital_cost_map = {
-        "central_heat_pump": 64289.94,
-        "rural_heat_pump": 74910.98
+        "central_heat_pump": 66406.58,
+        "rural_heat_pump": 76956.56
     }
 
     marginal_cost_map = {
