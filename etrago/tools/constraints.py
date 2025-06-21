@@ -3823,10 +3823,10 @@ def add_chp_constraints_linopy(network, snapshots):
                     "top_iso_fuel_line_" + i + "_" + str(snapshot),
                 )
 
-def fixed_waste_chp_ratio_linopy(network, snapshots):
+def _fixed_waste_chp_ratio_linopy(self, network, snapshots):
     """
-    Implements fixed coupling between electricity and heat generation
-    for waste-based combined heat and power (CHP) plants.
+    Enforces fixed coupling between electricity and heat generation
+    for waste-based combined heat and power (CHP) plants using linopy.
 
     Parameters
     ----------
@@ -3840,13 +3840,15 @@ def fixed_waste_chp_ratio_linopy(network, snapshots):
     None.
 
     """
+    logger.info("✔️ fixed_waste_chp_ratio constraint activated")
+
     # electric efficiency
     n_el = 0.2102
     # thermal efficiency
     n_th = 0.762
 
     # fixed ratio between thermal and electrical output
-    fixed_ratio = n_th/n_el
+    fixed_ratio = n_th / n_el
 
     electric_bool = network.links.carrier == "central_waste_CHP"
     heat_bool = network.links.carrier == "central_waste_CHP_heat"
@@ -3882,4 +3884,3 @@ def fixed_waste_chp_ratio_linopy(network, snapshots):
                     "Link",
                     "fixed_ratio_waste_" + i + "_" + str(snapshot),
                 )
-

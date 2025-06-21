@@ -113,7 +113,7 @@ args = {
     },
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {
-        "fixed_waste_chp_ratio_linopy": {}
+        "fixed_waste_chp_ratio": {}
     },  # Choose function name or {}
     # Spatial Complexity:
     "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
