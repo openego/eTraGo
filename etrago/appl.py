@@ -777,11 +777,14 @@ def run_etrago(args, json_path):
     #etrago.set_battery_interest_area_p_nom_min()
 
     # lcolumns = ["bus0", "bus1", "carrier", "p_nom", "p_nom_opt", "marginal_cost", "capital_cost","p_nom_extendable"]
-    lcolumns = ["p_nom", "p_nom_opt", "marginal_cost", "capital_cost", "p_nom_extendable"]
+    print("Links")
+    lcolumns = ["p_nom", "p_nom_opt", "efficiency", "marginal_cost", "capital_cost", "p_nom_extendable"]
 
     connected_links = etrago.find_links_connected_to_interest_buses()
 
     print(connected_links[lcolumns])
+
+    etrago.network.export_to_netcdf("base_network.nc")
 
     #import pdb
     #pdb.set_trace()

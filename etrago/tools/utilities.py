@@ -4268,5 +4268,23 @@ def add_waste_CHP_ingolstadt(self):
 
     connected_links = find_links_connected_to_interest_buses(self)
     lcolumns = ["bus0", "bus1", "carrier", "p_nom", "p_nom_opt", "marginal_cost", "capital_cost", "efficiency",
-                "p_nom_extendable", "p_nom_max", "p_nom_min", "p_min_pu", "p_max_pu", "p_set"]
+                "p_nom_extendable", "p_nom_max", "p_nom_min"]
     print(connected_links[lcolumns])
+
+def update_capital_cost_of_solar_ingolstadt(self, new_capital_cost):
+    """
+    Setzt den capital_cost für alle solar_rooftop Generatoren in der Interest Area Ingolstadt.
+    """
+    buses_ingolstadt = find_interest_buses(self)
+    bus_list = buses_ingolstadt.index.to_list()
+
+    gens = self.network.generators
+    is_solar_in_ingolstadt = (gens.carrier == "solar_rooftop") & (gens.bus.isin(bus_list))
+    solar_generators = gens[is_solar_in_ingolstadt]
+
+    if solar_generators.empty:
+        print("⚠️ Keine passenden Solar-Generatoren in Ingolstadt gefunden.")
+        return
+
+    self.network.generators.loc[solar_generators.index, "capital_cost"] = new_capital_cost
+    print(f"✅ capital_cost auf {new_capital_cost:.2f} €/kW für {len(solar_generators)} Solar-Generator(en) gesetzt.")
