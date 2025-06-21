@@ -4218,7 +4218,7 @@ def add_waste_CHP_ingolstadt(self):
                      carrier="waste",
                      p_nom=10000,
                      p_nom_extendable=False,
-                     marginal_cost=0,
+                     marginal_cost=12.6,
                      capital_cost=0,
                      efficiency=1.0
                      )
@@ -4263,7 +4263,7 @@ def add_waste_CHP_ingolstadt(self):
                      p_nom_min=45.0,
                      marginal_cost=27.8042,
                      p_nom_extendable=False,
-                     efficiency=0.7635
+                     efficiency=3.63 # scaled thermal efficiency to enforce fixed ratio via constraint: η_th_model = η_th / η_el
                      )
 
     connected_links = find_links_connected_to_interest_buses(self)
