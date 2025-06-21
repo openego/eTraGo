@@ -4022,7 +4022,7 @@ def add_extendable_solar_to_interest_area(self):
     marginal_cost_value = interest_solar_gen["marginal_cost"].iloc[0]
 
     # Add the solar generator with the new ID
-    self.network.add("Generator", solar_gen_id, bus=interest_solar_gen.bus.iloc[0], p_nom=100, p_nom_min = 100 , carrier="solar_rooftop",
+    self.network.add("Generator", solar_gen_id, bus=interest_solar_gen.bus.iloc[0], p_nom=93.83, p_nom_min = 93.83 , carrier="solar_rooftop",
           marginal_cost=marginal_cost_value,
           capital_cost=17483.44835, p_max_pu=1, control="PV", p_nom_extendable=True, **solar_attrs)
 
@@ -4032,9 +4032,9 @@ def add_extendable_solar_to_interest_area(self):
     # set scn_name
     self.network.generators.loc[solar_gen_id, "scn_name"] = "eGon2035"
 
-    generators_interest = self.network.generators[self.network.generators.bus.isin(bus_list)]
-    cgens = ["bus", "carrier", "p_nom", "p_nom_opt", "p_nom_extendable", "marginal_cost", "capital_cost"]
-    print(generators_interest[cgens])
+    #generators_interest = self.network.generators[self.network.generators.bus.isin(bus_list)]
+    #cgens = ["bus", "carrier", "p_nom", "p_nom_opt", "p_nom_extendable", "marginal_cost", "capital_cost"]
+    #print(generators_interest[cgens])
 
     print(f"Time series for Solar generator {solar_gen_id} added successfully.")
 
@@ -4190,7 +4190,7 @@ def set_battery_interest_area_p_nom_min(self):
     mask = (self.network.storage_units.bus.isin(bus_list)) & (self.network.storage_units.carrier == "battery")
 
     # Setze p_nom_min = 0 direkt in der Original-Tabelle
-    self.network.storage_units.loc[mask, "p_nom_min"] = 0
+    self.network.storage_units.loc[mask, "p_nom_min"] = 18.15
 
     print(f"Für {mask.sum()} Batterien in der interest area wurde p_nom_min = 0 gesetzt.")
 
