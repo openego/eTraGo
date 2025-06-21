@@ -4040,10 +4040,11 @@ def add_extendable_solar_to_interest_area(self):
 
 def add_extendable_links_without_efficiency(self):
     """
-    Dupliziert gasbasierte Links ohne Zeitreihe als investierbare Variante.
-    Setzt capital_cost und ggf. marginal_cost aus zentralem Mapping.
+    Dupliziert gasbasierte Links ohne Effizienz-Zeitreihe als investierbare Variante.
+    Setzt capital_cost, ggf. marginal_cost und übernimmt p_nom bei ausgewählten Technologien.
     """
 
+    # Ziel-Technologien
     carriers = [
         "central_gas_CHP",
         "central_gas_CHP_heat",
@@ -4052,12 +4053,14 @@ def add_extendable_links_without_efficiency(self):
         "central_resistive_heater"
     ]
 
-    copy_p_nom_carriers = [
-        "central_gas_CHP",
-        "central_gas_CHP_heat",
-        "industrial_gas_CHP"
-    ]
+    # Technologie-spezifische p_nom-Vorgaben (in MW)
+    fixed_p_nom = {
+        "central_gas_CHP": 22.86,
+        "central_gas_CHP_heat": 35.97,
+        "industrial_gas_CHP": 0.0
+    }
 
+    # Investitionskosten (annuitisiert, in €/MW/a)
     capital_cost_map = {
         "central_gas_CHP": 41295.88,
         "central_gas_CHP_heat": 41295.88,
@@ -4066,10 +4069,10 @@ def add_extendable_links_without_efficiency(self):
         "central_resistive_heater": 5094.87
     }
 
+    # Variable Betriebskosten (€/MWh)
     marginal_cost_map = {
         "central_resistive_heater": 1.0582,
-        "central_gas_CHP_heat":4.1125
-        # andere Komponenten behalten vorhandene marginal_cost
+        "central_gas_CHP_heat": 4.1125
     }
 
     connected_links = find_links_connected_to_interest_buses(self)
@@ -4087,18 +4090,20 @@ def add_extendable_links_without_efficiency(self):
     ]
 
     for old_index, row in gas_links.iterrows():
+        # Bestehende Komponente deaktivieren
         self.network.links.at[old_index, "p_nom"] = 0
 
-        link_attrs = {attr: row.get(attr, 0) for attr in default_attrs}
         carrier = row.carrier
+        link_attrs = {attr: row.get(attr, 0) for attr in default_attrs}
 
+        # Kosten setzen
         link_attrs["capital_cost"] = capital_cost_map.get(carrier, 0)
         link_attrs["marginal_cost"] = marginal_cost_map.get(carrier, row.get("marginal_cost", 0))
 
-        # Optional: p_nom übernehmen
-        if carrier in copy_p_nom_carriers:
-            link_attrs["p_nom"] = row.p_nom
-            link_attrs["p_nom_min"] = row.p_nom
+        # p_nom setzen, falls spezifiziert
+        if carrier in fixed_p_nom:
+            link_attrs["p_nom"] = fixed_p_nom[carrier]
+            link_attrs["p_nom_min"] = fixed_p_nom[carrier]
 
         new_index = str(next_link_id)
         next_link_id += 1
@@ -4112,7 +4117,8 @@ def add_extendable_links_without_efficiency(self):
               **link_attrs)
 
         self.network.links.at[new_index, "scn_name"] = "eGon2035"
-        print(f"Neuer Link {new_index} ({carrier}) hinzugefügt.")
+        print(f"Neuer Link {new_index} ({carrier}) mit fixer p_nom={link_attrs.get('p_nom', 'n/a')} hinzugefügt.")
+
 
 def add_extendable_heat_pumps_to_interest_area(self):
     """
