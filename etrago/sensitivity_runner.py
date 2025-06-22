@@ -197,27 +197,45 @@ class SensitivityEtrago(Etrago):
             return
 
         self.network.generators.loc[solar_generators.index, "capital_cost"] = new_capital_cost
-        print(f"✅ capital_cost auf {new_capital_cost:.2f} €/kW für {len(solar_generators)} Solar-Generator(en) gesetzt.")
+        print(f"✅ capital_cost auf {new_capital_cost:.2f} €/MW/a für {len(solar_generators)} Solar-Generator(en) gesetzt.")
 
-if __name__ == "__main__":
-    # Liste der capital_cost-Werte, die getestet werden sollen
+    def update_marginal_cost_of_CH4_generators(self, new_marginal_cost):
+        gens = self.network.generators
+        is_ch4 = gens.carrier == "CH4_NG"
+        if is_ch4.sum() == 0:
+            print("⚠️ Keine CH4_NG-Generatoren gefunden.")
+            return
+
+        self.network.generators.loc[is_ch4, "marginal_cost"] = new_marginal_cost
+        print(f"✅ marginal_cost auf {new_marginal_cost:.2f} €/MWh gesetzt ({is_ch4.sum()} CH₄-Generatoren).")
+
+# === Sensitivitäten ===
+
+def run_solar_cost_sensitivity():
     cost_values = [14621.23223, 18276.54029, 21931.84835]
-
     for cost in cost_values:
-        print(f" Starte Sensitivitätslauf mit capital_cost = {cost} €/kW")
-
-        # Neue eTraGo-Instanz mit geladenem Basismodell
+        print(f" Starte Solar-Sensitivität mit capital_cost = {cost:.2f} €/MW/a")
         etrago = SensitivityEtrago(args=args)
-
-        # Parameteränderung
-        etrago.update_capital_cost_of_solar_ingolstadt(new_capital_cost=cost)
-
-        # Ergebnisordner festlegen
+        etrago.update_capital_cost_of_solar_ingolstadt(cost)
         export_dir = f"results/sensitivity_solar_cost_{cost:.5f}".replace(".", "_")
         os.makedirs(export_dir, exist_ok=True)
         etrago.args["csv_export"] = export_dir
-
-        # Optimierung und Export
         etrago.optimize()
-
         print(f"✅ Ergebnisse gespeichert unter: {export_dir}")
+
+def run_ch4_cost_sensitivity():
+    ch4_prices = [20, 60, 80, 100]  # Beispielpreise in €/MWh
+    for price in ch4_prices:
+        print(f" Starte CH₄-Sensitivität mit marginal_cost = {price:.2f} €/MWh_th")
+        etrago = SensitivityEtrago(args=args)
+        etrago.update_marginal_cost_of_CH4_generators(price)
+        export_dir = f"results/sensitivity_CH4_price_{price:.2f}".replace(".", "_")
+        os.makedirs(export_dir, exist_ok=True)
+        etrago.args["csv_export"] = export_dir
+        etrago.optimize()
+        print(f"✅ Ergebnisse gespeichert unter: {export_dir}")
+
+
+if __name__ == "__main__":
+    #run_solar_cost_sensitivity()
+    run_ch4_cost_sensitivity()
