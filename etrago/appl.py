@@ -784,6 +784,18 @@ def run_etrago(args, json_path):
 
     print(connected_links[lcolumns])
 
+    # change capital_cost of Electrolyser
+    etrago.network.links.loc[etrago.network.links.carrier == "power_to_H2", "capital_cost"] *= 149785.8174
+
+    # change capital_cost of SMR
+    etrago.network.links.loc[etrago.network.links.carrier == "CH4_to_H2", "capital_cost"] *= 60079.97445
+
+    # change capital_cost of Fuel Cell
+    etrago.network.links.loc[etrago.network.links.carrier == "H2_to_power", "capital_cost"] *= 194704.5198
+
+    # change capital_cost of Methanisation
+    etrago.network.links.loc[etrago.network.links.carrier == "H2_to_CH4", "capital_cost"] *= 70533.05294
+
     etrago.network.export_to_netcdf("base_network.nc")
 
     #import pdb

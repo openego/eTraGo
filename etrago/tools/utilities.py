@@ -4130,8 +4130,8 @@ def add_extendable_heat_pumps_to_interest_area(self):
     heat_pump_carriers = ["central_heat_pump", "rural_heat_pump"]
 
     capital_cost_map = {
-        "central_heat_pump": 66406.58,
-        "rural_heat_pump": 76956.56
+        "central_heat_pump": 66406.5832,
+        "rural_heat_pump": 101474.6834
     }
 
     marginal_cost_map = {

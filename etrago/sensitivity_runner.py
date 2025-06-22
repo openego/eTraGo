@@ -15,12 +15,6 @@ __author__ = (
     "CarlosEpia, KathiEsterl, fwitte, gnn, pieterhexen, AmeliaNadal"
 )
 
-if "READTHEDOCS" not in os.environ:
-    # Sphinx does not run this code.
-    # Do not import internal packages directly
-
-    from etrago import Etrago
-
 args = {
     "nuts_3_map" : "germany-de-nuts-3-regions.geojson",
     # Setup and Configuration:
@@ -177,10 +171,15 @@ from etrago.network import Etrago, find_interest_buses  # Pfad ggf. anpassen
 import os
 
 class SensitivityEtrago(Etrago):
-    def __init__(self, nc_path="base_network.nc"):
+    def __init__(self, nc_path="base_network.nc", args=None):
         # Initialisiere NICHT den vollen eTraGo-Workflow, sondern lade nur das gespeicherte Netzwerk
         self.network = pypsa.Network(nc_path)
-        self.args = {"csv_export": "results"}  # Default-Pfad für Ergebnisexport
+        self.args = args  # Default-Pfad für Ergebnisexport
+
+        # 🔧 Wichtige Initialisierungen für Kompatibilität
+        self.busmap = {}
+        self.ch4_h2_mapping = {}
+        self.tool_version = "manual_sensitivity"
 
     def update_capital_cost_of_solar_ingolstadt(self, new_capital_cost):
         """
@@ -202,13 +201,13 @@ class SensitivityEtrago(Etrago):
 
 if __name__ == "__main__":
     # Liste der capital_cost-Werte, die getestet werden sollen
-    cost_values = [7310.61612, 10965.92417, 14621.23223, 18276.54029, 21931.84835, 25587.15641, 29242.46447, 32897.77252]
+    cost_values = [14621.23223, 18276.54029, 21931.84835]
 
     for cost in cost_values:
         print(f" Starte Sensitivitätslauf mit capital_cost = {cost} €/kW")
 
         # Neue eTraGo-Instanz mit geladenem Basismodell
-        etrago = SensitivityEtrago()
+        etrago = SensitivityEtrago(args=args)
 
         # Parameteränderung
         etrago.update_capital_cost_of_solar_ingolstadt(new_capital_cost=cost)
