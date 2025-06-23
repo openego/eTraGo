@@ -167,7 +167,7 @@ args = {
 }
 
 import pypsa
-from etrago.network import Etrago, find_interest_buses  # Pfad ggf. anpassen
+from etrago.network import Etrago, find_interest_buses
 import os
 
 class SensitivityEtrago(Etrago):
@@ -212,30 +212,38 @@ class SensitivityEtrago(Etrago):
 # === Sensitivitäten ===
 
 def run_solar_cost_sensitivity():
-    cost_values = [14621.23223, 18276.54029, 21931.84835]
+    cost_values = [15352.2938, 16083.35546, 16814.41707, 17545.47868] # 210,220,230,240
     for cost in cost_values:
         print(f" Starte Solar-Sensitivität mit capital_cost = {cost:.2f} €/MW/a")
+
         etrago = SensitivityEtrago(args=args)
+
         etrago.update_capital_cost_of_solar_ingolstadt(cost)
+
         export_dir = f"results/sensitivity_solar_cost_{cost:.5f}".replace(".", "_")
         os.makedirs(export_dir, exist_ok=True)
         etrago.args["csv_export"] = export_dir
+
         etrago.optimize()
         print(f"✅ Ergebnisse gespeichert unter: {export_dir}")
 
 def run_ch4_cost_sensitivity():
-    ch4_prices = [20, 60, 80, 100]  # Beispielpreise in €/MWh
+    ch4_prices = [20, 30, 60, 80, 100]  # in €/MWh
     for price in ch4_prices:
         print(f" Starte CH₄-Sensitivität mit marginal_cost = {price:.2f} €/MWh_th")
+
         etrago = SensitivityEtrago(args=args)
+
         etrago.update_marginal_cost_of_CH4_generators(price)
+
         export_dir = f"results/sensitivity_CH4_price_{price:.2f}".replace(".", "_")
         os.makedirs(export_dir, exist_ok=True)
         etrago.args["csv_export"] = export_dir
+
         etrago.optimize()
         print(f"✅ Ergebnisse gespeichert unter: {export_dir}")
 
 
 if __name__ == "__main__":
-    #run_solar_cost_sensitivity()
-    run_ch4_cost_sensitivity()
+    run_solar_cost_sensitivity()
+    #run_ch4_cost_sensitivity()

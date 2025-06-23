@@ -4204,8 +4204,8 @@ def add_waste_CHP_ingolstadt(self):
                      new_bus,
                      carrier="waste",
                      v_nom=1.0,
-                     x=11.491169,
-                     y=48.764725
+                     x=11.477725514411073,
+                     y=48.76452002953957
                      )
     self.network.buses.at[new_bus, "scn_name"] = "eGon2035"
     self.network.buses.at[new_bus, "country"] = "DE"
