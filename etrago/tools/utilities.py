@@ -3935,10 +3935,11 @@ def find_interest_buses(self):
     interest_area = interest_area[~interest_area.geometry.is_empty & interest_area.geometry.notnull()]
 
     # Räumlicher Schnitt
-    #buses_in_area = buses[buses.geometry.within(interest_area.unary_union)]
-    buses_in_area = buses[buses.geometry.within(interest_area.buffer(0.005).unary_union)]
+    buses_in_area = buses[buses.geometry.within(interest_area.unary_union)]
+    # buses_in_area = buses[buses.geometry.within(interest_area.buffer(0.005).unary_union)]
 
-    # print(f"{len(buses_in_area)} Busse in {area_filter} gefunden.")
+    print(f"{len(buses_in_area)} Busse in {area_filter} gefunden.")
+    print(buses_in_area.carrier)
 
     return buses_in_area
 
@@ -4267,8 +4268,9 @@ def add_waste_CHP_ingolstadt(self):
                      )
 
     connected_links = find_links_connected_to_interest_buses(self)
-    lcolumns = ["bus0", "bus1", "carrier", "p_nom", "p_nom_opt", "marginal_cost", "capital_cost", "efficiency",
-                "p_nom_extendable", "p_nom_max", "p_nom_min"]
+    lcolumns = ["bus0", "bus1", "carrier"]
+    #lcolumns = ["bus0", "bus1", "carrier", "p_nom", "p_nom_opt", "marginal_cost", "capital_cost", "efficiency",
+    #            "p_nom_extendable", "p_nom_max", "p_nom_min"]
     print(connected_links[lcolumns])
 
 def update_capital_cost_of_solar_ingolstadt(self, new_capital_cost):

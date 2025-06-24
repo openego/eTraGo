@@ -245,5 +245,5 @@ def run_ch4_cost_sensitivity():
 
 
 if __name__ == "__main__":
-    run_solar_cost_sensitivity()
-    #run_ch4_cost_sensitivity()
+    #run_solar_cost_sensitivity()
+    run_ch4_cost_sensitivity()

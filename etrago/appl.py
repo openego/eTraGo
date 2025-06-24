@@ -777,24 +777,38 @@ def run_etrago(args, json_path):
     #etrago.set_battery_interest_area_p_nom_min()
 
     # lcolumns = ["bus0", "bus1", "carrier", "p_nom", "p_nom_opt", "marginal_cost", "capital_cost","p_nom_extendable"]
-    print("Links")
-    lcolumns = ["p_nom", "p_nom_opt", "efficiency", "marginal_cost", "capital_cost", "p_nom_extendable"]
+    #print("Links")
+    #lcolumns = ["p_nom", "p_nom_opt", "efficiency", "marginal_cost", "capital_cost", "p_nom_extendable"]
 
-    connected_links = etrago.find_links_connected_to_interest_buses()
+    #connected_links = etrago.find_links_connected_to_interest_buses()
 
-    print(connected_links[lcolumns])
+    #print(connected_links[lcolumns])
+
+    h2_tech_links = ["power_to_H2", "CH4_to_H2", "H2_to_power", "H2_to_CH4"]
+
+    df_h2_links = etrago.network.links[etrago.network.links.carrier.isin(h2_tech_links)]
+
+    df_unique = df_h2_links.drop_duplicates(subset='carrier')
+
+    print(df_unique["capital_cost"])
 
     # change capital_cost of Electrolyser
-    etrago.network.links.loc[etrago.network.links.carrier == "power_to_H2", "capital_cost"] *= 149785.8174
+    etrago.network.links.loc[etrago.network.links.carrier == "power_to_H2", "capital_cost"] = 95785.81735
 
     # change capital_cost of SMR
-    etrago.network.links.loc[etrago.network.links.carrier == "CH4_to_H2", "capital_cost"] *= 60079.97445
+    etrago.network.links.loc[etrago.network.links.carrier == "CH4_to_H2", "capital_cost"] = 33969.92445
 
     # change capital_cost of Fuel Cell
-    etrago.network.links.loc[etrago.network.links.carrier == "H2_to_power", "capital_cost"] *= 194704.5198
+    etrago.network.links.loc[etrago.network.links.carrier == "H2_to_power", "capital_cost"] = 140470.6598
 
     # change capital_cost of Methanisation
-    etrago.network.links.loc[etrago.network.links.carrier == "H2_to_CH4", "capital_cost"] *= 70533.05294
+    etrago.network.links.loc[etrago.network.links.carrier == "H2_to_CH4", "capital_cost"] = 52478.65202
+
+    df_h2_links = etrago.network.links[etrago.network.links.carrier.isin(h2_tech_links)]
+
+    df_unique = df_h2_links.drop_duplicates(subset='carrier')
+
+    print(df_unique["capital_cost"])
 
     etrago.network.export_to_netcdf("base_network.nc")
 
