@@ -3763,13 +3763,28 @@ def add_chp_constraints_linopy(network, snapshots):
 
     # marginal loss for each additional generation of heat
     c_v = 0.15
-    electric_bool = network.links.carrier == "central_gas_CHP"
-    heat_bool = network.links.carrier == "central_gas_CHP_heat"
 
-    if (network.links.carrier == "central_gas_CHP_heat").any():
+    chp_carrier_pairs = [
+        ("central_gas_CHP", "central_gas_CHP_heat"),
+        ("central_biogas_CHP", "central_biogas_CHP_heat"),
+        ("rural_biogas_CHP", "rural_biogas_CHP_heat"),
+        ("central_biomass_solid_CHP", "central_biomass_solid_CHP_heat"),
+        ("rural_biomass_solid_CHP", "rural_biomass_solid_CHP_heat"),
+        ("central_waste_CHP", "central_waste_CHP_heat"),
+    ]
+
+    for carrier_elec, carrier_heat in chp_carrier_pairs:
+
+        electric_bool = network.links.carrier == carrier_elec
+        heat_bool = network.links.carrier == carrier_heat
+
+        if not heat_bool.any():
+            continue
+
         electric = network.links.index[electric_bool]
         heat = network.links.index[heat_bool]
 
+        # Effizienz der Wärme-Links gemäß Literaturansatz korrigieren
         network.links.loc[heat, "efficiency"] = (
             network.links.loc[electric, "efficiency"] / c_v
         ).values.mean()
@@ -3780,12 +3795,12 @@ def add_chp_constraints_linopy(network, snapshots):
 
         for i in ch4_nodes_with_chp:
             elec_chp = network.links[
-                (network.links.carrier == "central_gas_CHP")
+                (network.links.carrier == carrier_elec)
                 & (network.links.bus0 == i)
             ].index
 
             heat_chp = network.links[
-                (network.links.carrier == "central_gas_CHP_heat")
+                (network.links.carrier == carrier_heat)
                 & (network.links.bus0 == i)
             ].index
 
@@ -3812,16 +3827,16 @@ def add_chp_constraints_linopy(network, snapshots):
                 define_constraints(
                     network,
                     get_var(network, "Link", "p").loc[snapshot, heat_chp].sum()
-                    + get_var(network, "Link",
-                              "p").loc[snapshot, elec_chp].sum(),
+                    + get_var(network, "Link", "p").loc[snapshot, elec_chp].sum(),
                     "<=",
                     network.links[
-                        (network.links.carrier == "central_gas_CHP")
+                        (network.links.carrier == carrier_elec)
                         & (network.links.bus0 == i)
                     ].p_nom.sum(),
                     "Link",
                     "top_iso_fuel_line_" + i + "_" + str(snapshot),
                 )
+
 
 def _fixed_waste_chp_ratio_linopy(self, network, snapshots):
     """
