@@ -762,11 +762,17 @@ def run_etrago(args, json_path):
         n.generators.ramp_limit_up = np.nan
         n.generators.ramp_limit_down = np.nan
 
-    # set interest components to extendable
+    # set interest components to extendable and add additional components
 
     etrago.add_extendable_solar_to_interest_area()
 
-    etrago.add_extendable_links_without_efficiency()
+    etrago.reset_gas_CHP_capacities()
+
+    etrago.add_gas_CHP_extendable()
+
+    etrago.add_biogas_CHP_extendable()
+
+    etrago.add_biomass_CHP_extendable()
 
     etrago.add_extendable_heat_pumps_to_interest_area()
 
@@ -774,15 +780,13 @@ def run_etrago(args, json_path):
 
     etrago.add_waste_CHP_ingolstadt()
 
-    #etrago.set_battery_interest_area_p_nom_min()
+    etrago.set_battery_interest_area_p_nom_min()
 
-    # lcolumns = ["bus0", "bus1", "carrier", "p_nom", "p_nom_opt", "marginal_cost", "capital_cost","p_nom_extendable"]
-    #print("Links")
-    #lcolumns = ["p_nom", "p_nom_opt", "efficiency", "marginal_cost", "capital_cost", "p_nom_extendable"]
+    links_ing = etrago.find_links_connected_to_interest_buses()
+    lcolumns = ["bus0", "bus1", "carrier", "p_nom", "p_nom_extendable", "capital_cost", "marginal_cost"]
+    print(links_ing[lcolumns])
 
-    #connected_links = etrago.find_links_connected_to_interest_buses()
-
-    #print(connected_links[lcolumns])
+    # == change capital_cost for sector-coupling H2 - techs ==
 
     h2_tech_links = ["power_to_H2", "CH4_to_H2", "H2_to_power", "H2_to_CH4"]
 

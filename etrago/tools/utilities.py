@@ -4032,94 +4032,316 @@ def add_extendable_solar_to_interest_area(self):
 
     # set scn_name
     self.network.generators.loc[solar_gen_id, "scn_name"] = "eGon2035"
-
-    #generators_interest = self.network.generators[self.network.generators.bus.isin(bus_list)]
-    #cgens = ["bus", "carrier", "p_nom", "p_nom_opt", "p_nom_extendable", "marginal_cost", "capital_cost"]
-    #print(generators_interest[cgens])
-
     print(f"Time series for Solar generator {solar_gen_id} added successfully.")
 
-def add_extendable_links_without_efficiency(self):
+
+def reset_gas_CHP_capacities(self):
     """
-    Dupliziert gasbasierte Links ohne Effizienz-Zeitreihe als investierbare Variante.
-    Setzt capital_cost, ggf. marginal_cost und übernimmt p_nom bei ausgewählten Technologien.
+    reset_gas_CHP_capacities in interest area
     """
 
-    # Ziel-Technologien
     carriers = [
         "central_gas_CHP",
         "central_gas_CHP_heat",
         "central_gas_boiler",
         "industrial_gas_CHP",
+        # "central_resistive_heater"
+    ]
+
+    connected_links = find_links_connected_to_interest_buses(self)
+    gas_links = connected_links[connected_links.carrier.isin(carriers)]
+
+    for index in gas_links.index:
+        self.network.links.at[index, "p_nom"] = 0
+
+
+def add_gas_CHP_extendable(self):
+    """
+    Dupliziert gasbasierte Links und central_resistive_heater ohne Effizienz-Zeitreihe als investierbare Variante.
+    Setzt capital_cost, ggf. marginal_cost und setzt p_nom auf aktuelle Daten bei ausgewählten Technologien.
+    """
+    # carriers of gas links
+    carriers = [
+        "central_gas_CHP",
+        "central_gas_CHP_heat",
+        "central_gas_boiler",
         "central_resistive_heater"
     ]
 
-    # Technologie-spezifische p_nom-Vorgaben (in MW)
-    fixed_p_nom = {
-        "central_gas_CHP": 22.86,
-        "central_gas_CHP_heat": 35.97,
-        "industrial_gas_CHP": 0.0
+    # Technologie-spezifische p_nom-Vorgaben [MW]
+    installed_p_nom = {
+        "central_gas_CHP": 22.86
     }
 
-    # Investitionskosten (annuitisiert, in €/MW/a)
+    # capital_cost (annualised investment costs [€/MW/a])
     capital_cost_map = {
-        "central_gas_CHP": 60819.81,
-        "central_gas_CHP_heat": 60819.81,
-        "central_gas_boiler": 5711.883,
-        "industrial_gas_CHP": 60819.81,
-        "central_resistive_heater": 6147.776
+        "central_gas_CHP": 41295.8840,
+        "central_gas_CHP_heat": 0,
+        "central_gas_boiler": 3754.1726,
+        "central_resistive_heater": 5094.8667
     }
 
-    # Variable Betriebskosten (€/MWh)
+    # VOM (€/MWh)
     marginal_cost_map = {
         "central_resistive_heater": 1.0582,
-        "central_gas_CHP_heat": 4.1125
+        "central_gas_CHP_heat": 0,
+        "central_gas_boiler": 1.0582
+
     }
 
+    default_attrs = [
+        'efficiency', 'start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time',
+        'up_time_before', 'down_time_before', 'ramp_limit_up', 'ramp_limit_down',
+        'ramp_limit_start_up', 'ramp_limit_shut_down', "p_nom_mod",
+        "marginal_cost_quadratic", "stand_by_cost"
+    ]
+
+    # filter for interest gas_links
     connected_links = find_links_connected_to_interest_buses(self)
     gas_links = connected_links[connected_links.carrier.isin(carriers)]
 
     next_link_id = max([int(i) for i in self.network.links.index if str(i).isdigit()]) + 1
 
-    default_attrs = [
-        'efficiency',
-        'start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time',
-        'up_time_before', 'down_time_before',
-        'ramp_limit_up', 'ramp_limit_down',
-        'ramp_limit_start_up', 'ramp_limit_shut_down',
-        "p_nom_mod", "marginal_cost_quadratic", "stand_by_cost"
-    ]
-
-    for old_index, row in gas_links.iterrows():
-        # Bestehende Komponente deaktivieren
-        self.network.links.at[old_index, "p_nom"] = 0
+    for exist_index, row in gas_links.iterrows():
 
         carrier = row.carrier
         link_attrs = {attr: row.get(attr, 0) for attr in default_attrs}
 
-        # Kosten setzen
+        # set capital_cost [€/MW/a] and marginal_cost [€/MWh]
         link_attrs["capital_cost"] = capital_cost_map.get(carrier, 0)
         link_attrs["marginal_cost"] = marginal_cost_map.get(carrier, row.get("marginal_cost", 0))
 
         # p_nom setzen, falls spezifiziert
-        if carrier in fixed_p_nom:
-            link_attrs["p_nom"] = fixed_p_nom[carrier]
-            link_attrs["p_nom_min"] = fixed_p_nom[carrier]
+        if carrier in installed_p_nom:
+            link_attrs["p_nom"] = installed_p_nom[carrier]
+            link_attrs["p_nom_min"] = installed_p_nom[carrier]
 
         new_index = str(next_link_id)
         next_link_id += 1
 
         self.network.add("Link",
-              name=new_index,
-              bus0=row.bus0,
-              bus1=row.bus1,
-              carrier=carrier,
-              p_nom_extendable=True,
-              **link_attrs)
+                         name=new_index,
+                         bus0=row.bus0,
+                         bus1=row.bus1,
+                         carrier=carrier,
+                         p_nom_extendable=True,
+                         **link_attrs)
 
         self.network.links.at[new_index, "scn_name"] = "eGon2035"
-        print(f"Neuer Link {new_index} ({carrier}) mit fixer p_nom={link_attrs.get('p_nom', 'n/a')} hinzugefügt.")
+        print(f"Neuer Link {new_index} ({carrier}) mit installed p_nom={link_attrs.get('p_nom', 'n/a')} hinzugefügt.")
 
+
+def get_matching_biogs_bus(self):
+    """
+    get Bus_id of Bus only with CH4_biogas-generator
+    """
+
+    bus_groups = self.network.generators.groupby("bus")
+
+    def is_exact_match(group):
+        return (
+                len(group) == 2 and  # genau 2 Generatoren
+                set(group.carrier) == {"CH4_biogas", "load shedding"}  # bus only with biogas-generator
+        )
+
+    # Schritt 3: Filtere Büsse mit genau diesen Kriterien
+    matching_buses = [bus for bus, group in bus_groups if is_exact_match(group)]
+    matching_bus = str(matching_buses[0])
+
+    return matching_bus
+
+
+def add_biogas_CHP_extendable(self):
+    """
+    add extendable biogas_CHP-Powerplant, located in Ingolstadt
+    """
+
+    carriers = [
+        "central_biogas_CHP",
+        "central_biogas_CHP_heat",
+        "rural_biogas_CHP",
+        "rural_biogas_CHP_heat"
+    ]
+
+    capital_cost_map = {
+        "central_biogas_CHP": 66960.9053,
+        "rural_biogas_CHP": 66960.9053
+    }
+
+    marginal_cost_map = {
+        "central_biogas_CHP": 7.18,
+        "rural_biogas_CHP": 7.18
+    }
+
+    efficiency_map = {
+        "central_biogas_CHP": 0.45,
+        "central_biogas_CHP_heat": 0.45,
+        "rural_biogas_CHP": 0.45,
+        "rural_biogas_CHP_heat": 0.45
+    }
+
+    default_attrs = [
+        'start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time',
+        'up_time_before', 'down_time_before', 'ramp_limit_up', 'ramp_limit_down',
+        'ramp_limit_start_up', 'ramp_limit_shut_down', "p_nom_mod",
+        "marginal_cost_quadratic", "stand_by_cost"
+    ]
+
+    next_link_id = max([int(i) for i in self.network.links.index if str(i).isdigit()]) + 1
+
+    # get default attributes from exitsting CHP-Link
+    existing_central_gas_CHP = self.network.links[self.network.links.carrier == "central_gas_CHP"].iloc[0]
+    link_attrs = {attr: existing_central_gas_CHP.get(attr, 0) for attr in default_attrs}
+
+    # get AC-Bus and central_heat-Bus in Ingolstadt
+    buses_ing = self.find_interest_buses()
+    AC_bus_ing = buses_ing[buses_ing.carrier == "AC"].index[0]
+    cH_bus_ing = buses_ing[buses_ing.carrier == "central_heat"].index[0]
+    dH_bus_ing = buses_ing[buses_ing.carrier == "rural_heat"].index[0]
+
+    biogas_bus_id = get_matching_biogs_bus(self)
+
+    for carrier in carriers:
+
+        link_attrs["capital_cost"] = capital_cost_map.get(carrier, 0)
+        link_attrs["marginal_cost"] = marginal_cost_map.get(carrier, 0)
+        link_attrs["efficiency"] = efficiency_map.get(carrier, 0)
+
+        new_index = str(next_link_id)
+        next_link_id += 1
+
+        if carrier in ("central_biogas_CHP", "rural_biogas_CHP"):
+            bus1 = AC_bus_ing
+        elif carrier == "central_biogas_CHP_heat":
+            bus1 = cH_bus_ing
+        elif carrier == "rural_biogas_CHP_heat":
+            bus1 = dH_bus_ing
+
+        self.network.add("Link",
+                         name=new_index,
+                         bus0=biogas_bus_id,
+                         bus1=bus1,
+                         carrier=carrier,
+                         p_nom=0,
+                         p_nom_extendable=True,
+                         **link_attrs)
+
+        self.network.links.at[new_index, "scn_name"] = "eGon2035"
+        print(f"Neuer Link {new_index} ({carrier}) mit installed p_nom={link_attrs.get('p_nom', 'n/a')} hinzugefügt.")
+
+
+def add_biomass_CHP_extendable(self):
+    """
+    add extendable biomass_solid_CHP-Powerplant, located in Ingolstadt
+    """
+
+    carriers = [
+        "central_biomass_solid_CHP",
+        "central_biomass_solid_CHP_heat",
+        "rural_biomass_solid_CHP",
+        "rural_biomass_solid_CHP_heat"
+    ]
+
+    capital_cost_map = {
+        "central_biomass_solid_CHP": 232005.3902,
+        "rural_biomass_solid_CHP": 448355.1320
+    }
+
+    marginal_cost_map = {
+        "central_biomass_solid_CHP": 4.67,
+        "rural_biomass_solid_CHP": 9.86
+    }
+
+    efficiency_map = {
+        "central_biomass_solid_CHP": 0.29,
+        "central_biomass_solid_CHP_heat": 0.83,
+        "rural_biomass_solid_CHP": 0.14,
+        "rural_biomass_solid_CHP_heat": 0.9747
+    }
+
+    default_attrs = [
+        'start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time',
+        'up_time_before', 'down_time_before', 'ramp_limit_up', 'ramp_limit_down',
+        'ramp_limit_start_up', 'ramp_limit_shut_down', "p_nom_mod",
+        "marginal_cost_quadratic", "stand_by_cost"
+    ]
+
+    # Add new bus with additional attributes
+    new_bus = str(self.network.buses.index.astype(np.int64).max() + 1)
+
+    self.network.add("Bus",
+                     new_bus,
+                     carrier="biomass_solid",
+                     v_nom=1.0,
+                     x=11.342843544333306,
+                     y=48.76756488279032
+                     )
+    self.network.buses.at[new_bus, "scn_name"] = "eGon2035"
+    self.network.buses.at[new_bus, "country"] = "DE"
+
+    # Add new generator for biomass_carrier with additional attributes
+
+    self.network.add("Generator",
+                     name=f"{new_bus} biomass_solid",
+                     bus=new_bus,
+                     carrier="waste",
+                     p_nom=10000,
+                     p_nom_extendable=False,
+                     marginal_cost=41.7655,
+                     capital_cost=0,
+                     efficiency=1.0
+                     )
+
+    self.network.generators.at[f"{new_bus} waste", "scn_name"] = "eGon2035"
+
+    print(f"New Bus {new_bus} with carrier biomass_solid added successfully.")
+
+    # Add Links biomass_solid
+
+    # create new link_id
+    next_link_id = max([int(i) for i in self.network.links.index if str(i).isdigit()]) + 1
+
+    # get AC-Bus and central_heat-Bus in Ingolstadt
+    buses_ing = self.find_interest_buses()
+    AC_bus_ing = buses_ing[buses_ing.carrier == "AC"].index[0]
+    cH_bus_ing = buses_ing[buses_ing.carrier == "central_heat"].index[0]
+    dH_bus_ing = buses_ing[buses_ing.carrier == "rural_heat"].index[0]
+
+    # get AC-Bus_id in Ingolstadt
+    ac_buses = buses_ing[buses_ing.carrier == "AC"]
+    ac_bus_ing = ac_buses.index[0]
+
+    # get default attributes from exitsting CHP-Link
+    existing_central_gas_CHP = self.network.links[self.network.links.carrier == "central_gas_CHP"].iloc[0]
+    link_attrs = {attr: existing_central_gas_CHP.get(attr, 0) for attr in default_attrs}
+
+    for carrier in carriers:
+
+        link_attrs["capital_cost"] = capital_cost_map.get(carrier, 0)
+        link_attrs["marginal_cost"] = marginal_cost_map.get(carrier, 0)
+        link_attrs["efficiency"] = efficiency_map.get(carrier, 0)
+
+        new_index = str(next_link_id)
+        next_link_id += 1
+
+        if carrier in ("central_biomass_solid_CHP", "rural_biomass_solid_CHP"):
+            bus1 = AC_bus_ing
+        elif carrier == "central_biomass_solid_CHP_heat":
+            bus1 = cH_bus_ing
+        elif carrier == "rural_biomass_solid_CHP_heat":
+            bus1 = dH_bus_ing
+
+        self.network.add("Link",
+                         name=new_index,
+                         bus0=new_bus,
+                         bus1=bus1,
+                         carrier=carrier,
+                         p_nom=0,
+                         p_nom_extendable=True,
+                         **link_attrs)
+
+        self.network.links.at[new_index, "scn_name"] = "eGon2035"
+        print(f"Neuer Link {new_index} ({carrier}) mit installed p_nom={link_attrs.get('p_nom', 'n/a')} hinzugefügt.")
 
 def add_extendable_heat_pumps_to_interest_area(self):
     """
@@ -4190,10 +4412,12 @@ def set_battery_interest_area_p_nom_min(self):
     # Filtermaske: nur Batterien in der Region
     mask = (self.network.storage_units.bus.isin(bus_list)) & (self.network.storage_units.carrier == "battery")
 
-    # Setze p_nom_min = 0 direkt in der Original-Tabelle
-    self.network.storage_units.loc[mask, "p_nom_min"] = 18.15
+    p_nom_min = 18.15
 
-    print(f"Für {mask.sum()} Batterien in der interest area wurde p_nom_min = 0 gesetzt.")
+    # Setze p_nom_min = 0 direkt in der Original-Tabelle
+    self.network.storage_units.loc[mask, "p_nom_min"] = p_nom_min
+
+    print(f"Für {mask.sum()} Batterien in der interest area wurde p_nom_min = {p_nom_min} gesetzt.")
 
 def add_waste_CHP_ingolstadt(self):
     """
@@ -4272,6 +4496,104 @@ def add_waste_CHP_ingolstadt(self):
     #lcolumns = ["bus0", "bus1", "carrier", "p_nom", "p_nom_opt", "marginal_cost", "capital_cost", "efficiency",
     #            "p_nom_extendable", "p_nom_max", "p_nom_min"]
     print(connected_links[lcolumns])
+
+
+def get_matching_biogs_bus(self):
+    """
+    get Bus_id of Bus only with CH4_biogas-generator
+    """
+
+    bus_groups = self.network.generators.groupby("bus")
+
+    def is_exact_match(group):
+        return (
+                len(group) == 2 and  # genau 2 Generatoren
+                set(group.carrier) == {"CH4_biogas", "load shedding"}  # bus only with biogas-generator
+        )
+
+    # Schritt 3: Filtere Büsse mit genau diesen Kriterien
+    matching_buses = [bus for bus, group in bus_groups if is_exact_match(group)]
+    matching_bus = str(matching_buses[0])
+
+    return matching_bus
+
+def add_biogas_CHP_extendable(self):
+    """
+    add extendable biogas_CHP-Powerplant, located in Ingolstadt
+    """
+
+    carriers = [
+        "central_biogas_CHP",
+        "central_biogas_CHP_heat",
+        "rural_biogas_CHP",
+        "rural_biogas_CHP_heat"
+    ]
+
+    capital_cost_map = {
+        "central_biogas_CHP": 66960.9053,
+        "rural_biogas_CHP": 66960.9053
+    }
+
+    marginal_cost_map = {
+        "central_biogas_CHP": 7.18,
+        "rural_biogas_CHP": 7.18
+    }
+
+    efficiency_map = {
+        "central_biogas_CHP": 0.45,
+        "central_biogas_CHP_heat": 0.45,
+        "rural_biogas_CHP": 0.45,
+        "rural_biogas_CHP_heat": 0.45
+    }
+
+    default_attrs = [
+        'start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time',
+        'up_time_before', 'down_time_before', 'ramp_limit_up', 'ramp_limit_down',
+        'ramp_limit_start_up', 'ramp_limit_shut_down', "p_nom_mod",
+        "marginal_cost_quadratic", "stand_by_cost"
+    ]
+
+    next_link_id = max([int(i) for i in self.network.links.index if str(i).isdigit()]) + 1
+
+    # get default attributes from exitsting CHP-Link
+    existing_central_gas_CHP = self.network.links[self.network.links.carrier == "central_gas_CHP"].iloc[0]
+    link_attrs = {attr: existing_central_gas_CHP.get(attr, 0) for attr in default_attrs}
+
+    # get AC-Bus and central_heat-Bus in Ingolstadt
+    buses_ing = self.find_interest_buses()
+    AC_bus_ing = buses_ing[buses_ing.carrier == "AC"].index[0]
+    cH_bus_ing = buses_ing[buses_ing.carrier == "central_heat"].index[0]
+    dH_bus_ing = buses_ing[buses_ing.carrier == "rural_heat"].index[0]
+
+    biogas_bus_id = get_matching_biogs_bus(self)
+
+    for carrier in carriers:
+
+        link_attrs["capital_cost"] = capital_cost_map.get(carrier, 0)
+        link_attrs["marginal_cost"] = marginal_cost_map.get(carrier, 0)
+        link_attrs["efficiency"] = efficiency_map.get(carrier, 0)
+
+        new_index = str(next_link_id)
+        next_link_id += 1
+
+        if carrier in ("central_biogas_CHP", "rural_biogas_CHP"):
+            bus1 = AC_bus_ing
+        elif carrier == "central_biogas_CHP_heat":
+            bus1 = cH_bus_ing
+        elif carrier == "rural_biogas_CHP_heat":
+            bus1 = dH_bus_ing
+
+        self.network.add("Link",
+                         name=new_index,
+                         bus0=biogas_bus_id,
+                         bus1=bus1,
+                         carrier=carrier,
+                         p_nom=0,
+                         p_nom_extendable=True,
+                         **link_attrs)
+
+        self.network.links.at[new_index, "scn_name"] = "eGon2035"
+        print(f"Neuer Link {new_index} ({carrier}) mit installed p_nom={link_attrs.get('p_nom', 'n/a')} hinzugefügt.")
 
 def update_capital_cost_of_solar_ingolstadt(self, new_capital_cost):
     """
