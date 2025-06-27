@@ -115,7 +115,7 @@ from etrago.tools.utilities import (
     levelize_abroad_inland_parameters,
     find_interest_buses,
     find_links_connected_to_interest_buses,
-    add_extendable_solar_to_interest_area,
+    add_extendable_solar_generators_to_interest_area,
     add_extendable_heat_pumps_to_interest_area,
     set_battery_interest_area_p_nom_min,
     add_waste_CHP_ingolstadt,
@@ -402,7 +402,7 @@ class Etrago:
 
     find_links_connected_to_interest_buses = find_links_connected_to_interest_buses
 
-    add_extendable_solar_to_interest_area = add_extendable_solar_to_interest_area
+    add_extendable_solar_generators_to_interest_area = add_extendable_solar_generators_to_interest_area
 
     add_extendable_heat_pumps_to_interest_area = add_extendable_heat_pumps_to_interest_area
 

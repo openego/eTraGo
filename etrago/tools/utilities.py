@@ -3982,57 +3982,106 @@ def get_next_index(etrago, component="Generator", carrier="solar_rooftop"):
     return f"{next_id} {carrier}"
 
 
-def add_extendable_solar_to_interest_area(self):
-    # buses in ingolstadt
-    buses_ingolstadt = find_interest_buses(self)
-    bus_list = buses_ingolstadt.index.to_list()
-    # generator solar_rooftop from interest_area
+def add_extendable_solar_generators_to_interest_area(self):
+    """
+    Adds two extendable solar generators to the interest area:
+    1. An extendable solar_rooftop generator on the AC bus (duplicate of existing, but p_nom=0 and new extendable gen).
+    2. A solar_thermal_collector generator on the rural_heat bus.
+    """
 
-    #generators_interest = n.generators[n.generators.bus.isin(bus_list)]
+    # Define default attributes to be copied from existing generators
+    default_attrs = [
+        'start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time',
+        'up_time_before', 'down_time_before', 'ramp_limit_up', 'ramp_limit_down',
+        'ramp_limit_start_up', 'ramp_limit_shut_down'
+    ]
 
-    # locate existing solar_rooftop in interest area
+    # Locate all buses in interest area
+    buses_interest = self.find_interest_buses()
+    bus_list = buses_interest.index.to_list()
+
+    # === SOLAR ROOFTOP GENERATOR on AC Bus ===
+
+    # Find existing solar_rooftop generator in interest area
     gens = self.network.generators.copy()
     interest_solar_gen = gens[
         (gens.carrier == "solar_rooftop") &
         (gens.bus.isin(bus_list))
-        ]
+    ]
 
-    print(interest_solar_gen)
+    if interest_solar_gen.empty:
+        raise ValueError("No existing solar_rooftop generator found in the interest area.")
 
-    # Determine the attributes for new generators by copying from similar existing generators
-    default_attrs = ['start_up_cost', 'shut_down_cost', 'min_up_time',
-                     'min_down_time', 'up_time_before', 'down_time_before',
-                     'ramp_limit_up', 'ramp_limit_down', 'ramp_limit_start_up',
-                     'ramp_limit_shut_down']
+    # Deactivate existing solar_rooftop generator by setting p_nom=0
+    self.network.generators.loc[interest_solar_gen.index, "p_nom"] = 0
+    print(f"Set p_nom=0 for existing solar_rooftop generators: {list(interest_solar_gen.index)}")
 
-    solar_attrs = {attr: interest_solar_gen.get(attr, 0) for attr in default_attrs}
-
-    # timeseries of existing solar_rooftop in interest area
+    # Retrieve time series from existing solar generator
     pv_time_series = self.network.generators_t.p_max_pu.loc[:, interest_solar_gen.index]
 
-    # deactivate existing solar_rooftop in interest area
-    self.network.generators.loc[interest_solar_gen.index, "p_nom"] = 0
+    # Get the AC bus in interest area
+    AC_bus = buses_interest[buses_interest.carrier == "AC"].index[0]
 
-    # == Add the solar generator with the new ID ==
+    # Extract default attributes from existing solar generator
+    solar_attrs = {attr: interest_solar_gen[attr].iloc[0] for attr in default_attrs}
 
-    # = get new solar_rooftop gen_id =
+    # Generate new generator ID using your helper
+    new_solar_index = get_next_index(self, component="Generator", carrier="solar_rooftop")
 
-    solar_gen_id = get_next_index(self, component="Generator", carrier="solar_rooftop")
+    # Add new solar_rooftop generator
+    self.network.add("Generator",
+                     name=new_solar_index,
+                     bus=AC_bus,
+                     carrier="solar_rooftop",
+                     p_nom=88.66,
+                     p_nom_extendable=True,
+                     p_nom_max=597.597,
+                     capital_cost=37378.03906,
+                     marginal_cost=0.01,
+                     **solar_attrs)
 
-    # take marginal_cost from existing gens
-    marginal_cost_value = interest_solar_gen["marginal_cost"].iloc[0]
+    # Copy time series
+    self.network.generators_t.p_max_pu[new_solar_index] = pv_time_series.iloc[:, 0]
+    self.network.generators.at[new_solar_index, "scn_name"] = "eGon2035"
 
-    # Add the solar generator with the new ID
-    self.network.add("Generator", solar_gen_id, bus=interest_solar_gen.bus.iloc[0], p_nom=93.83, p_nom_min = 93.83 , carrier="solar_rooftop",
-          marginal_cost=marginal_cost_value,
-          capital_cost=46888.32, p_max_pu=1, control="PV", p_nom_extendable=True, **solar_attrs)
+    print(f"Extendable solar_rooftop generator {new_solar_index} added successfully on AC bus {AC_bus}.")
 
-    # take time series from exisiting solar_gen
-    self.network.generators_t.p_max_pu[solar_gen_id] = pv_time_series
+    # === SOLAR THERMAL COLLECTOR GENERATOR on rural_heat Bus ===
 
-    # set scn_name
-    self.network.generators.loc[solar_gen_id, "scn_name"] = "eGon2035"
-    print(f"Time series for Solar generator {solar_gen_id} added successfully.")
+    # Get rural_heat bus in interest area
+    rural_heat_bus = buses_interest[buses_interest.carrier == "rural_heat"].index[0]
+
+    # For solar thermal collector we can copy attributes from the first available existing solar thermal generator
+    solar_thermal_gens = gens[gens.carrier == "solar_thermal_collector"]
+
+    if solar_thermal_gens.empty:
+        raise ValueError("No existing solar_thermal_collector generator found to copy attributes from.")
+
+    solar_thermal_attrs = {attr: solar_thermal_gens[attr].iloc[0] for attr in default_attrs}
+
+    # Retrieve time series
+    solar_thermal_ts = self.network.generators_t.p_max_pu.loc[:, solar_thermal_gens.index[0]]
+
+    # Generate new generator ID using helper
+    new_thermal_index = get_next_index(self, component="Generator", carrier="solar_thermal_collector")
+
+    # Add new solar_thermal_collector generator
+    self.network.add("Generator",
+                     name=new_thermal_index,
+                     bus=rural_heat_bus,
+                     carrier="solar_thermal_collector",
+                     p_nom=14,
+                     p_nom_extendable=True,
+                     p_nom_max=33,
+                     capital_cost=48641.64065,
+                     marginal_cost=0.01,
+                     **solar_thermal_attrs)
+
+    self.network.generators_t.p_max_pu[new_thermal_index] = solar_thermal_ts
+    self.network.generators.at[new_thermal_index, "scn_name"] = "eGon2035"
+
+    print(f"Extendable solar_thermal_collector generator {new_thermal_index} added successfully on rural_heat bus {rural_heat_bus}.")
+
 
 
 def reset_gas_CHP_capacities(self):
@@ -4284,7 +4333,7 @@ def add_biomass_CHP_extendable(self):
     self.network.add("Generator",
                      name=f"{new_bus} biomass_solid",
                      bus=new_bus,
-                     carrier="waste",
+                     carrier="biomass_solid",
                      p_nom=10000,
                      p_nom_extendable=False,
                      marginal_cost=41.7655,
@@ -4292,7 +4341,9 @@ def add_biomass_CHP_extendable(self):
                      efficiency=1.0
                      )
 
-    self.network.generators.at[f"{new_bus} waste", "scn_name"] = "eGon2035"
+    self.network.generators.at[f"{new_bus} biomass_solid", "e_nom_max"] = 11305.00
+
+    self.network.generators.at[f"{new_bus} biomass_solid", "scn_name"] = "eGon2035"
 
     print(f"New Bus {new_bus} with carrier biomass_solid added successfully.")
 
@@ -4435,6 +4486,8 @@ def add_waste_CHP_ingolstadt(self):
     self.network.buses.at[new_bus, "scn_name"] = "eGon2035"
     self.network.buses.at[new_bus, "country"] = "DE"
 
+    print(f"Neuer Bus {new_bus} mit carrier = waste hinzugefügt.")
+
     # Add new generator for waste_carrier with additional attributes
 
     self.network.add("Generator",
@@ -4451,9 +4504,6 @@ def add_waste_CHP_ingolstadt(self):
     self.network.generators.at[f"{new_bus} waste", "scn_name"] = "eGon2035"
 
     bus_ingolstadt = find_interest_buses(self)
-    bus_list = bus_ingolstadt.index.to_list()
-    print(bus_ingolstadt)
-    print(self.network.generators[self.network.generators.bus.isin(bus_list)])
 
     # Add Link waste -> electricity
     ac_buses = bus_ingolstadt[bus_ingolstadt.carrier == "AC"]
@@ -4473,6 +4523,10 @@ def add_waste_CHP_ingolstadt(self):
                      efficiency=0.2102
                      )
 
+    self.network.links.at[new_link_id, "scn_name"] = "eGon2035"
+
+    print(f"Neuer Link {new_link_id} mit carrier = central_waste_CHP hinzugefügt.")
+
     # Add Link waste -> central_heat
     # create new link_id
     new_link_id = str(self.network.links.index.astype(int).max() + 1)
@@ -4486,16 +4540,14 @@ def add_waste_CHP_ingolstadt(self):
                      carrier="central_waste_CHP_heat",
                      p_nom=45.0,
                      p_nom_min=45.0,
-                     marginal_cost=27.8042,
+                     marginal_cost=0,
                      p_nom_extendable=False,
-                     efficiency=3.63 # scaled thermal efficiency to enforce fixed ratio via constraint: η_th_model = η_th / η_el
+                     efficiency=0.762
                      )
 
-    connected_links = find_links_connected_to_interest_buses(self)
-    lcolumns = ["bus0", "bus1", "carrier"]
-    #lcolumns = ["bus0", "bus1", "carrier", "p_nom", "p_nom_opt", "marginal_cost", "capital_cost", "efficiency",
-    #            "p_nom_extendable", "p_nom_max", "p_nom_min"]
-    print(connected_links[lcolumns])
+    self.network.links.at[new_link_id, "scn_name"] = "eGon2035"
+
+    print(f"Neuer Link {new_link_id} mit carrier = central_waste_CHP_heat hinzugefügt.")
 
 
 def get_matching_biogs_bus(self):

@@ -80,9 +80,7 @@ args = {
         },
     },
     "generator_noise": 789456,  # apply generator noise, False or seed number
-    "extra_functionality": {
-        "fixed_waste_chp_ratio": {}
-    },  # Choose function name or {}
+    "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
     "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
     "interest_area": ["Ingolstadt"],  # False, path to shapefile or list of nuts names of the area that is excluded from the clustering. By default the buses inside remain the same, but the parameter "n_cluster_interest_area" inside "network clustering" defines if it should be clustered to a certain number of buses.

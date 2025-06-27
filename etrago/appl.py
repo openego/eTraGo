@@ -762,7 +762,7 @@ def run_etrago(args, json_path):
 
     # set interest components to extendable and add additional components
 
-    etrago.add_extendable_solar_to_interest_area()
+    etrago.add_extendable_solar_generators_to_interest_area()
 
     etrago.reset_gas_CHP_capacities()
 
@@ -774,11 +774,14 @@ def run_etrago(args, json_path):
 
     etrago.add_extendable_heat_pumps_to_interest_area()
 
-    # add waste_CHP in Ingolstadt
-
     etrago.add_waste_CHP_ingolstadt()
 
     etrago.set_battery_interest_area_p_nom_min()
+
+    buses_ing = etrago.find_interest_buses()
+    gens_ing = etrago.network.generators[etrago.network.generators.bus.isin(buses_ing.index)]
+    gcolumns = ["bus", "carrier", "p_nom", "marginal_cost", "capital_cost", "p_nom_extendable"]
+    print(gens_ing[gcolumns])
 
     links_ing = etrago.find_links_connected_to_interest_buses()
     lcolumns = ["bus0", "bus1", "carrier", "p_nom", "p_nom_extendable", "capital_cost", "marginal_cost"]

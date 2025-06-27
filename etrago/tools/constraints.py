@@ -3821,7 +3821,7 @@ def add_chp_constraints_linopy(network, snapshots):
                     "<=",
                     0,
                     "Link",
-                    "backpressure_" + i + "_" + str(snapshot),
+                    f"backpressure_{carrier_elec}_{i}_{snapshot}",
                 )
 
                 define_constraints(
@@ -3832,9 +3832,9 @@ def add_chp_constraints_linopy(network, snapshots):
                     network.links[
                         (network.links.carrier == carrier_elec)
                         & (network.links.bus0 == i)
-                    ].p_nom.sum(),
+                        ].p_nom.sum(),
                     "Link",
-                    "top_iso_fuel_line_" + i + "_" + str(snapshot),
+                    f"top_iso_fuel_line_{carrier_elec}_{i}_{snapshot}",
                 )
 
 
