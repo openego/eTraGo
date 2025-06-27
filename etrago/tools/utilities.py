@@ -4060,7 +4060,7 @@ def add_extendable_solar_generators_to_interest_area(self):
     solar_thermal_attrs = {attr: solar_thermal_gens[attr].iloc[0] for attr in default_attrs}
 
     # Retrieve time series
-    solar_thermal_ts = self.network.generators_t.p_max_pu.loc[:, solar_thermal_gens.index[0]]
+    #solar_thermal_ts = self.network.generators_t.p_max_pu.loc[:, solar_thermal_gens.index[0]]
 
     # Generate new generator ID using helper
     new_thermal_index = get_next_index(self, component="Generator", carrier="solar_thermal_collector")
@@ -4077,7 +4077,7 @@ def add_extendable_solar_generators_to_interest_area(self):
                      marginal_cost=0.01,
                      **solar_thermal_attrs)
 
-    self.network.generators_t.p_max_pu[new_thermal_index] = solar_thermal_ts
+    self.network.generators_t.p_max_pu[new_thermal_index] = pv_time_series
     self.network.generators.at[new_thermal_index, "scn_name"] = "eGon2035"
 
     print(f"Extendable solar_thermal_collector generator {new_thermal_index} added successfully on rural_heat bus {rural_heat_bus}.")
@@ -4122,6 +4122,11 @@ def add_gas_CHP_extendable(self):
         "central_gas_CHP": 22.86
     }
 
+    # Technologie-spezifische p_nom_max-Vorgaben [MW]
+    p_nom_max_map = {
+        "central_gas_boiler": 1.83
+    }
+
     # capital_cost (annualised investment costs [€/MW/a])
     capital_cost_map = {
         "central_gas_CHP": 41295.8840,
@@ -4164,6 +4169,10 @@ def add_gas_CHP_extendable(self):
         if carrier in installed_p_nom:
             link_attrs["p_nom"] = installed_p_nom[carrier]
             link_attrs["p_nom_min"] = installed_p_nom[carrier]
+
+        # p_nom_max setzen, falls spezifiziert
+        if carrier in p_nom_max_map:
+            link_attrs["p_nom_max"] = p_nom_max_map[carrier]
 
         new_index = str(next_link_id)
         next_link_id += 1

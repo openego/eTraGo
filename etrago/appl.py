@@ -785,7 +785,8 @@ def run_etrago(args, json_path):
 
     links_ing = etrago.find_links_connected_to_interest_buses()
     lcolumns = ["bus0", "bus1", "carrier", "p_nom", "p_nom_extendable", "capital_cost", "marginal_cost"]
-    print(links_ing[lcolumns])
+    with pd.option_context("display.max_columns", None):
+        print(links_ing[lcolumns])
 
     # == change capital_cost for sector-coupling H2 - techs ==
 
