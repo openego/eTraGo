@@ -207,6 +207,56 @@ class SensitivityEtrago(Etrago):
         self.network.generators.loc[is_ch4, "marginal_cost"] = new_marginal_cost
         print(f"✅ marginal_cost auf {new_marginal_cost:.2f} €/MWh gesetzt ({is_ch4.sum()} CH₄-Generatoren).")
 
+    def update_marginal_cost_due_to_CO2_price(self, CO2_new):
+        """
+        Passt die marginal costs von CH4_NG- und waste-Generatoren an,
+        um den veränderten CO2-Preis zu berücksichtigen.
+
+        Formel:
+            marginal_cost += (CO2_new - CO2_default) * emissions_factor
+
+        Args:
+            CO2_new (float): Neuer CO2-Preis in €/tCO2.
+        """
+
+        gens = self.network.generators
+
+        # Fester Default-Preis
+        CO2_default = 76.5  # €/tCO2
+
+        # Delta CO2
+        delta_CO2 = CO2_new - CO2_default
+
+        # Emissionsfaktoren in tCO2/MWh
+        emissions_factors = {
+            "CH4_NG": 0.201,
+            "waste": 0.165
+        }
+
+        # Selektiere Generatoren mit Carrier CH4_NG oder waste
+        mask = gens.carrier.isin(emissions_factors.keys())
+
+        if mask.sum() == 0:
+            print("⚠️ Keine relevanten Generatoren mit CO2-Emissionen gefunden.")
+            return
+
+        # Iteriere über die betroffenen Carrier
+        for carrier, ef in emissions_factors.items():
+            carrier_mask = gens.carrier == carrier
+            n = carrier_mask.sum()
+            if n == 0:
+                continue
+
+            # Berechne den Zuschlag
+            delta_marginal = delta_CO2 * ef
+
+            # Addiere zum bestehenden marginal_cost
+            self.network.generators.loc[carrier_mask, "marginal_cost"] += delta_marginal
+
+            print(
+                f"✅ {n} {carrier}-Generator(en): marginal_cost um {delta_marginal:.2f} €/MWh angepasst (neuer CO2-Preis: {CO2_new} €/tCO2, alt: {CO2_default} €/tCO2).")
+
+
 # === Sensitivitäten ===
 
 def run_solar_cost_sensitivity():
@@ -241,7 +291,37 @@ def run_ch4_cost_sensitivity():
         etrago.optimize()
         print(f"✅ Ergebnisse gespeichert unter: {export_dir}")
 
+def run_co2_price_sensitivity():
+    """
+    Führt eine Sensitivitätsanalyse über verschiedene CO2-Preise durch.
+    Für jeden Preis wird das Modell mit angepassten marginal_costs gerechnet.
+    Ergebnisse werden in separate Ordner exportiert.
+    """
+
+    CO2_prices = [50, 100, 130, 160, 200]  # in €/tCO2
+
+    for price in CO2_prices:
+        print(f"🔄 Starte CO₂-Sensitivität mit CO2-Preis = {price:.2f} €/tCO2")
+
+        # Neues Modell initialisieren
+        etrago = SensitivityEtrago(args=args)
+
+        # CO2-bedingte Marginalkosten anpassen
+        etrago.update_marginal_cost_due_to_CO2_price(price)
+
+        # Export-Verzeichnis anlegen
+        export_dir = f"results/sensitivity_CO2_price_{price:.2f}".replace(".", "_")
+        os.makedirs(export_dir, exist_ok=True)
+        etrago.args["csv_export"] = export_dir
+
+        # Optimierung starten
+        etrago.optimize()
+
+        print(f"✅ Ergebnisse gespeichert unter: {export_dir}")
+
+
 
 if __name__ == "__main__":
     #run_solar_cost_sensitivity()
-    run_ch4_cost_sensitivity()
+    #run_ch4_cost_sensitivity()
+    run_co2_price_sensitivity()
