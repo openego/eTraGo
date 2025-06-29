@@ -112,7 +112,9 @@ args = {
         },
     },
     "generator_noise": 789456,  # apply generator noise, False or seed number
-    "extra_functionality": {},  # Choose function name or {}
+    "extra_functionality": {
+        "add_resistive_heater_vollaststunden_constraint": {}
+    },  # Choose function name or {}
     # Spatial Complexity:
     "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
     "interest_area": ["Ingolstadt"],  # False, path to shapefile or list of nuts names of the area that is excluded from the clustering. By default the buses inside remain the same, but the parameter "n_cluster_interest_area" inside "network clustering" defines if it should be clustered to a certain number of buses.
@@ -779,14 +781,16 @@ def run_etrago(args, json_path):
     etrago.set_battery_interest_area_p_nom_min()
 
     buses_ing = etrago.find_interest_buses()
+
     gens_ing = etrago.network.generators[etrago.network.generators.bus.isin(buses_ing.index)]
     gcolumns = ["bus", "carrier", "p_nom", "marginal_cost", "capital_cost", "p_nom_extendable"]
-    print(gens_ing[gcolumns])
 
     links_ing = etrago.find_links_connected_to_interest_buses()
     lcolumns = ["bus0", "bus1", "carrier", "p_nom", "p_nom_extendable", "capital_cost", "marginal_cost"]
+
     with pd.option_context("display.max_columns", None):
         print(links_ing[lcolumns])
+        print(gens_ing[gcolumns])
 
     # == change capital_cost for sector-coupling H2 - techs ==
 
@@ -816,7 +820,7 @@ def run_etrago(args, json_path):
 
     print(df_unique["capital_cost"])
 
-    etrago.network.export_to_netcdf("base_network.nc")
+    etrago.network.export_to_netcdf("base_network_3a.nc")
 
     #import pdb
     #pdb.set_trace()

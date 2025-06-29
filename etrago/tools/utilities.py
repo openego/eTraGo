@@ -4113,10 +4113,10 @@ def add_gas_CHP_extendable(self):
     """
     # carriers of gas links
     carriers = [
-        "central_gas_CHP",
-        "central_gas_CHP_heat",
-        "central_gas_boiler",
-        #"central_resistive_heater"
+        #"central_gas_CHP",
+        #"central_gas_CHP_heat",
+        #"central_gas_boiler",
+        "central_resistive_heater"
     ]
 
     # Technologie-spezifische p_nom-Vorgaben [MW]
@@ -4134,12 +4134,12 @@ def add_gas_CHP_extendable(self):
         "central_gas_CHP": 41295.8840,
         "central_gas_CHP_heat": 0,
         "central_gas_boiler": 3754.1726,
-        #"central_resistive_heater": 5094.8667
+        "central_resistive_heater": 5094.8667
     }
 
     # VOM (€/MWh)
     marginal_cost_map = {
-        #"central_resistive_heater": 1.0582,
+        "central_resistive_heater": 35,
         "central_gas_CHP_heat": 0,
         "central_gas_boiler": 1.0582
 
