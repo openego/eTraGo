@@ -4074,8 +4074,8 @@ def add_extendable_solar_generators_to_interest_area(self):
                      p_nom=33,
                      p_nom_min=33,
                      p_nom_extendable=True,
-                     p_nom_max=66,
-                     capital_cost=48641.64065,
+                     p_nom_max=119,
+                     capital_cost=33844.32,
                      marginal_cost=0.01,
                      **solar_thermal_attrs)
 
@@ -4113,10 +4113,10 @@ def add_gas_CHP_extendable(self):
     """
     # carriers of gas links
     carriers = [
-        #"central_gas_CHP",
-        #"central_gas_CHP_heat",
-        #"central_gas_boiler",
-        "central_resistive_heater"
+        "central_gas_CHP",
+        "central_gas_CHP_heat",
+        "central_gas_boiler",
+        #"central_resistive_heater"
     ]
 
     # Technologie-spezifische p_nom-Vorgaben [MW]
@@ -4126,7 +4126,8 @@ def add_gas_CHP_extendable(self):
 
     # Technologie-spezifische p_nom_max-Vorgaben [MW]
     p_nom_max_map = {
-        "central_gas_boiler": 1.83
+        "central_gas_boiler": 1.83,
+        #"central_resistive_heater":1.83
     }
 
     # capital_cost (annualised investment costs [€/MW/a])
@@ -4139,7 +4140,7 @@ def add_gas_CHP_extendable(self):
 
     # VOM (€/MWh)
     marginal_cost_map = {
-        "central_resistive_heater": 35,
+        "central_resistive_heater": 1.0582,
         "central_gas_CHP_heat": 0,
         "central_gas_boiler": 1.0582
 
@@ -4224,8 +4225,8 @@ def add_biogas_CHP_extendable(self):
     ]
 
     capital_cost_map = {
-        "central_biogas_CHP": 66960.9053,
-        "rural_biogas_CHP": 66960.9053
+        "central_biogas_CHP": 66960.6721,
+        "rural_biogas_CHP": 66960.6721
     }
 
     marginal_cost_map = {
@@ -4303,8 +4304,8 @@ def add_biomass_CHP_extendable(self):
     ]
 
     capital_cost_map = {
-        "central_biomass_solid_CHP": 232005.3902,
-        "rural_biomass_solid_CHP": 448355.1320
+        "central_biomass_solid_CHP": 232005.3115,
+        "rural_biomass_solid_CHP": 448354.9634
     }
 
     marginal_cost_map = {
@@ -4347,7 +4348,7 @@ def add_biomass_CHP_extendable(self):
                      carrier="biomass_solid",
                      p_nom=10000,
                      p_nom_extendable=False,
-                     marginal_cost=41.7655,
+                     marginal_cost=39.74,
                      capital_cost=0,
                      efficiency=1.0
                      )
@@ -4415,8 +4416,8 @@ def add_extendable_heat_pumps_to_interest_area(self):
     heat_pump_carriers = ["central_heat_pump", "rural_heat_pump"]
 
     capital_cost_map = {
-        "central_heat_pump": 66406.5832,
-        "rural_heat_pump": 101474.6834
+        "central_heat_pump": 64289.9364,
+        "rural_heat_pump": 74910.9791
     }
 
     marginal_cost_map = {
@@ -4463,7 +4464,7 @@ def add_extendable_heat_pumps_to_interest_area(self):
         self.network.links.at[new_index, "scn_name"] = "eGon2035"
         print(f"Wärmepumpe {new_index} ({carrier}) erfolgreich dupliziert mit Zeitreihe.")
 
-def set_battery_interest_area_p_nom_min(self):
+def set_battery_parameter_interest_area(self):
     """
     Setzt p_nom_min = 0 für alle Batterien (storage_units) in der interest area.
     """
@@ -4475,11 +4476,73 @@ def set_battery_interest_area_p_nom_min(self):
     mask = (self.network.storage_units.bus.isin(bus_list)) & (self.network.storage_units.carrier == "battery")
 
     p_nom_min = 18.15
+    capital_cost = 18744.86095
 
     # Setze p_nom_min = 0 direkt in der Original-Tabelle
     self.network.storage_units.loc[mask, "p_nom_min"] = p_nom_min
 
-    print(f"Für {mask.sum()} Batterien in der interest area wurde p_nom_min = {p_nom_min} gesetzt.")
+    # capital_cost setzen
+    self.network.storage_units.loc[mask, "capital_cost"] = capital_cost
+
+    print(
+        f"Für {mask.sum()} Batterien in der interest area wurde "
+        f"p_nom_min = {p_nom_min} und capital_cost = {capital_cost} gesetzt."
+    )
+
+def set_battery_and_heat_store_parameters_interest_area(self):
+    """
+    Setzt p_nom_min und capital_cost für Batterien (storage_units) sowie
+    capital_cost für Wärmespeicher (stores) in der interest area.
+    """
+
+    # Busse der interest area bestimmen
+    buses_ingolstadt = self.find_interest_buses()
+    bus_list = buses_ingolstadt.index.to_list()
+
+    # Filtermaske für Batterien
+    mask_battery = (
+        (self.network.storage_units.bus.isin(bus_list)) &
+        (self.network.storage_units.carrier == "battery")
+    )
+
+    # Parameter für Batterien
+    p_nom_min_battery = 18.15
+    capital_cost_battery = 18744.86095
+
+    # Setze Batterie-Parameter
+    self.network.storage_units.loc[mask_battery, "p_nom_min"] = p_nom_min_battery
+    self.network.storage_units.loc[mask_battery, "capital_cost"] = capital_cost_battery
+
+    # Filter für Wärmespeicher in der Region
+    mask_stores = self.network.stores.bus.isin(bus_list)
+
+    # Selektiere nur relevante Stores
+    stores_of_interest = self.network.stores.loc[mask_stores]
+
+    # Definition capital_cost nach carrier
+    capital_cost_store_values = {
+        "rural_heat_store": 27312.6386,
+        "central_heat_store": 69.0976
+    }
+
+    # Iteration über carrier und setzen der capital_cost
+    for carrier, cap_cost in capital_cost_store_values.items():
+        mask_carrier = stores_of_interest.carrier == carrier
+        affected = mask_carrier.sum()
+        self.network.stores.loc[
+            mask_stores & mask_carrier,
+            "capital_cost"
+        ] = cap_cost
+        print(
+            f"Für {affected} Wärmespeicher vom Typ '{carrier}' wurde capital_cost = {cap_cost} gesetzt."
+        )
+
+    # Zusammenfassung für Batterien
+    print(
+        f"Für {mask_battery.sum()} Batterien in der interest area wurde "
+        f"p_nom_min = {p_nom_min_battery} und capital_cost = {capital_cost_battery} gesetzt."
+    )
+
 
 def add_waste_CHP_ingolstadt(self):
     """

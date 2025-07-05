@@ -113,7 +113,7 @@ args = {
     },
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {
-        "add_resistive_heater_vollaststunden_constraint": {}
+       # "add_resistive_heater_vollaststunden_constraint": {}
     },  # Choose function name or {}
     # Spatial Complexity:
     "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
@@ -715,13 +715,6 @@ def run_etrago(args, json_path):
     #import pdb
     #pdb.set_trace()
 
-    # sensitivity test
-    # change capital_cost of Electrolyser
-    # etrago.network.links.loc[etrago.network.links.carrier == "CH4_to_H2", "capital_cost"] *= 2
-
-    # change capital_cost of Battery
-    #etrago.network.storage_units.loc[etrago.network.storage_units.carrier == "battery", "capital_cost"] *= 0.5
-
     # ehv network clustering
     etrago.ehv_clustering()
 
@@ -778,7 +771,8 @@ def run_etrago(args, json_path):
 
     etrago.add_waste_CHP_ingolstadt()
 
-    etrago.set_battery_interest_area_p_nom_min()
+    #etrago.set_battery_parameter_interest_area()
+    etrago.set_battery_and_heat_store_parameters_interest_area()
 
     buses_ing = etrago.find_interest_buses()
 
@@ -806,7 +800,7 @@ def run_etrago(args, json_path):
     etrago.network.links.loc[etrago.network.links.carrier == "power_to_H2", "capital_cost"] = 95785.81735
 
     # change capital_cost of SMR
-    etrago.network.links.loc[etrago.network.links.carrier == "CH4_to_H2", "capital_cost"] = 33969.92445
+    etrago.network.links.loc[etrago.network.links.carrier == "CH4_to_H2", "capital_cost"] = 32360.1616
 
     # change capital_cost of Fuel Cell
     etrago.network.links.loc[etrago.network.links.carrier == "H2_to_power", "capital_cost"] = 140470.6598
@@ -820,7 +814,7 @@ def run_etrago(args, json_path):
 
     print(df_unique["capital_cost"])
 
-    etrago.network.export_to_netcdf("base_network_3a.nc")
+    etrago.network.export_to_netcdf("base_network.nc")
 
     #import pdb
     #pdb.set_trace()

@@ -3838,7 +3838,7 @@ def add_chp_constraints_linopy(network, snapshots):
                 )
 
 
-def _add_resistive_heater_vollaststunden_constraint(network, snapshots):
+def _add_resistive_heater_vollaststunden_constraint_linopy(network, snapshots):
     """
     Limits the annual full-load hours of the regional electric boiler (resistive heater)
     with bus0 = "16" to max. 500 hours.
