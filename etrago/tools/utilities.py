@@ -4075,7 +4075,7 @@ def add_extendable_solar_generators_to_interest_area(self):
                      p_nom_min=33,
                      p_nom_extendable=True,
                      p_nom_max=119,
-                     capital_cost=33844.32,
+                     capital_cost=53711.0102,
                      marginal_cost=0.01,
                      **solar_thermal_attrs)
 
@@ -4116,7 +4116,7 @@ def add_gas_CHP_extendable(self):
         "central_gas_CHP",
         "central_gas_CHP_heat",
         "central_gas_boiler",
-        #"central_resistive_heater"
+        "central_resistive_heater"
     ]
 
     # Technologie-spezifische p_nom-Vorgaben [MW]
@@ -4127,7 +4127,7 @@ def add_gas_CHP_extendable(self):
     # Technologie-spezifische p_nom_max-Vorgaben [MW]
     p_nom_max_map = {
         "central_gas_boiler": 1.83,
-        #"central_resistive_heater":1.83
+        "central_resistive_heater":1.83
     }
 
     # capital_cost (annualised investment costs [€/MW/a])
@@ -4405,6 +4405,41 @@ def add_biomass_CHP_extendable(self):
 
         self.network.links.at[new_index, "scn_name"] = "eGon2035"
         print(f"Neuer Link {new_index} ({carrier}) mit installed p_nom={link_attrs.get('p_nom', 'n/a')} hinzugefügt.")
+
+def add_biomass_boiler_extendable(self):
+    """
+    Add extendable biomass_solid_boiler to rural_heat bus in the interest area.
+    """
+
+    # Carrier name for the generator
+    carrier = "rural_biomass_solid_boiler"
+
+    # Technical parameters as specified
+    capital_cost = 59700.4849
+    marginal_cost = 39.74
+    efficiency = 0.9
+    p_nom = 33.32
+
+    # Identify the rural_heat bus in the interest area
+    buses_ing = self.find_interest_buses()
+    dH_bus_ing = buses_ing[buses_ing.carrier == "rural_heat"].index[0]
+
+    # Add generator with defined parameters
+    self.network.add("Generator",
+                     name=f"{dH_bus_ing} {carrier}",
+                     bus=dH_bus_ing,
+                     carrier=carrier,
+                     p_nom=p_nom,
+                     p_nom_min=p_nom,
+                     p_nom_extendable=True,
+                     capital_cost=capital_cost,
+                     marginal_cost=marginal_cost,
+                     efficiency=efficiency)
+
+    # Set additional attributes
+    self.network.generators.at[f"{dH_bus_ing} {carrier}", "scn_name"] = "eGon2035"
+
+    print(f"Biomass boiler {carrier} successfully added at bus {dH_bus_ing}.")
 
 def add_extendable_heat_pumps_to_interest_area(self):
     """

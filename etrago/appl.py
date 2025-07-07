@@ -771,6 +771,8 @@ def run_etrago(args, json_path):
 
     etrago.add_waste_CHP_ingolstadt()
 
+    etrago.add_biomass_boiler_extendable()
+
     #etrago.set_battery_parameter_interest_area()
     etrago.set_battery_and_heat_store_parameters_interest_area()
 
@@ -814,7 +816,7 @@ def run_etrago(args, json_path):
 
     print(df_unique["capital_cost"])
 
-    etrago.network.export_to_netcdf("base_network.nc")
+    etrago.network.export_to_netcdf("base_network_1a.nc")
 
     #import pdb
     #pdb.set_trace()
