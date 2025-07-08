@@ -757,6 +757,12 @@ def run_etrago(args, json_path):
 
     # set interest components to extendable and add additional components
 
+    etrago.print_capital_costs()
+
+    etrago.adjust_capital_costs()
+
+    etrago.print_capital_costs()
+
     etrago.add_extendable_solar_generators_to_interest_area()
 
     etrago.reset_gas_CHP_capacities()
@@ -771,10 +777,10 @@ def run_etrago(args, json_path):
 
     etrago.add_waste_CHP_ingolstadt()
 
-    etrago.add_biomass_boiler_extendable()
+    #etrago.add_biomass_boiler_extendable()
 
-    #etrago.set_battery_parameter_interest_area()
-    etrago.set_battery_and_heat_store_parameters_interest_area()
+    etrago.set_battery_parameter_interest_area()
+    #etrago.set_battery_and_heat_store_parameters_interest_area()
 
     buses_ing = etrago.find_interest_buses()
 
@@ -788,35 +794,7 @@ def run_etrago(args, json_path):
         print(links_ing[lcolumns])
         print(gens_ing[gcolumns])
 
-    # == change capital_cost for sector-coupling H2 - techs ==
-
-    h2_tech_links = ["power_to_H2", "CH4_to_H2", "H2_to_power", "H2_to_CH4"]
-
-    df_h2_links = etrago.network.links[etrago.network.links.carrier.isin(h2_tech_links)]
-
-    df_unique = df_h2_links.drop_duplicates(subset='carrier')
-
-    print(df_unique["capital_cost"])
-
-    # change capital_cost of Electrolyser
-    etrago.network.links.loc[etrago.network.links.carrier == "power_to_H2", "capital_cost"] = 95785.81735
-
-    # change capital_cost of SMR
-    etrago.network.links.loc[etrago.network.links.carrier == "CH4_to_H2", "capital_cost"] = 32360.1616
-
-    # change capital_cost of Fuel Cell
-    etrago.network.links.loc[etrago.network.links.carrier == "H2_to_power", "capital_cost"] = 140470.6598
-
-    # change capital_cost of Methanisation
-    etrago.network.links.loc[etrago.network.links.carrier == "H2_to_CH4", "capital_cost"] = 52478.65202
-
-    df_h2_links = etrago.network.links[etrago.network.links.carrier.isin(h2_tech_links)]
-
-    df_unique = df_h2_links.drop_duplicates(subset='carrier')
-
-    print(df_unique["capital_cost"])
-
-    etrago.network.export_to_netcdf("base_network_1a.nc")
+    etrago.network.export_to_netcdf("base_network_1.nc")
 
     #import pdb
     #pdb.set_trace()

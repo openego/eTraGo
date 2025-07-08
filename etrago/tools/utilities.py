@@ -4756,6 +4756,102 @@ def add_biogas_CHP_extendable(self):
         self.network.links.at[new_index, "scn_name"] = "eGon2035"
         print(f"Neuer Link {new_index} ({carrier}) mit installed p_nom={link_attrs.get('p_nom', 'n/a')} hinzugefügt.")
 
+
+def adjust_capital_costs(self):
+    """
+    Update the capital_cost values of selected PyPSA components
+    (links, storage_units, stores) globally based on specified carrier types.
+    """
+
+    # Define new capital costs for each component and carrier
+    link_costs = {
+        "power_to_H2": 95785.8174,
+        "CH4_to_H2": 32360.1616,
+        "H2_to_power": 140470.6598,
+        "H2_to_CH4": 49389.3124
+    }
+
+    storage_unit_costs = {
+        "battery": 18744.86
+    }
+
+    store_costs = {
+        "rural_heat_store": 27312.6386,
+        "central_heat_store": 69.0976
+    }
+
+    # Update link capital costs
+    for carrier, cost in link_costs.items():
+        mask = self.network.links.carrier == carrier
+        self.network.links.loc[mask, "capital_cost"] = cost
+
+    # Update storage unit capital costs
+    for carrier, cost in storage_unit_costs.items():
+        mask = self.network.storage_units.carrier == carrier
+        self.network.storage_units.loc[mask, "capital_cost"] = cost
+
+    # Update store capital costs
+    for carrier, cost in store_costs.items():
+        mask = self.network.stores.carrier == carrier
+        self.network.stores.loc[mask, "capital_cost"] = cost
+
+    logger.info("Capital cost parameters successfully updated.")
+
+
+def print_capital_costs(self):
+    """
+    Print a summary of capital_cost values for selected components
+    (links, storage_units, stores) grouped by carrier.
+
+    Returns
+    -------
+    dict of pd.DataFrame
+        Each key is a component name, each value is a DataFrame with capital_costs per carrier.
+    """
+
+    import pandas as pd  # just in case not yet imported
+
+    cost_summary = {}
+
+    # Links: capital_cost by carrier
+    if not self.network.links.empty:
+        df_links = (
+            self.network.links
+            .groupby("carrier")[["capital_cost"]]
+            .mean()
+            .sort_index()
+        )
+        cost_summary["links"] = df_links
+
+    # Storage Units: capital_cost by carrier
+    if not self.network.storage_units.empty:
+        df_storage = (
+            self.network.storage_units
+            .groupby("carrier")[["capital_cost"]]
+            .mean()
+            .sort_index()
+        )
+        cost_summary["storage_units"] = df_storage
+
+    # Stores: capital_cost by carrier
+    if not self.network.stores.empty:
+        df_stores = (
+            self.network.stores
+            .groupby("carrier")[["capital_cost"]]
+            .mean()
+            .sort_index()
+        )
+        cost_summary["stores"] = df_stores
+
+    # Print summary
+    for comp, df in cost_summary.items():
+        print(f"\n=== Capital Costs: {comp} ===")
+        print(df)
+
+
+#    return cost_summary
+
+
 def update_capital_cost_of_solar_ingolstadt(self, new_capital_cost):
     """
     Setzt den capital_cost für alle solar_rooftop Generatoren in der Interest Area Ingolstadt.
