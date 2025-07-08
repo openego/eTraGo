@@ -66,6 +66,8 @@ setup(
         "tables",
         "tilemapbase == 0.4.5",
         "tsam",
+        "linopy==0.3.2",
+        "xarray<2024.07.2",
     ],
     extras_require={
         "docs": [
