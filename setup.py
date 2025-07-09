@@ -51,6 +51,7 @@ setup(
         "geoalchemy2 >= 0.3.0",
         "geopandas",
         "keyring",
+        "linopy==0.3.2",
         "loguru",
         "matplotlib >= 3.0.3",
         "oedialect",
@@ -66,6 +67,7 @@ setup(
         "tables",
         "tilemapbase == 0.4.5",
         "tsam",
+        "xarray<2024.07.2",
     ],
     extras_require={
         "docs": [
