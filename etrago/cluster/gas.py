@@ -545,12 +545,12 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
         and len(medoid_idx) > 0
     ):
         for cluster in medoid_idx:
-            network_gasgrid_c.buses.loc[
-                busmap[cluster], "x"
-            ] = network.buses.loc[cluster, "x"]
-            network_gasgrid_c.buses.loc[
-                busmap[cluster], "y"
-            ] = network.buses.loc[cluster, "y"]
+            network_gasgrid_c.buses.loc[busmap[cluster], "x"] = (
+                network.buses.loc[cluster, "x"]
+            )
+            network_gasgrid_c.buses.loc[busmap[cluster], "y"] = (
+                network.buses.loc[cluster, "y"]
+            )
 
     drop_nan_values(network_gasgrid_c)
 

@@ -591,9 +591,9 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
             if kmean_settings["method"]["use_reduced_coordinates"]:
                 # TODO : FIX THIS HACK THAT HAS UNEXPECTED SIDE-EFFECTS,
                 # i.e. network is changed in place!!
-                network.buses.loc[
-                    busmap.index, ["x", "y"]
-                ] = network.buses.loc[busmap, ["x", "y"]].values
+                network.buses.loc[busmap.index, ["x", "y"]] = (
+                    network.buses.loc[busmap, ["x", "y"]].values
+                )
 
             clustering = get_clustering_from_busmap(
                 network,
