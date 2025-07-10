@@ -515,7 +515,7 @@ def busmap_ehv_clustering(etrago):
     """
 
     if etrago.args["network_clustering_ehv"]["busmap"] is False:
-        cpu_cores = etrago.args["network_clustering"]["CPU_cores"]
+        cpu_cores = etrago.args["network_clustering_ehv"]["CPU_cores"]
         if cpu_cores == "max":
             cpu_cores = mp.cpu_count()
         else:
@@ -575,9 +575,11 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
     network = etrago.network
     kmean_settings = etrago.args["network_clustering"]
 
-    with threadpool_limits(limits=kmean_settings["CPU_cores"], user_api=None):
+    with threadpool_limits(
+        limits=kmean_settings["method"]["CPU_cores"], user_api=None
+    ):
         # remove stubs
-        if kmean_settings["remove_stubs"]:
+        if kmean_settings["method"]["remove_stubs"]:
             network.determine_network_topology()
             busmap = busmap_by_stubs(network)
             network.generators["weight"] = network.generators["p_nom"]
@@ -586,12 +588,12 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
 
             # reset coordinates to the new reduced guys, rather than taking an
             # average (copied from pypsa.networkclustering)
-            if kmean_settings["use_reduced_coordinates"]:
+            if kmean_settings["method"]["use_reduced_coordinates"]:
                 # TODO : FIX THIS HACK THAT HAS UNEXPECTED SIDE-EFFECTS,
                 # i.e. network is changed in place!!
-                network.buses.loc[busmap.index, ["x", "y"]] = (
-                    network.buses.loc[busmap, ["x", "y"]].values
-                )
+                network.buses.loc[
+                    busmap.index, ["x", "y"]
+                ] = network.buses.loc[busmap, ["x", "y"]].values
 
             clustering = get_clustering_from_busmap(
                 network,
@@ -600,7 +602,9 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
                 one_port_strategies=strategies_one_ports(),
                 generator_strategies=strategies_generators(),
                 aggregate_one_ports=aggregate_one_ports,
-                line_length_factor=kmean_settings["line_length_factor"],
+                line_length_factor=kmean_settings["method"][
+                    "line_length_factor"
+                ],
             )
             etrago.network = clustering.network
 
@@ -611,10 +615,10 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
             selected_network,
             bus_weightings=pd.Series(weight),
             n_clusters=n_clusters,
-            n_init=kmean_settings["n_init"],
-            max_iter=kmean_settings["max_iter"],
-            tol=kmean_settings["tol"],
-            random_state=kmean_settings["random_state"],
+            n_init=kmean_settings["method"]["n_init"],
+            max_iter=kmean_settings["method"]["max_iter"],
+            tol=kmean_settings["method"]["tol"],
+            random_state=kmean_settings["method"]["random_state"],
         )
 
     return busmap
@@ -734,9 +738,11 @@ def kmedoids_dijkstra_clustering(
     # n_jobs was deprecated for the function fit(). scikit-learn recommends
     # to use threadpool_limits:
     # https://scikit-learn.org/stable/computing/parallelism.html
-    with threadpool_limits(limits=settings["CPU_cores"], user_api=None):
+    with threadpool_limits(
+        limits=settings["method"]["CPU_cores"], user_api=None
+    ):
         # remove stubs
-        if settings["remove_stubs"]:
+        if settings["method"]["remove_stubs"]:
             logger.info(
                 """options remove_stubs and use_reduced_coordinates not
                 reasonable for k-medoids Dijkstra Clustering"""
@@ -751,10 +757,10 @@ def kmedoids_dijkstra_clustering(
         kmeans = KMeans(
             init="k-means++",
             n_clusters=n_clusters,
-            n_init=settings["n_init"],
-            max_iter=settings["max_iter"],
-            tol=settings["tol"],
-            random_state=settings["random_state"],
+            n_init=settings["method"]["n_init"],
+            max_iter=settings["method"]["max_iter"],
+            tol=settings["method"]["tol"],
+            random_state=settings["method"]["random_state"],
         )
         kmeans.fit(points)
 
@@ -781,7 +787,7 @@ def kmedoids_dijkstra_clustering(
                 buses,
                 connections,
                 medoid_idx,
-                etrago.args["network_clustering"]["CPU_cores"],
+                etrago.args["network_clustering"]["method"]["CPU_cores"],
             )
         elif len(busmap) < n_clusters:
             logger.warning(

@@ -55,16 +55,15 @@ args = {
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
         "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "formulation": "linopy",
-        "market_optimization":
-            {
-                "active": True,
-                "market_zones": "status_quo", # only used if type='market_grid'
-                "rolling_horizon": {# Define parameter of market optimization
-                    "planning_horizon": 168, # number of snapshots in each optimization
-                    "overlap": 120, # number of overlapping hours
-                 },
-                "redispatch": True,
-             }
+        "market_optimization": {
+            "active": False,
+            "market_zones": "status_quo",  # only used if type='market_grid'
+            "rolling_horizon": {  # Define parameter of market optimization
+                "planning_horizon": 168,  # number of snapshots in each optimization
+                "overlap": 120,  # number of overlapping hours
+            },
+            "redispatch": True,
+        },
     },
     "pf_post_lopf": {
         "active": False,  # choose if perform a pf after lopf
@@ -113,58 +112,42 @@ args = {
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
-    "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
+    "delete_dispensable_ac_buses": True,  # bool. Find and delete dispensable buses
     "network_clustering_ehv": {
         "active": False,  # choose if clustering of HV buses to EHV buses is activated
         "busmap": False,  # False or path to stored busmap
-    },
-    "network_clustering": {
-        "active": True,  # choose if clustering is activated
-        "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
-        "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
-        "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_gas": 15,  # total number of resulting CH4 nodes (DE+foreign)
-        "n_clusters_h2": 15,  # total number of resulting H2 nodes (DE+foreign)
-        "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
-        "k_elec_busmap": False,  # False or path/to/busmap.csv
-        "k_gas_busmap": False,  # False or path/to/ch4_busmap.csv
-        "bus_weight_tocsv": None,  # None or path/to/bus_weight.csv
-        "bus_weight_fromcsv": None,  # None or path/to/bus_weight.csv
-        "gas_weight_tocsv": None,  # None or path/to/gas_bus_weight.csv
-        "gas_weight_fromcsv": None,  # None or path/to/gas_bus_weight.csv
-        "line_length_factor": 1,  # Factor to multiply distance between new buses for new line lengths
-        "remove_stubs": False,  # remove stubs bevore kmeans clustering
-        "use_reduced_coordinates": False,  # If True, do not average cluster coordinates
-        "random_state": 42,  # random state for replicability of clustering results
-        "n_init": 10,  # affects clustering algorithm, only change when neccesary
-        "max_iter": 100,  # affects clustering algorithm, only change when neccesary
-        "tol": 1e-6,  # affects clustering algorithm, only change when neccesary
         "CPU_cores": 4,  # number of cores used during clustering, "max" for all cores available.
     },
-    "sector_coupled_clustering": {
-        "active": True,  # choose if clustering is activated
-        "carrier_data": {  # select carriers affected by sector coupling
-            "central_heat": {
-                "base": ["CH4", "AC"],
-                "strategy": "simultaneous",  # select strategy to cluster other sectors
-            },
-            "rural_heat": {
-                "base": ["CH4", "AC"],
-                "strategy": "simultaneous",  # select strategy to cluster other sectors
-            },
-            "H2": {
-                "base": ["CH4"],
-                "strategy": "consecutive",  # select strategy to cluster other sectors
-            },
-            "H2_saltcavern": {
-                "base": ["H2_grid"],
-                "strategy": "consecutive",  # select strategy to cluster other sectors
-            },
-            "Li_ion": {
-                "base": ["AC"],
-                "strategy": "consecutive",  # select strategy to cluster other sectors
-            },
+    "network_clustering": {
+        "focus_area": None,  # None or focus area
+        "electricity_grid": {
+            "active": True,  # choose if clustering is activated
+            "n_clusters": 30,  # total number of resulting AC nodes (DE+foreign)
+            "cluster_foreign": False,  # take foreign AC buses into account, True or False
+            "k_elec_busmap": False,  # False or path/to/busmap.csv
+            "bus_weight_tocsv": None,  # None or path/to/bus_weight.csv
+            "bus_weight_fromcsv": None,  # None or path/to/bus_weight.csv
+        },
+        "gas_grids": {
+            "active": True,  # choose if clustering is activated
+            "n_clusters_ch4": 15,  # total number of resulting CH4 nodes (DE+foreign)
+            "n_clusters_h2": 15,  # total number of resulting H2 nodes (DE+foreign)
+            "cluster_foreign_ch4": False,  # take foreign CH4 buses into account, True or False
+            "k_ch4_busmap": False,  # False or path/to/ch4_busmap.csv
+            "ch4_weight_tocsv": None,  # None or path/to/gas_bus_weight.csv
+            "ch4_weight_fromcsv": None,  # None or path/to/gas_bus_weight.csv
+            "sector_coupled_clustering": True,  # choose if clustering is activated
+        },
+        "method": {
+            "algorithm": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
+            "remove_stubs": False,  # remove stubs before kmeans clustering
+            "use_reduced_coordinates": False,  # If True, do not average cluster coordinates in kmeans
+            "line_length_factor": 1,  # Factor to multiply distance between new buses for new line lengths
+            "random_state": 42,  # random state for replicability of clustering results
+            "n_init": 10,  # affects clustering algorithm, only change when neccesary
+            "max_iter": 100,  # affects clustering algorithm, only change when neccesary
+            "tol": 1e-6,  # affects clustering algorithm, only change when neccesary
+            "CPU_cores": 4,  # number of cores used during clustering, "max" for all cores available.
         },
     },
     "spatial_disaggregation": None,  # None or 'uniform'
@@ -437,178 +420,146 @@ def run_etrago(args, json_path):
         a new busmap must be calculated. False or path to the busmap in csv
         format should be given.
         Default: False
+        * "CPU_cores" : int or str
+            Number of cores used in clustering. Specify a concrete number or
+            "max" to use all cores available.
+            Default: 4.
 
     network_clustering : dict
         Choose if you want to apply a clustering of all network buses and
         specify settings.
         The provided dictionary can have the following entries:
 
-        * "active" : bool
-            If True, the AC buses are clustered down to ``'n_clusters_AC'``
-            and the gas buses are clustered down to``'n_clusters_gas'``.
-            Default: True.
-        * "method" : str
-            Method used for AC clustering. You can choose between two
-            clustering methods:
-            * "kmeans": considers geographical locations of buses
-            * "kmedoids-dijkstra":  considers electrical distances between
-            buses
+        * "focus_area" : TODO
+            Beschreibung
+        * "electricity_grid" : dict
+            Choose clustering settings for electricity grid:
 
-            Default: "kmedoids-dijkstra".
-        * "n_clusters_AC" : int
-            Defines total number of resulting AC nodes including DE and foreign
-            nodes if `cluster_foreign_AC` is set to True, otherwise only DE
-            nodes.
-            Default: 30.
-        * "cluster_foreign_AC" : bool
-            If set to False, the AC buses outside Germany are not clustered
-            and the buses inside Germany are clustered to complete
-            ``'n_clusters_AC'``. If set to True, foreign AC buses are clustered
-            as well and included in number of clusters specified through
-            ``'n_clusters_AC'``.
-            Default: False.
-        * "method_gas" : str
-            Method used for gas clustering. You can choose between two
-            clustering methods:
-            * "kmeans": considers geographical locations of buses
-            * "kmedoids-dijkstra":  considers 'electrical' distances between
-            buses
+            * "active": bool
+                If True, the AC buses are clustered down to ``'n_clusters'``.
+                Default: True.
+            * "n_clusters" : int
+                Defines total number of resulting AC nodes including DE and foreign
+                nodes if `cluster_foreign_AC` is set to True, otherwise only DE
+                nodes.
+                Default: 30.
+            * "cluster_foreign" : bool
+                If set to False, the AC buses outside Germany are not clustered
+                and the buses inside Germany are clustered to complete
+                ``'n_clusters'``. If set to True, foreign AC buses are clustered
+                as well and included in number of clusters specified through
+                ``'n_clusters'``.
+                Default: False.
+            * "k_elec_busmap" : bool or str
+                With this option you can load cluster coordinates from a previous
+                AC clustering run. Options are False, in which case no previous
+                busmap is loaded, and path/to/busmap.csv in which case the busmap
+                is loaded from the specified file. Please note, that when a path is
+                provided, the set number of clusters will be ignored.
+                Default: False.
+            * "bus_weight_fromcsv" : None or str
+                In general, the weighting of AC buses takes place considering
+                generation and load at each node. With this option, you can load an
+                own weighting for the AC buses by providing a path to a csv file.
+                If None, weighting is conducted as described above.
+                Default: None.
+            * "bus_weight_tocsv" : None or str
+                Specifies whether to store the weighting of AC buses to csv or not.
+                If None, it is not stored. Otherwise, it is stored to the provided
+                path/to/bus_weight.csv.
+                Default: None.
 
-            Default: "kmedoids-dijkstra".
-        * "n_clusters_gas" : int
-            Defines total number of resulting CH4 nodes including DE and
-            foreign nodes if `cluster_foreign_gas` is set to True, otherwise
-            only DE nodes.
-            Default: 14.
-        * "n_clusters_h2" : int
-            Defines total number of resulting H2 nodes including DE and
-            foreign nodes if `cluster_foreign_gas` is set to True, otherwise
-            only DE nodes.
-            Default: 14.
-        * "cluster_foreign_gas" : bool
-            If set to False, the gas buses outside Germany are not clustered
-            and the buses inside Germany are clustered to complete
-            ``'n_clusters_gas'``. If set to True, foreign gas buses are
-            clustered as well and included in number of clusters specified
-            through ``'n_clusters_gas'``.
-            Default: False.
-        * "k_elec_busmap" : bool or str
-            With this option you can load cluster coordinates from a previous
-            AC clustering run. Options are False, in which case no previous
-            busmap is loaded, and path/to/busmap.csv in which case the busmap
-            is loaded from the specified file. Please note, that when a path is
-            provided, the set number of clusters will be ignored.
-            Default: False.
-        * "k_gas_busmap" : bool or str
-            With this option you can load cluster coordinates from a previous
-            gas clustering run. Options are False, in which case no previous
-            busmap is loaded, and path/to/busmap.csv in which case the busmap
-            is loaded from the specified file. Please note, that when a path is
-            provided, the set number of clusters will be ignored.
-            Default: False.
-        * "bus_weight_fromcsv" : None or str
-            In general, the weighting of AC buses takes place considering
-            generation and load at each node. With this option, you can load an
-            own weighting for the AC buses by providing a path to a csv file.
-            If None, weighting is conducted as described above.
-            Default: None.
-        * "bus_weight_tocsv" : None or str
-            Specifies whether to store the weighting of AC buses to csv or not.
-            If None, it is not stored. Otherwise, it is stored to the provided
-            path/to/bus_weight.csv.
-            Default: None.
-        * "gas_weight_fromcsv" : None or str
-            In general, the weighting of CH4 nodes takes place considering
-            generation and load at each node, as well as non-transport
-            capacities at each node. With this option, you can load an own
-            weighting for the CH4 buses by providing a path to a csv file. If
-            None, weighting is conducted as described above.
-            Default: None.
-        * "gas_weight_tocsv" : None or str
-            Specifies whether to store the weighting of gas buses to csv or
-            not. If None, it is not stored. Otherwise, it is stored to the
-            provided path/to/gas_bus_weight.csv.
-            Default: None.
-        * "line_length_factor" : float
-            Defines the factor to multiply the crow-flies distance
-            between new buses by, in order to get new line lengths.
-            Default: 1.
-        * "remove_stubs" : bool
-            If True, remove stubs before k-means clustering, which reduces the
-            overestimating of line meshes.
-            This option is only used within the k-means clustering.
-            Default: False.
-        * "use_reduced_coordinates" : bool
-            If True, do not average cluster coordinates, but take from busmap.
-            This option is only used within the k-means clustering.
-            Default: False.
-        * "random_state" : int
-            Random state for replicability of clustering results. Default: 42.
-        * "n_init" : int
-            Affects clustering algorithm, only change when necessary!
-            Documentation and possible settings are described in
-            sklearn-package (sklearn/cluster/kmeans.py).
-            Default: 10.
-        * "max_iter" : int
-            Affects clustering algorithm, only change when necessary!
-            Documentation and possible settings are described in
-            sklearn-package (sklearn/cluster/kmeans.py).
-            Default: 100.
-        * "tol" : float
-            Affects clustering algorithm, only change when necessary!
-            Documentation and possible settings are described in
-            sklearn-package (sklearn/cluster/kmeans.py).
-            Default: 1e-6.
-        * "CPU_cores" : int or str
-            Number of cores used in clustering. Specify a concrete number or
-            "max" to use all cores available.
-            Default: 4.
+        * "gas_grids" : dict
+            Choose clustering settings for CH4 and H2 grids:
 
-    sector_coupled_clustering : dict
-        Choose if you want to apply a clustering of sector coupled carriers,
-        such as central_heat, and specify settings.
-        The provided dictionary can have the following entries:
+            * "active": bool
+                If True, the AC buses are clustered down to ``'n_clusters'``.
+                Default: True.
+            * "n_clusters_ch4" : int
+                Defines total number of resulting CH4 nodes including DE and
+                foreign nodes if `cluster_foreign_gas` is set to True, otherwise
+                only DE nodes.
+                Default: 14.
+            * "n_clusters_h2" : int
+                Defines total number of resulting H2 nodes including DE and
+                foreign nodes if `cluster_foreign_gas` is set to True, otherwise
+                only DE nodes.
+                Default: 14.
+            "cluster_foreign_ch4" : bool
+                If set to False, the gas buses outside Germany are not clustered
+                and the buses inside Germany are clustered to complete
+                ``'n_clusters_gas'``. If set to True, foreign gas buses are
+                clustered as well and included in number of clusters specified
+                through ``'n_clusters_ch4'``.
+                Default: False.
+            * "k_ch4_busmap" : bool or str
+                With this option you can load cluster coordinates from a previous
+                gas clustering run. Options are False, in which case no previous
+                busmap is loaded, and path/to/busmap.csv in which case the busmap
+                is loaded from the specified file. Please note, that when a path is
+                provided, the set number of clusters will be ignored.
+                Default: False.
+            * "ch4_weight_fromcsv" : None or str
+                In general, the weighting of CH4 nodes takes place considering
+                generation and load at each node, as well as non-transport
+                capacities at each node. With this option, you can load an own
+                weighting for the CH4 buses by providing a path to a csv file. If
+                None, weighting is conducted as described above.
+                Default: None.
+            * "ch4_weight_tocsv" : None or str
+                Specifies whether to store the weighting of gas buses to csv or
+                not. If None, it is not stored. Otherwise, it is stored to the
+                provided path/to/gas_bus_weight.csv.
+                Default: None.
+            * "sector_coupled_clustering" : bool
+                Choose if you want to apply a clustering of sector coupled carriers,
+                such as central_heat. You finde the specified settings in cluster/gas.py.
+                Default: True.
 
-        * "active" : bool
-            State if you want to apply clustering of sector coupled carriers,
-            such as central_heat.
-            Default: True.
-        * "carrier_data" : dict[str, dict]
-            Keys of the dictionary specify carriers affected by sector
-            coupling, e.g. "central_heat". The corresponding dictionaries
-            specify, how the carrier should be clustered. This dictionary must
-            contain the following entries:
+        * "method" : dict
+            Choose settings for network clusterings:
 
-            * "base" : list(str)
-                The approach bases on already clustered buses (AC and CH4) and
-                builds clusters around the topology of those buses. With this
-                option, you can specify the carriers to use as base. See
-                `strategy` for more information.
-            * "strategy" :  str
-                Strategy to use in the clustering. Possible options are:
-
-                * "consecutive"
-                    This strategy clusters around the buses of the first
-                    carrier in the `'base'`` list. The links to other buses are
-                    preserved. All buses, that have no connection to the first
-                    carrier will then be clustered around the buses of the
-                    second carrier in the list.
-                * "simultaneous"
-                    This strategy looks for links connecting the buses of the
-                    carriers in the ``'base'`` list and aggregates buses in
-                    case they have the same set of links connected. For
-                    example, a heat bus connected to CH4 via gas boiler and to
-                    AC via heat pump will only form a cluster with other buses,
-                    if these have the same links to the same clusters of CH4
-                    and AC.
-
-            Per default, the following dictionary is set:
-            {
-                "central_heat": {
-                    "base": ["CH4", "AC"],
-                    "strategy": "simultaneous",
-                },
-            }
+            * "algortihm": dict
+                Algorthm used for clustering. You can choose between two
+                clustering methods:
+                    * "kmeans": considers geographical locations of buses
+                    * "kmedoids-dijkstra":  considers electrical distances between
+                        buses
+                Default: "kmedoids-dijkstra".
+            * "remove_stubs" : bool
+                If True, remove stubs before k-means clustering, which reduces the
+                overestimating of line meshes.
+                This option is only used within the k-means clustering.
+                Default: False.
+            * "use_reduced_coordinates" : bool
+                If True, do not average cluster coordinates, but take from busmap.
+                This option is only used within the k-means clustering.
+                Default: False.
+            * "line_length_factor" : float
+                Defines the factor to multiply the crow-flies distance
+                between new buses by, in order to get new line lengths.
+                Default: 1.
+            * "random_state" : int
+                Random state for replicability of clustering results. Default: 42.
+            * "n_init" : int
+                Affects clustering algorithm, only change when necessary!
+                Documentation and possible settings are described in
+                sklearn-package (sklearn/cluster/kmeans.py).
+                Default: 10.
+            * "max_iter" : int
+                Affects clustering algorithm, only change when necessary!
+                Documentation and possible settings are described in
+                sklearn-package (sklearn/cluster/kmeans.py).
+                Default: 100.
+            * "tol" : float
+                Affects clustering algorithm, only change when necessary!
+                Documentation and possible settings are described in
+                sklearn-package (sklearn/cluster/kmeans.py).
+                Default: 1e-6.
+            * "CPU_cores" : int or str
+                Number of cores used in clustering. Specify a concrete number or
+                "max" to use all cores available.
+                Default: 4.
 
     disaggregation : None or str
         Specify None, in order to not perform a spatial disaggregation, or the
@@ -707,13 +658,13 @@ def run_etrago(args, json_path):
 
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
-    
+
     # ehv network clustering
     etrago.ehv_clustering()
 
     # spatial clustering
     etrago.spatial_clustering()
-    etrago.spatial_clustering_gas()    
+    etrago.spatial_clustering_gas()
 
     # snapshot clustering
     etrago.snapshot_clustering()
