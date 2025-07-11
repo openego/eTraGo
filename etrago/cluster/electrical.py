@@ -492,8 +492,8 @@ def select_elec_network(etrago, apply_on="grid_model"):
     apply_on: str
         gives information about the objective of the output network. If
         "grid_model" is provided, the value assigned in the args for
-        ["network_clustering"]["electricity_grid"]["cluster_foreign""] will 
-        define if the foreign buses will be included in the network. 
+        ["network_clustering"]["electricity_grid"]["cluster_foreign""] will
+        define if the foreign buses will be included in the network.
         If "market_model" is provided, foreign buses will be always included.
 
     Returns

@@ -412,23 +412,23 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
             "carrier_data": {  # select carriers affected by sector coupling
                 "central_heat": {
                     "base": ["CH4", "AC"],
-                    "strategy": "simultaneous", # clustering strategy
+                    "strategy": "simultaneous",  # clustering strategy
                 },
                 "rural_heat": {
                     "base": ["CH4", "AC"],
-                    "strategy": "simultaneous", # clustering strategy
+                    "strategy": "simultaneous",  # clustering strategy
                 },
                 "H2": {
                     "base": ["CH4"],
-                    "strategy": "consecutive", # clustering strategy
+                    "strategy": "consecutive",  # clustering strategy
                 },
                 "H2_saltcavern": {
                     "base": ["H2_grid"],
-                    "strategy": "consecutive", # clustering strategy
+                    "strategy": "consecutive",  # clustering strategy
                 },
                 "Li_ion": {
                     "base": ["AC"],
-                    "strategy": "consecutive", # clustering strategy
+                    "strategy": "consecutive",  # clustering strategy
                 },
             },
         }
