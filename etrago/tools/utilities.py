@@ -3938,8 +3938,8 @@ def find_interest_buses(self):
     buses_in_area = buses[buses.geometry.within(interest_area.unary_union)]
     # buses_in_area = buses[buses.geometry.within(interest_area.buffer(0.005).unary_union)]
 
-    print(f"{len(buses_in_area)} Busse in {area_filter} gefunden.")
-    print(buses_in_area.carrier)
+    #print(f"{len(buses_in_area)} Busse in {area_filter} gefunden.")
+    #print(buses_in_area.carrier)
 
     return buses_in_area
 
@@ -4113,8 +4113,8 @@ def add_gas_CHP_extendable(self):
     """
     # carriers of gas links
     carriers = [
-        "central_gas_CHP",
-        "central_gas_CHP_heat",
+        #"central_gas_CHP",
+        #"central_gas_CHP_heat",
         "central_gas_boiler",
         "central_resistive_heater"
     ]
@@ -4190,6 +4190,62 @@ def add_gas_CHP_extendable(self):
 
         self.network.links.at[new_index, "scn_name"] = "eGon2035"
         print(f"Neuer Link {new_index} ({carrier}) mit installed p_nom={link_attrs.get('p_nom', 'n/a')} hinzugefügt.")
+
+
+def add_gas_CHP_fixed(self):
+    """
+    Adds fixed-capacity gas CHP links (electric and heat output).
+    Sets p_nom = p_nom_min and disables investment (p_nom_extendable=False).
+    """
+
+    # Relevant technologies and their fixed capacities
+    fixed_links = {
+        "central_gas_CHP": 22.83,         # [MW electric]
+        "central_gas_CHP_heat": 35.76     # [MW thermal]
+    }
+
+    # Capital cost map [€/MW/a]
+    capital_cost_map = {
+        "central_gas_CHP": 41295.8840,
+        "central_gas_CHP_heat": 0
+    }
+
+    # Link attributes to transfer from existing links
+    default_attrs = [
+        'efficiency', 'start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time',
+        'up_time_before', 'down_time_before', 'ramp_limit_up', 'ramp_limit_down',
+        'ramp_limit_start_up', 'ramp_limit_shut_down', "p_nom_mod",
+        "marginal_cost", "marginal_cost_quadratic", "stand_by_cost"
+    ]
+
+    # Find matching links from area of interest
+    connected_links = find_links_connected_to_interest_buses(self)
+    gas_links = connected_links[connected_links.carrier.isin(fixed_links.keys())]
+
+    next_link_id = max([int(i) for i in self.network.links.index if str(i).isdigit()]) + 1
+
+    for exist_index, row in gas_links.iterrows():
+        carrier = row.carrier
+
+        # Copy default attributes from original link
+        link_attrs = {attr: row.get(attr, 0) for attr in default_attrs}
+        link_attrs["p_nom"] = fixed_links[carrier]
+        link_attrs["p_nom_min"] = fixed_links[carrier]
+        link_attrs["capital_cost"] = capital_cost_map.get(carrier, 0)
+
+        new_index = str(next_link_id)
+        next_link_id += 1
+
+        self.network.add("Link",
+                         name=new_index,
+                         bus0=row.bus0,
+                         bus1=row.bus1,
+                         carrier=carrier,
+                         p_nom_extendable=False,
+                         **link_attrs)
+
+        self.network.links.at[new_index, "scn_name"] = "eGon2035"
+        print(f"Fixer Link {new_index} ({carrier}) mit p_nom = {fixed_links[carrier]} MW hinzugefügt.")
 
 
 def get_matching_biogs_bus(self):

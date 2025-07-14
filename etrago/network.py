@@ -127,7 +127,9 @@ from etrago.tools.utilities import (
     update_capital_cost_of_solar_ingolstadt,
     add_biomass_boiler_extendable,
     adjust_capital_costs,
-    print_capital_costs
+    print_capital_costs,
+    add_gas_CHP_fixed,
+    add_gas_CHP_fixed
 )
 
 logger = logging.getLogger(__name__)
@@ -431,6 +433,8 @@ class Etrago:
     adjust_capital_costs = adjust_capital_costs
 
     print_capital_costs = print_capital_costs
+
+    add_gas_CHP_fixed = add_gas_CHP_fixed
 
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)

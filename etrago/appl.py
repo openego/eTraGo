@@ -769,6 +769,8 @@ def run_etrago(args, json_path):
 
     etrago.add_gas_CHP_extendable()
 
+    etrago.add_gas_CHP_fixed()
+
     etrago.add_biogas_CHP_extendable()
 
     etrago.add_biomass_CHP_extendable()
@@ -791,10 +793,11 @@ def run_etrago(args, json_path):
     lcolumns = ["bus0", "bus1", "carrier", "p_nom", "p_nom_extendable", "capital_cost", "marginal_cost"]
 
     with pd.option_context("display.max_columns", None):
+        print(buses_ing)
         print(links_ing[lcolumns])
         print(gens_ing[gcolumns])
 
-    etrago.network.export_to_netcdf("base_network_1.nc")
+    etrago.network.export_to_netcdf("base_network_Scenario_1_test.nc")
 
     #import pdb
     #pdb.set_trace()
