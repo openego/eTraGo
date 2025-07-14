@@ -4386,10 +4386,10 @@ def add_biogas_CHP_extendable(self):
     }
 
     efficiency_map = {
-        "central_biogas_CHP": 0.45,
-        "central_biogas_CHP_heat": 0.45,
-        "rural_biogas_CHP": 0.45,
-        "rural_biogas_CHP_heat": 0.45
+        "central_biogas_CHP": 0.445,
+        "central_biogas_CHP_heat": 0.4541,
+        "rural_biogas_CHP": 0.445,
+        "rural_biogas_CHP_heat": 0.4541
     }
 
     default_attrs = [
