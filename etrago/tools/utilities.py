@@ -4084,6 +4084,101 @@ def add_extendable_solar_generators_to_interest_area(self):
 
     print(f"Extendable solar_thermal_collector generator {new_thermal_index} added successfully on rural_heat bus {rural_heat_bus}.")
 
+def replace_gas_links_with_extendable(self):
+    """
+    Replaces selected gas-based links in the interest area with extendable variants.
+
+    - Duplicates original gas-based links as investable links with defined costs and constraints.
+    - Updates marginal_cost and efficiency for relevant carriers.
+    - Removes the original links from the network afterward.
+
+    'industrial_gas_CHP' is not affected.
+    """
+
+    # Carriers to duplicate and replace
+    replace_carriers = [
+        "central_gas_CHP",
+        "central_gas_CHP_heat",
+        "central_gas_boiler",
+        "central_resistive_heater"
+    ]
+
+    installed_p_nom = {
+        "central_gas_CHP": 22.86
+    }
+
+    p_nom_max_map = {
+        "central_gas_boiler": 1.83,
+        "central_resistive_heater": 1.83
+    }
+
+    capital_cost_map = {
+        "central_gas_CHP": 41295.8840,
+        "central_gas_CHP_heat": 0,
+        "central_gas_boiler": 3754.1726,
+        "central_resistive_heater": 5094.8667
+    }
+
+    marginal_cost_map = {
+        "central_gas_CHP": 4.3916,
+        "central_resistive_heater": 1.0582,
+        "central_gas_CHP_heat": 0,
+        "central_gas_boiler": 1.0582
+    }
+
+    efficiency_map = {
+        "central_gas_CHP": 0.445,
+        "central_gas_CHP_heat": 0.4541
+    }
+
+    default_attrs = [
+        'efficiency', 'start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time',
+        'up_time_before', 'down_time_before', 'ramp_limit_up', 'ramp_limit_down',
+        'ramp_limit_start_up', 'ramp_limit_shut_down', "p_nom_mod",
+        "marginal_cost_quadratic", "stand_by_cost"
+    ]
+
+    # Step 1️⃣ Filter links in interest area
+    connected_links = self.find_links_connected_to_buses()
+    to_process = connected_links[connected_links.carrier.isin(replace_carriers)]
+
+    next_link_id = max([int(i) for i in self.network.links.index if str(i).isdigit()] + [0]) + 1
+
+    for exist_index, row in to_process.iterrows():
+        carrier = row.carrier
+        link_attrs = {attr: row.get(attr, 0) for attr in default_attrs}
+
+        # update marginal cost and efficiency explicitly
+        link_attrs["capital_cost"] = capital_cost_map.get(carrier, 0)
+        link_attrs["marginal_cost"] = marginal_cost_map.get(carrier, row.get("marginal_cost", 0))
+        link_attrs["efficiency"] = efficiency_map.get(carrier, row.get("efficiency", 0))
+
+        if carrier in installed_p_nom:
+            link_attrs["p_nom"] = installed_p_nom[carrier]
+            link_attrs["p_nom_min"] = installed_p_nom[carrier]
+
+        if carrier in p_nom_max_map:
+            link_attrs["p_nom_max"] = p_nom_max_map[carrier]
+
+        new_index = str(next_link_id)
+        next_link_id += 1
+
+        self.network.add("Link",
+                         name=new_index,
+                         bus0=row.bus0,
+                         bus1=row.bus1,
+                         carrier=carrier,
+                         p_nom_extendable=True,
+                         **link_attrs)
+        self.network.links.at[new_index, "scn_name"] = "eGon2035"
+        print(f"New extendable link {new_index} ({carrier}) added with p_nom={link_attrs.get('p_nom', 'n/a')}.")
+
+    # Step 2️⃣ Remove original links
+    for index in to_process.index:
+        carrier = self.network.links.at[index, "carrier"]
+        self.network.links.drop(index=index, inplace=True)
+        print(f"Removed original link {index} ({carrier})")
+
 
 
 def reset_gas_CHP_capacities(self):

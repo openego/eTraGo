@@ -765,11 +765,13 @@ def run_etrago(args, json_path):
 
     etrago.add_extendable_solar_generators_to_interest_area()
 
-    etrago.reset_gas_CHP_capacities()
+    etrago.replace_gas_links_with_extendable()
 
-    etrago.add_gas_CHP_extendable()
+    #etrago.reset_gas_CHP_capacities()
 
-    etrago.add_gas_CHP_fixed()
+    #etrago.add_gas_CHP_extendable()
+
+    #etrago.add_gas_CHP_fixed()
 
     etrago.add_biogas_CHP_extendable()
 
