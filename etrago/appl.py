@@ -113,7 +113,7 @@ args = {
     },
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {
-       # "add_resistive_heater_vollaststunden_constraint": {}
+       "add_chp_ratio_constraint": {}
     },  # Choose function name or {}
     # Spatial Complexity:
     "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
@@ -799,7 +799,7 @@ def run_etrago(args, json_path):
         print(links_ing[lcolumns])
         print(gens_ing[gcolumns])
 
-    etrago.network.export_to_netcdf("base_network_Scenario_1_test.nc")
+    etrago.network.export_to_netcdf("base_network_Scenario_1a.nc")
 
     #import pdb
     #pdb.set_trace()

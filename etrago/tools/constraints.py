@@ -3457,7 +3457,7 @@ class Constraints:
                     logger.info(
                         "Added extra_functionality {}".format(constraint)
                     )
-                except:
+                except Exception as e:
                     logger.warning(
                         "Constraint {} not defined for linopy formulation".format(
                             constraint
@@ -3465,6 +3465,7 @@ class Constraints:
                         + ". New constraints can be defined in"
                         + " etrago/tools/constraint.py."
                     )
+                    logger.warning(f"Constraint {constraint} failed: {e}")
             else:
                 try:
                     eval("_" + constraint + "_nmp(self, network, snapshots)")
@@ -3822,6 +3823,90 @@ def add_chp_constraints_linopy(network, snapshots):
                     "Link",
                     "top_iso_fuel_line_" + i + "_" + str(snapshot),
                 )
+
+
+def _add_chp_ratio_constraint_linopy(self, network, snapshots):
+    """
+    Adds ratio constraints between electricity and heat dispatch for all CHP types.
+    The constraint enforces: p_heat_out = (eta_th / eta_el) * p_el_out
+
+    This is applied using: p_out = p_in * efficiency
+    Hence:
+        p_heat * eta_th - ratio * p_el * eta_el == 0
+
+    Parameters
+    ----------
+    self : Constraints
+        Constraints object (not using etrago helpers here).
+    network : pypsa.Network
+        The PyPSA network object.
+    snapshots : pandas.Index
+        Optimization snapshots.
+
+    Returns
+    -------
+    None
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("🚀 Start writing CHP ratio constraints for all supported CHP types.")
+
+    chp_techs = {
+        "central_gas_CHP_1": ("central_gas_CHP_heat_1", 0.445, 0.4541),
+        "central_biogas_CHP": ("central_biogas_CHP_heat", 0.445, 0.4541),
+        "rural_biogas_CHP": ("rural_biogas_CHP_heat", 0.445, 0.4541),
+        "central_biomass_solid_CHP": ("central_biomass_solid_CHP_heat", 0.14, 0.83),
+        "rural_biomass_solid_CHP": ("rural_biomass_solid_CHP_heat", 0.21, 0.9747),
+        "central_waste_CHP": ("central_waste_CHP_heat", 0.2102, 0.762),
+    }
+
+    for carrier_el, (carrier_heat, eta_el, eta_th) in chp_techs.items():
+        ratio = eta_th / eta_el
+        logger.info(f"🔧 Processing CHP pair: {carrier_el} ↔ {carrier_heat} with ratio {ratio:.3f}")
+
+        el_links = network.links[network.links.carrier == carrier_el]
+        heat_links = network.links[network.links.carrier == carrier_heat]
+
+        if el_links.empty or heat_links.empty:
+            logger.warning(f"⚠️ No links found for: {carrier_el} or {carrier_heat}")
+            continue
+
+        for bus in el_links.bus0.unique():
+            logger.info(f"📍 Matching links at bus: {bus}")
+            el_ids = el_links[el_links.bus0 == bus].index
+            heat_ids = heat_links[heat_links.bus0 == bus].index
+
+            if el_ids.empty or heat_ids.empty:
+                logger.warning(f"⚠️ Skipping bus {bus}: no matching link pair.")
+                continue
+
+            for snapshot in snapshots:
+                try:
+                    p_el = get_var(network, "Link", "p").loc[snapshot, el_ids]
+                    p_th = get_var(network, "Link", "p").loc[snapshot, heat_ids]
+
+                    # Calculate physical output (p1) by multiplying efficiency
+                    eff_el = network.links.loc[el_ids, "efficiency"]
+                    eff_th = network.links.loc[heat_ids, "efficiency"]
+
+                    p_el_out = (p_el * eff_el).sum()
+                    p_th_out = (p_th * eff_th).sum()
+
+                    lhs = p_th_out - ratio * p_el_out
+
+                    define_constraints(
+                        network,
+                        lhs,
+                        "=",
+                        0,
+                        "Link",
+                        f"chp_ratio_{carrier_el}_{bus}_{snapshot}"
+                    )
+                except Exception as e:
+                    logger.error(f"❌ Error for {carrier_el}, bus {bus}, snapshot {snapshot}: {e}")
+                    continue
+
+    logger.info("✅ Finished writing CHP ratio constraints for all supported CHP types.")
 
 
 def _add_resistive_heater_vollaststunden_constraint_linopy(network, snapshots):

@@ -4089,13 +4089,12 @@ def replace_gas_links_with_extendable(self):
     Replaces selected gas-based links in the interest area with extendable variants.
 
     - Duplicates original gas-based links as investable links with defined costs and constraints.
-    - Updates marginal_cost and efficiency for relevant carriers.
+    - For 'central_gas_CHP' and 'central_gas_CHP_heat', the new carriers are suffixed with '_1'.
     - Removes the original links from the network afterward.
 
     'industrial_gas_CHP' is not affected.
     """
 
-    # Carriers to duplicate and replace
     replace_carriers = [
         "central_gas_CHP",
         "central_gas_CHP_heat",
@@ -4104,7 +4103,8 @@ def replace_gas_links_with_extendable(self):
     ]
 
     installed_p_nom = {
-        "central_gas_CHP": 22.86
+        "central_gas_CHP": 22.86,
+        "central_gas_CHP_heat": 35.76
     }
 
     p_nom_max_map = {
@@ -4138,17 +4138,23 @@ def replace_gas_links_with_extendable(self):
         "marginal_cost_quadratic", "stand_by_cost"
     ]
 
-    # Step 1️⃣ Filter links in interest area
-    connected_links = self.find_links_connected_to_buses()
+    connected_links = self.find_links_connected_to_interest_buses()
     to_process = connected_links[connected_links.carrier.isin(replace_carriers)]
 
     next_link_id = max([int(i) for i in self.network.links.index if str(i).isdigit()] + [0]) + 1
 
     for exist_index, row in to_process.iterrows():
         carrier = row.carrier
-        link_attrs = {attr: row.get(attr, 0) for attr in default_attrs}
 
-        # update marginal cost and efficiency explicitly
+        # Apply new carrier suffix if needed
+        if carrier == "central_gas_CHP":
+            new_carrier = "central_gas_CHP_1"
+        elif carrier == "central_gas_CHP_heat":
+            new_carrier = "central_gas_CHP_heat_1"
+        else:
+            new_carrier = carrier
+
+        link_attrs = {attr: row.get(attr, 0) for attr in default_attrs}
         link_attrs["capital_cost"] = capital_cost_map.get(carrier, 0)
         link_attrs["marginal_cost"] = marginal_cost_map.get(carrier, row.get("marginal_cost", 0))
         link_attrs["efficiency"] = efficiency_map.get(carrier, row.get("efficiency", 0))
@@ -4167,17 +4173,18 @@ def replace_gas_links_with_extendable(self):
                          name=new_index,
                          bus0=row.bus0,
                          bus1=row.bus1,
-                         carrier=carrier,
+                         carrier=new_carrier,
                          p_nom_extendable=True,
                          **link_attrs)
         self.network.links.at[new_index, "scn_name"] = "eGon2035"
-        print(f"New extendable link {new_index} ({carrier}) added with p_nom={link_attrs.get('p_nom', 'n/a')}.")
+        print(f"New extendable link {new_index} ({new_carrier}) added with p_nom={link_attrs.get('p_nom', 'n/a')}.")
 
-    # Step 2️⃣ Remove original links
+    # Remove originals
     for index in to_process.index:
         carrier = self.network.links.at[index, "carrier"]
         self.network.links.drop(index=index, inplace=True)
         print(f"Removed original link {index} ({carrier})")
+
 
 
 
@@ -4779,7 +4786,8 @@ def add_waste_CHP_ingolstadt(self):
                      p_nom=18.24,
                      p_nom_min=18.24,
                      marginal_cost=27.8042,
-                     p_nom_extendable=False,
+                     capital_cost=58940.6178,
+                     p_nom_extendable=True,
                      efficiency=0.2102
                      )
 
@@ -4799,9 +4807,9 @@ def add_waste_CHP_ingolstadt(self):
                      bus1=central_heat_bus,
                      carrier="central_waste_CHP_heat",
                      p_nom=45.0,
-                     p_nom_min=45.0,
+                    #p_nom_min=45.0,
                      marginal_cost=0,
-                     p_nom_extendable=False,
+                     p_nom_extendable=True,
                      efficiency=0.762
                      )
 
@@ -4927,7 +4935,7 @@ def adjust_capital_costs(self):
     }
 
     store_costs = {
-        "rural_heat_store": 27312.6386,
+        "rural_heat_store": 19118.7469,
         "central_heat_store": 69.0976
     }
 
