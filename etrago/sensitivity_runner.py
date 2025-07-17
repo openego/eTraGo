@@ -80,7 +80,9 @@ args = {
         },
     },
     "generator_noise": 789456,  # apply generator noise, False or seed number
-    "extra_functionality": {},  # Choose function name or {}
+    "extra_functionality": {
+        "add_chp_ratio_constraint": {}
+    },  # Choose function name or {}
     # Spatial Complexity:
     "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
     "interest_area": ["Ingolstadt"],  # False, path to shapefile or list of nuts names of the area that is excluded from the clustering. By default the buses inside remain the same, but the parameter "n_cluster_interest_area" inside "network clustering" defines if it should be clustered to a certain number of buses.
@@ -169,7 +171,7 @@ from etrago.network import Etrago, find_interest_buses
 import os
 
 class SensitivityEtrago(Etrago):
-    def __init__(self, nc_path="base_network.nc", args=None):
+    def __init__(self, nc_path="base_network_Scenario_1a.nc", args=None):
         # Initialisiere NICHT den vollen eTraGo-Workflow, sondern lade nur das gespeicherte Netzwerk
         self.network = pypsa.Network(nc_path)
         self.args = args  # Default-Pfad für Ergebnisexport
@@ -323,5 +325,5 @@ def run_co2_price_sensitivity():
 
 if __name__ == "__main__":
     #run_solar_cost_sensitivity()
-    #run_ch4_cost_sensitivity()
+    run_ch4_cost_sensitivity()
     run_co2_price_sensitivity()

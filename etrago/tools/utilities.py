@@ -4104,7 +4104,7 @@ def replace_gas_links_with_extendable(self):
 
     installed_p_nom = {
         "central_gas_CHP": 22.86,
-        "central_gas_CHP_heat": 35.76
+        #"central_gas_CHP_heat": 35.76
     }
 
     p_nom_max_map = {

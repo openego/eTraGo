@@ -799,7 +799,7 @@ def run_etrago(args, json_path):
         print(links_ing[lcolumns])
         print(gens_ing[gcolumns])
 
-    etrago.network.export_to_netcdf("base_network_Scenario_1a.nc")
+    etrago.network.export_to_netcdf("base_network_Scenario_1b.nc")
 
     #import pdb
     #pdb.set_trace()
