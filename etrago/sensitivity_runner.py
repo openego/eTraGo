@@ -310,6 +310,24 @@ class SensitivityEtrago(Etrago):
 
         print(f"✅ Updated capital_cost for rural_heat_pump by factor {factor}")
 
+    def update_capital_cost_central_heat_store(self, factor):
+        """
+        Updates the capital cost of extendable central heat stores
+        by multiplying with a given factor.
+
+        Parameters
+        ----------
+        factor : float
+            Multiplication factor for capital costs (e.g. 0.5 for halving).
+        """
+        cH_stores = self.network.stores[self.network.stores.carrier == "central_heat_store"]
+        # Apply cost adjustment
+        for idx in cH_stores.index:
+            old_cost = self.network.stores.at[idx, "capital_cost"]
+            self.network.stores.at[idx, "capital_cost"] = old_cost * factor
+
+        print(f"✅ Updated capital_cost for central_heat_store by factor {factor}")
+
 # === Sensitivitäten ===
 
 def run_solar_cost_sensitivity():
@@ -378,7 +396,7 @@ def run_rural_heat_pump_capital_cost_sensitivity():
     for rural heat pumps. For each factor, results are exported to
     a separate folder.
     """
-    capital_cost_factors = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5]
+    capital_cost_factors = [0.5, 0.75, 1.25, 1.5, 2.0, 2.5]
 
     for factor in capital_cost_factors:
         print(f"🔄 Running capital cost sensitivity with factor = {factor:.2f}")
@@ -399,13 +417,13 @@ def run_rural_heat_pump_capital_cost_sensitivity():
 
         print(f"✅ Results saved in: {export_dir}")
 
-def run_rural_central_pump_capital_cost_sensitivity():
+def run_central_heat_pump_capital_cost_sensitivity():
     """
     Runs a sensitivity analysis over different capital cost factors
     for rural heat pumps. For each factor, results are exported to
     a separate folder.
     """
-    capital_cost_factors = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5]
+    capital_cost_factors = [0.5, 0.9, 1.2, 1.5, 2]
 
     for factor in capital_cost_factors:
         print(f"🔄 Running capital cost sensitivity with factor = {factor:.2f}")
@@ -426,11 +444,40 @@ def run_rural_central_pump_capital_cost_sensitivity():
 
         print(f"✅ Results saved in: {export_dir}")
 
+def run_central_heat_store_capital_cost_sensitivity():
+    """
+    Runs a sensitivity analysis over different capital cost factors
+    for rural heat pumps. For each factor, results are exported to
+    a separate folder.
+    """
+    capital_cost_factors = [0.5, 0.9, 1.2, 1.5, 2]
+
+    for factor in capital_cost_factors:
+        print(f"🔄 Running capital cost sensitivity with factor = {factor:.2f}")
+
+        # Neues Modell initialisieren
+        etrago = SensitivityEtrago(args=args)
+
+        # Update capital cost of rural heat pumps
+        etrago.update_capital_cost_central_heat_store(factor)
+
+        # Set export folder
+        export_dir = f"results/sensitivity_central_HS_capital_cost_{factor:.2f}".replace(".", "_")
+        os.makedirs(export_dir, exist_ok=True)
+        etrago.args["csv_export"] = export_dir
+
+        # Run optimization
+        etrago.optimize()
+
+        print(f"✅ Results saved in: {export_dir}")
+
 
 
 
 if __name__ == "__main__":
     #run_solar_cost_sensitivity()
-    run_ch4_cost_sensitivity()
-    run_co2_price_sensitivity()
+    #run_ch4_cost_sensitivity()
+    #run_co2_price_sensitivity()
     #run_rural_heat_pump_capital_cost_sensitivity()
+    #run_central_heat_pump_capital_cost_sensitivity()
+    run_central_heat_store_capital_cost_sensitivity()
