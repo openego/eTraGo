@@ -4103,7 +4103,7 @@ def replace_gas_links_with_extendable(self):
     ]
 
     installed_p_nom = {
-        "central_gas_CHP": 22.86,
+        "central_gas_CHP": 50.02, # elec_CHP_Power / n_elec
         #"central_gas_CHP_heat": 35.76
     }
 
@@ -4113,14 +4113,14 @@ def replace_gas_links_with_extendable(self):
     }
 
     capital_cost_map = {
-        "central_gas_CHP": 41295.8840,
+        "central_gas_CHP": 18376.6684,
         "central_gas_CHP_heat": 0,
         "central_gas_boiler": 3754.1726,
         "central_resistive_heater": 5094.8667
     }
 
     marginal_cost_map = {
-        "central_gas_CHP": 4.3916,
+        "central_gas_CHP": 1.9543,
         "central_resistive_heater": 1.0582,
         "central_gas_CHP_heat": 0,
         "central_gas_boiler": 1.0582
@@ -4383,13 +4383,13 @@ def add_biogas_CHP_extendable(self):
     ]
 
     capital_cost_map = {
-        "central_biogas_CHP": 66960.6721,
-        "rural_biogas_CHP": 66960.6721
+        "central_biogas_CHP": 20108.2898,
+        "rural_biogas_CHP": 20108.2898
     }
 
     marginal_cost_map = {
-        "central_biogas_CHP": 7.18,
-        "rural_biogas_CHP": 7.18
+        "central_biogas_CHP": 2.1562,
+        "rural_biogas_CHP": 2.1562
     }
 
     efficiency_map = {
@@ -4462,13 +4462,13 @@ def add_biomass_CHP_extendable(self):
     ]
 
     capital_cost_map = {
-        "central_biomass_solid_CHP": 232005.3115,
-        "rural_biomass_solid_CHP": 448354.9634
+        "central_biomass_solid_CHP": 67281.5403,
+        "rural_biomass_solid_CHP": 67253.2445
     }
 
     marginal_cost_map = {
-        "central_biomass_solid_CHP": 4.67,
-        "rural_biomass_solid_CHP": 9.86
+        "central_biomass_solid_CHP": 1.3543,
+        "rural_biomass_solid_CHP": 1.4790
     }
 
     efficiency_map = {
@@ -4783,10 +4783,10 @@ def add_waste_CHP_ingolstadt(self):
                      bus0=new_bus,
                      bus1=ac_bus,
                      carrier="central_waste_CHP",
-                     p_nom=18.24,
-                     p_nom_min=18.24,
-                     marginal_cost=27.8042,
-                     capital_cost=58940.6178,
+                     p_nom=86.77,
+                     p_nom_min=86.77,  # elec_CHP_Power / n_elec
+                     marginal_cost=5.8444,
+                     capital_cost=123893.1786,
                      p_nom_extendable=True,
                      efficiency=0.2102
                      )
@@ -4806,8 +4806,8 @@ def add_waste_CHP_ingolstadt(self):
                      bus0=new_bus,
                      bus1=central_heat_bus,
                      carrier="central_waste_CHP_heat",
-                     p_nom=45.0,
-                    #p_nom_min=45.0,
+                    #p_nom=59.05,
+                    #p_nom_min=59.05,
                      marginal_cost=0,
                      p_nom_extendable=True,
                      efficiency=0.762
@@ -4816,104 +4816,6 @@ def add_waste_CHP_ingolstadt(self):
     self.network.links.at[new_link_id, "scn_name"] = "eGon2035"
 
     print(f"Neuer Link {new_link_id} mit carrier = central_waste_CHP_heat hinzugefügt.")
-
-
-def get_matching_biogs_bus(self):
-    """
-    get Bus_id of Bus only with CH4_biogas-generator
-    """
-
-    bus_groups = self.network.generators.groupby("bus")
-
-    def is_exact_match(group):
-        return (
-                len(group) == 2 and  # genau 2 Generatoren
-                set(group.carrier) == {"CH4_biogas", "load shedding"}  # bus only with biogas-generator
-        )
-
-    # Schritt 3: Filtere Büsse mit genau diesen Kriterien
-    matching_buses = [bus for bus, group in bus_groups if is_exact_match(group)]
-    matching_bus = str(matching_buses[0])
-
-    return matching_bus
-
-def add_biogas_CHP_extendable(self):
-    """
-    add extendable biogas_CHP-Powerplant, located in Ingolstadt
-    """
-
-    carriers = [
-        "central_biogas_CHP",
-        "central_biogas_CHP_heat",
-        "rural_biogas_CHP",
-        "rural_biogas_CHP_heat"
-    ]
-
-    capital_cost_map = {
-        "central_biogas_CHP": 66960.9053,
-        "rural_biogas_CHP": 66960.9053
-    }
-
-    marginal_cost_map = {
-        "central_biogas_CHP": 7.18,
-        "rural_biogas_CHP": 7.18
-    }
-
-    efficiency_map = {
-        "central_biogas_CHP": 0.45,
-        "central_biogas_CHP_heat": 0.45,
-        "rural_biogas_CHP": 0.45,
-        "rural_biogas_CHP_heat": 0.45
-    }
-
-    default_attrs = [
-        'start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time',
-        'up_time_before', 'down_time_before', 'ramp_limit_up', 'ramp_limit_down',
-        'ramp_limit_start_up', 'ramp_limit_shut_down', "p_nom_mod",
-        "marginal_cost_quadratic", "stand_by_cost"
-    ]
-
-    next_link_id = max([int(i) for i in self.network.links.index if str(i).isdigit()]) + 1
-
-    # get default attributes from exitsting CHP-Link
-    existing_central_gas_CHP = self.network.links[self.network.links.carrier == "central_gas_CHP"].iloc[0]
-    link_attrs = {attr: existing_central_gas_CHP.get(attr, 0) for attr in default_attrs}
-
-    # get AC-Bus and central_heat-Bus in Ingolstadt
-    buses_ing = self.find_interest_buses()
-    AC_bus_ing = buses_ing[buses_ing.carrier == "AC"].index[0]
-    cH_bus_ing = buses_ing[buses_ing.carrier == "central_heat"].index[0]
-    dH_bus_ing = buses_ing[buses_ing.carrier == "rural_heat"].index[0]
-
-    biogas_bus_id = get_matching_biogs_bus(self)
-
-    for carrier in carriers:
-
-        link_attrs["capital_cost"] = capital_cost_map.get(carrier, 0)
-        link_attrs["marginal_cost"] = marginal_cost_map.get(carrier, 0)
-        link_attrs["efficiency"] = efficiency_map.get(carrier, 0)
-
-        new_index = str(next_link_id)
-        next_link_id += 1
-
-        if carrier in ("central_biogas_CHP", "rural_biogas_CHP"):
-            bus1 = AC_bus_ing
-        elif carrier == "central_biogas_CHP_heat":
-            bus1 = cH_bus_ing
-        elif carrier == "rural_biogas_CHP_heat":
-            bus1 = dH_bus_ing
-
-        self.network.add("Link",
-                         name=new_index,
-                         bus0=biogas_bus_id,
-                         bus1=bus1,
-                         carrier=carrier,
-                         p_nom=0,
-                         p_nom_extendable=True,
-                         **link_attrs)
-
-        self.network.links.at[new_index, "scn_name"] = "eGon2035"
-        print(f"Neuer Link {new_index} ({carrier}) mit installed p_nom={link_attrs.get('p_nom', 'n/a')} hinzugefügt.")
 
 
 def adjust_capital_costs(self):
