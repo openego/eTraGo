@@ -4113,22 +4113,22 @@ def replace_gas_links_with_extendable(self):
     }
 
     capital_cost_map = {
-        "central_gas_CHP": 18376.6684,
+        "central_gas_CHP": 17963.7095,
         "central_gas_CHP_heat": 0,
         "central_gas_boiler": 3754.1726,
         "central_resistive_heater": 5094.8667
     }
 
     marginal_cost_map = {
-        "central_gas_CHP": 1.9543,
+        "central_gas_CHP": 1.9103,
         "central_resistive_heater": 1.0582,
         "central_gas_CHP_heat": 0,
         "central_gas_boiler": 1.0582
     }
 
     efficiency_map = {
-        "central_gas_CHP": 0.445,
-        "central_gas_CHP_heat": 0.4541
+        "central_gas_CHP": 0.435,
+        "central_gas_CHP_heat": 0.448
     }
 
     default_attrs = [
@@ -4383,20 +4383,20 @@ def add_biogas_CHP_extendable(self):
     ]
 
     capital_cost_map = {
-        "central_biogas_CHP": 20108.2898,
-        "rural_biogas_CHP": 20108.2898
+        "central_biogas_CHP": 30467.1058,
+        "rural_biogas_CHP": 30467.1058
     }
 
     marginal_cost_map = {
-        "central_biogas_CHP": 2.1562,
-        "rural_biogas_CHP": 2.1562
+        "central_biogas_CHP": 3.2669,
+        "rural_biogas_CHP": 3.2669
     }
 
     efficiency_map = {
-        "central_biogas_CHP": 0.445,
-        "central_biogas_CHP_heat": 0.4541,
-        "rural_biogas_CHP": 0.445,
-        "rural_biogas_CHP_heat": 0.4541
+        "central_biogas_CHP": 0.455,
+        "central_biogas_CHP_heat": 0.484,
+        "rural_biogas_CHP": 0.455,
+        "rural_biogas_CHP_heat": 0.484
     }
 
     default_attrs = [
@@ -4462,20 +4462,20 @@ def add_biomass_CHP_extendable(self):
     ]
 
     capital_cost_map = {
-        "central_biomass_solid_CHP": 67281.5403,
-        "rural_biomass_solid_CHP": 67253.2445
+        "central_biomass_solid_CHP": 67513.5457,
+        "rural_biomass_solid_CHP": 65684.0021
     }
 
     marginal_cost_map = {
-        "central_biomass_solid_CHP": 1.3543,
-        "rural_biomass_solid_CHP": 1.4790
+        "central_biomass_solid_CHP": 1.3590,
+        "rural_biomass_solid_CHP": 1.4445
     }
 
     efficiency_map = {
-        "central_biomass_solid_CHP": 0.29,
-        "central_biomass_solid_CHP_heat": 0.83,
-        "rural_biomass_solid_CHP": 0.14,
-        "rural_biomass_solid_CHP_heat": 0.9747
+        "central_biomass_solid_CHP": 0.291,
+        "central_biomass_solid_CHP_heat": 0.8309,
+        "rural_biomass_solid_CHP": 0.1465,
+        "rural_biomass_solid_CHP_heat": 0.9733
     }
 
     default_attrs = [
@@ -4911,6 +4911,21 @@ def print_capital_costs(self):
 
 
 #    return cost_summary
+
+def set_cyclic_constraints(self):
+    """
+    Sets cyclic constraints for battery storage units and selected store carriers.
+    """
+    # Set cyclic_state_of_charge = True for all batteries in storage_units
+    battery_mask = self.network.storage_units.carrier == "battery"
+    self.network.storage_units.loc[battery_mask, "cyclic_state_of_charge"] = True
+
+    # Set e_cyclic = True for selected carriers in stores
+    stores_carrier = ["central_heat_store", "rural_heat_store", "battery_storage", "dsm"]
+    store_mask = self.network.stores.carrier.isin(stores_carrier)
+    self.network.stores.loc[store_mask, "e_cyclic"] = True
+
+    print("Cyclic constraints set for battery storage_units and defined store carriers.")
 
 
 def update_capital_cost_of_solar_ingolstadt(self, new_capital_cost):

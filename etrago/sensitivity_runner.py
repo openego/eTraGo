@@ -171,7 +171,7 @@ from etrago.network import Etrago, find_interest_buses
 import os
 
 class SensitivityEtrago(Etrago):
-    def __init__(self, nc_path="base_network_Scenario_1b.nc", args=None):
+    def __init__(self, nc_path="base_network_Scenario_1e.nc", args=None):
         # Initialisiere NICHT den vollen eTraGo-Workflow, sondern lade nur das gespeicherte Netzwerk
         self.network = pypsa.Network(nc_path)
         self.args = args  # Default-Pfad für Ergebnisexport
@@ -347,7 +347,7 @@ def run_solar_cost_sensitivity():
         print(f"✅ Ergebnisse gespeichert unter: {export_dir}")
 
 def run_ch4_cost_sensitivity():
-    ch4_prices = [20, 30, 60, 80, 100]  # in €/MWh
+    ch4_prices = [20, 30, 60, 100]  # in €/MWh
     for price in ch4_prices:
         print(f" Starte CH₄-Sensitivität mit marginal_cost = {price:.2f} €/MWh_th")
 
@@ -369,7 +369,7 @@ def run_co2_price_sensitivity():
     Ergebnisse werden in separate Ordner exportiert.
     """
 
-    CO2_prices = [50, 100, 130, 160, 200]  # in €/tCO2
+    CO2_prices = [50, 100, 130, 200]  # in €/tCO2
 
     for price in CO2_prices:
         print(f"🔄 Starte CO₂-Sensitivität mit CO2-Preis = {price:.2f} €/tCO2")
@@ -396,7 +396,7 @@ def run_rural_heat_pump_capital_cost_sensitivity():
     for rural heat pumps. For each factor, results are exported to
     a separate folder.
     """
-    capital_cost_factors = [0.5, 0.75, 1.25, 1.5, 2.0, 2.5]
+    capital_cost_factors = [0.5, 0.9, 1.2, 1.5, 2.0]
 
     for factor in capital_cost_factors:
         print(f"🔄 Running capital cost sensitivity with factor = {factor:.2f}")
@@ -423,7 +423,7 @@ def run_central_heat_pump_capital_cost_sensitivity():
     for rural heat pumps. For each factor, results are exported to
     a separate folder.
     """
-    capital_cost_factors = [0.5, 0.9, 1.2, 1.5, 2]
+    capital_cost_factors = [0.5, 0.9, 1.2, 1.5]
 
     for factor in capital_cost_factors:
         print(f"🔄 Running capital cost sensitivity with factor = {factor:.2f}")
@@ -450,7 +450,7 @@ def run_central_heat_store_capital_cost_sensitivity():
     for rural heat pumps. For each factor, results are exported to
     a separate folder.
     """
-    capital_cost_factors = [0.5, 0.9, 1.2, 1.5, 2]
+    capital_cost_factors = [0.5, 0.9, 1.2, 1.5]
 
     for factor in capital_cost_factors:
         print(f"🔄 Running capital cost sensitivity with factor = {factor:.2f}")
@@ -476,8 +476,8 @@ def run_central_heat_store_capital_cost_sensitivity():
 
 if __name__ == "__main__":
     #run_solar_cost_sensitivity()
-    #run_ch4_cost_sensitivity()
-    #run_co2_price_sensitivity()
-    #run_rural_heat_pump_capital_cost_sensitivity()
-    #run_central_heat_pump_capital_cost_sensitivity()
+    run_ch4_cost_sensitivity()
+    run_co2_price_sensitivity()
+    run_rural_heat_pump_capital_cost_sensitivity()
+    run_central_heat_pump_capital_cost_sensitivity()
     run_central_heat_store_capital_cost_sensitivity()

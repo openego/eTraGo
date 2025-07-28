@@ -786,6 +786,8 @@ def run_etrago(args, json_path):
     etrago.set_battery_parameter_interest_area()
     #etrago.set_battery_and_heat_store_parameters_interest_area()
 
+    etrago.set_cyclic_constraints()
+
     buses_ing = etrago.find_interest_buses()
 
     gens_ing = etrago.network.generators[etrago.network.generators.bus.isin(buses_ing.index)]
@@ -799,7 +801,7 @@ def run_etrago(args, json_path):
         print(links_ing[lcolumns])
         print(gens_ing[gcolumns])
 
-    etrago.network.export_to_netcdf("base_network_Scenario_1c.nc")
+    etrago.network.export_to_netcdf("base_network_Scenario_1e.nc")
 
     #import pdb
     #pdb.set_trace()
