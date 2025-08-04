@@ -171,7 +171,7 @@ from etrago.network import Etrago, find_interest_buses
 import os
 
 class SensitivityEtrago(Etrago):
-    def __init__(self, nc_path="base_network_Scenario_1e.nc", args=None):
+    def __init__(self, nc_path="base_network_Scenario_1f.nc", args=None):
         # Initialisiere NICHT den vollen eTraGo-Workflow, sondern lade nur das gespeicherte Netzwerk
         self.network = pypsa.Network(nc_path)
         self.args = args  # Default-Pfad für Ergebnisexport
@@ -180,6 +180,7 @@ class SensitivityEtrago(Etrago):
         self.busmap = {}
         self.ch4_h2_mapping = {}
         self.tool_version = "manual_sensitivity"
+
 
     def update_capital_cost_of_solar_ingolstadt(self, new_capital_cost):
         """
@@ -198,6 +199,41 @@ class SensitivityEtrago(Etrago):
 
         self.network.generators.loc[solar_generators.index, "capital_cost"] = new_capital_cost
         print(f"✅ capital_cost auf {new_capital_cost:.2f} €/MW/a für {len(solar_generators)} Solar-Generator(en) gesetzt.")
+
+
+    def limit_solar_rooftop_potential(self, max_capacity_mw=655.916):
+        """
+        Limits the total extendable solar rooftop capacity in Ingolstadt to a given maximum.
+
+        Parameters
+        ----------
+        max_capacity_mw : float
+            Maximum allowed capacity for solar_rooftop in MW.
+        """
+
+        # Get all buses in interest area (Ingolstadt)
+        buses_ing = self.find_interest_buses()
+        bus_list = buses_ing.index.to_list()
+
+        # Filter all extendable rooftop PV generators in the interest area
+        gens_ing = self.network.generators[
+            self.network.generators.bus.isin(bus_list)
+        ]
+        solar_pv_ing = gens_ing[
+            (gens_ing.carrier == "solar_rooftop") &
+            (gens_ing.p_nom_extendable == True)
+            ]
+
+        # Check if any rooftop PV exist
+        if solar_pv_ing.empty:
+            print("No extendable rooftop PV generators found in the interest area.")
+            return
+
+        # Apply the limit
+        self.network.generators.loc[solar_pv_ing.index, "p_nom_max"] = max_capacity_mw
+
+        print(f"Set max PV rooftop capacity in Ingolstadt to {max_capacity_mw:.3f} MW")
+
 
     def update_marginal_cost_of_CH4_generators(self, new_marginal_cost):
         gens = self.network.generators
@@ -331,13 +367,14 @@ class SensitivityEtrago(Etrago):
 # === Sensitivitäten ===
 
 def run_solar_cost_sensitivity():
-    cost_values = [15352.2938, 16083.35546, 16814.41707, 17545.47868] # 210,220,230,240
+    cost_values = [13403.9771, 13986.7587, 14569.5403, 15152.3219, 15735.1035, 16317.8851, 16900.6667, 17483.4483] # 230,240,250,260,270,280,290,300
     for cost in cost_values:
         print(f" Starte Solar-Sensitivität mit capital_cost = {cost:.2f} €/MW/a")
 
         etrago = SensitivityEtrago(args=args)
 
         etrago.update_capital_cost_of_solar_ingolstadt(cost)
+        etrago.limit_solar_rooftop_potential(max_capacity_mw=655.916)
 
         export_dir = f"results/sensitivity_solar_cost_{cost:.5f}".replace(".", "_")
         os.makedirs(export_dir, exist_ok=True)
@@ -369,7 +406,7 @@ def run_co2_price_sensitivity():
     Ergebnisse werden in separate Ordner exportiert.
     """
 
-    CO2_prices = [50, 100, 130, 200]  # in €/tCO2
+    CO2_prices = [200]  # in €/tCO2
 
     for price in CO2_prices:
         print(f"🔄 Starte CO₂-Sensitivität mit CO2-Preis = {price:.2f} €/tCO2")
@@ -475,9 +512,9 @@ def run_central_heat_store_capital_cost_sensitivity():
 
 
 if __name__ == "__main__":
-    #run_solar_cost_sensitivity()
-    run_ch4_cost_sensitivity()
-    run_co2_price_sensitivity()
-    run_rural_heat_pump_capital_cost_sensitivity()
-    run_central_heat_pump_capital_cost_sensitivity()
-    run_central_heat_store_capital_cost_sensitivity()
+    run_solar_cost_sensitivity()
+    #run_ch4_cost_sensitivity()
+    #run_co2_price_sensitivity()
+    #run_rural_heat_pump_capital_cost_sensitivity()
+    #run_central_heat_pump_capital_cost_sensitivity()
+    #run_central_heat_store_capital_cost_sensitivity()

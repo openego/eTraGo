@@ -4573,10 +4573,10 @@ def add_biomass_boiler_extendable(self):
     carrier = "rural_biomass_solid_boiler"
 
     # Technical parameters as specified
-    capital_cost = 59700.4849
+    capital_cost = 46554.2819
     marginal_cost = 39.74
-    efficiency = 0.9
-    p_nom = 33.32
+    efficiency = 0.865
+    p_nom = 12.26
 
     # Identify the rural_heat bus in the interest area
     buses_ing = self.find_interest_buses()

@@ -3852,11 +3852,11 @@ def _add_chp_ratio_constraint_linopy(self, network, snapshots):
     logger.info("🚀 Start writing CHP ratio constraints for all supported CHP types.")
 
     chp_techs = {
-        "central_gas_CHP_1": ("central_gas_CHP_heat_1", 0.445, 0.4541),
-        "central_biogas_CHP": ("central_biogas_CHP_heat", 0.445, 0.4541),
-        "rural_biogas_CHP": ("rural_biogas_CHP_heat", 0.445, 0.4541),
-        "central_biomass_solid_CHP": ("central_biomass_solid_CHP_heat", 0.14, 0.83),
-        "rural_biomass_solid_CHP": ("rural_biomass_solid_CHP_heat", 0.21, 0.9747),
+        "central_gas_CHP_1": ("central_gas_CHP_heat_1", 0.435, 0.448),
+        "central_biogas_CHP": ("central_biogas_CHP_heat", 0.455, 0.484),
+        "rural_biogas_CHP": ("rural_biogas_CHP_heat", 0.455, 0.484),
+        "central_biomass_solid_CHP": ("central_biomass_solid_CHP_heat", 0.291, 0.831),
+        "rural_biomass_solid_CHP": ("rural_biomass_solid_CHP_heat", 0.1465, 0.9733),
         "central_waste_CHP": ("central_waste_CHP_heat", 0.2102, 0.762),
     }
 
