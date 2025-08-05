@@ -235,6 +235,113 @@ class SensitivityEtrago(Etrago):
         print(f"Set max PV rooftop capacity in Ingolstadt to {max_capacity_mw:.3f} MW")
 
 
+    def set_biomass_CHP_and_add_boiler(self):
+        """
+        Fixes capacity of central_biomass_solid_CHP in Ingolstadt to 3.45 MW,
+        and adds an extendable rural_biomass_solid_boiler to the rural_heat bus.
+        """
+
+        # === 1. Set fixed capacity for central biomass CHP ===
+        connected_links = self.find_links_connected_to_interest_buses()
+        biomass_chp_links = connected_links[connected_links.carrier == "central_biomass_solid_CHP"]
+
+        if biomass_chp_links.empty:
+            print("No central_biomass_solid_CHP link found in Ingolstadt.")
+        else:
+            for idx in biomass_chp_links.index:
+                self.network.links.at[idx, "p_nom_min"] = 3.45
+                self.network.links.at[idx, "p_nom_extendable"] = True
+                print(f"Set fixed capacity of {idx} to 3.45 MW.")
+
+        # === 2. Add biomass boiler to rural_heat bus ===
+        # Technical parameters
+        carrier = "rural_biomass_solid_boiler"
+        capital_cost = 46554.2819
+        marginal_cost = 39.74
+        efficiency = 0.865
+        p_nom = 12.26
+
+        # Locate rural_heat bus
+        buses_ing = self.find_interest_buses()
+        rural_heat_buses = buses_ing[buses_ing.carrier == "rural_heat"]
+
+        if rural_heat_buses.empty:
+            print("No rural_heat bus found in Ingolstadt.")
+            return
+
+        dH_bus_ing = rural_heat_buses.index[0]
+
+        # Add generator
+        gen_name = f"{dH_bus_ing} {carrier}"
+        self.network.add("Generator",
+                         name=gen_name,
+                         bus=dH_bus_ing,
+                         carrier=carrier,
+                         p_nom=0,
+                         p_nom_min=p_nom,
+                         p_nom_extendable=True,
+                         capital_cost=capital_cost,
+                         marginal_cost=marginal_cost,
+                         efficiency=efficiency)
+
+        self.network.generators.at[gen_name, "scn_name"] = "eGon2035"
+
+        print(f"Biomass boiler {gen_name} successfully added at bus {dH_bus_ing}.")
+
+
+
+    def set_solar_PV_and_batterie_capacities(etrago, solar_p_nom=655.916, battery_p_nom=109.32, battery_p_set=18.15):
+        """
+        Sets fixed capacities for rooftop PV and battery storage in the interest area (e.g. Ingolstadt).
+
+        Parameters
+        ----------
+        etrago : Etrago1
+            Instance of the Etrago1 class containing the loaded PyPSA network.
+        solar_p_nom : float, optional
+            Installed capacity [MW] for rooftop PV to assign (default: 655.916).
+        battery_p_nom : float, optional
+            Minimum allowed capacity [MW] for battery storage (default: 109.32).
+        battery_p_set : float, optional
+            Fixed installed capacity [MW] to use for battery storage (default: 18.15).
+        """
+        # === Set rooftop PV capacity ===
+        gens = etrago.network.generators
+        buses = etrago.find_interest_buses()
+        bus_list = buses.index.tolist()
+
+        # Filter rooftop PV generators in interest area with extendable capacity
+        solar_gens = gens[
+            (gens.bus.isin(bus_list)) &
+            (gens.carrier == "solar_rooftop") &
+            (gens.p_nom_extendable)
+            ]
+
+        if not solar_gens.empty:
+            etrago.network.generators.loc[solar_gens.index, "p_nom_min"] = solar_p_nom
+            print(f"Set rooftop PV capacity to {solar_p_nom} MW for {len(solar_gens)} generator(s).")
+        else:
+            print("No extendable rooftop PV generators found in the interest area.")
+
+        # === Set battery capacity ===
+        storages = etrago.network.storage_units
+
+        # Filter battery storage units in interest area
+        battery_units = storages[
+            (storages.bus.isin(bus_list)) &
+            (storages.carrier == "battery")
+            ]
+
+        if not battery_units.empty:
+            etrago.network.storage_units.loc[battery_units.index, "p_nom_min"] = battery_p_nom
+            etrago.network.storage_units.loc[battery_units.index, "p_nom"] = battery_p_set
+            print(
+                f"Set battery p_nom_min to {battery_p_nom} MW and p_nom to {battery_p_set} MW for {len(battery_units)} unit(s).")
+        else:
+            print("No battery storage units found in the interest area.")
+
+
+
     def update_marginal_cost_of_CH4_generators(self, new_marginal_cost):
         gens = self.network.generators
         is_ch4 = gens.carrier == "CH4_NG"
@@ -383,6 +490,33 @@ def run_solar_cost_sensitivity():
         etrago.optimize()
         print(f"✅ Ergebnisse gespeichert unter: {export_dir}")
 
+
+def run_modified_base_model_with_biomass_and_solar():
+    """
+    Runs the base model with fixed biomass CHP, added rural biomass boiler,
+    and fixed rooftop PV and battery storage capacities.
+    """
+
+    print("\n🔧 Running base model with biomass CHP, biomass boiler, and fixed solar/battery capacities")
+
+    # Initialize model
+    etrago = SensitivityEtrago(args=args)
+
+    # === Apply scenario adjustments ===
+    etrago.limit_solar_rooftop_potential(max_capacity_mw=655.916)
+    etrago.set_biomass_CHP_and_add_boiler()
+    etrago.set_solar_PV_and_batterie_capacities(solar_p_nom=655.916, battery_p_nom=109.32, battery_p_set=18.15)
+
+    # === Define output path ===
+    export_dir = "results/scenario_biomass_and_solar_fixed"
+    os.makedirs(export_dir, exist_ok=True)
+    etrago.args["csv_export"] = export_dir
+
+    # === Run optimization ===
+    etrago.optimize()
+    print(f"✅ Results successfully saved to: {export_dir}")
+
+
 def run_ch4_cost_sensitivity():
     ch4_prices = [20, 30, 60, 100]  # in €/MWh
     for price in ch4_prices:
@@ -512,7 +646,8 @@ def run_central_heat_store_capital_cost_sensitivity():
 
 
 if __name__ == "__main__":
-    run_solar_cost_sensitivity()
+    #run_solar_cost_sensitivity()
+    run_modified_base_model_with_biomass_and_solar()
     #run_ch4_cost_sensitivity()
     #run_co2_price_sensitivity()
     #run_rural_heat_pump_capital_cost_sensitivity()
