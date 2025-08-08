@@ -273,6 +273,7 @@ def build_market_model(self):
     # Currently the only option is 'status_quo' which means that the current
     # regions are used. When other market zone options are introduced, they
     # can be assinged here.
+    
     if (
         self.args["method"]["market_optimization"]["market_zones"]
         == "status_quo"
@@ -347,7 +348,24 @@ def build_market_model(self):
 
         # Spatial join to assign zones
         geo_buses = gpd.sjoin(geo_buses, zones[["geometry", "id"]], how="left", predicate="within")
-
+        
+        # Filter buses in Germany with no zone assigned
+        buses_no_zone = geo_buses[(geo_buses['country'] == 'DE') & (geo_buses['id'].isna())]
+        
+        # Function to find the nearest zone for each bus
+        def find_nearest_zone(bus, zones):
+            # Calculate distances to all zones
+            distances = zones.geometry.distance(bus.geometry)
+            # Find the index of the nearest zone
+            nearest_zone_idx = distances.idxmin()
+            # Return the id of the nearest zone
+            return zones.loc[nearest_zone_idx, 'id']
+        
+        # Assign the nearest zone to each bus without a zone
+        for idx, bus in buses_no_zone.iterrows():
+            nearest_zone_id = find_nearest_zone(bus, zones)
+            geo_buses.at[idx, 'id'] = nearest_zone_id
+        
         def assign_zone(row):
             if pd.notnull(row["id"]):
                 if row["id"] == 1:
@@ -424,6 +442,23 @@ def build_market_model(self):
         # Spatial join to assign zones
         geo_buses = gpd.sjoin(geo_buses, zones[["geometry", "id"]], how="left", predicate="within")
 
+        # Filter buses in Germany with no zone assigned
+        buses_no_zone = geo_buses[(geo_buses['country'] == 'DE') & (geo_buses['id'].isna())]
+        
+        # Function to find the nearest zone for each bus
+        def find_nearest_zone(bus, zones):
+            # Calculate distances to all zones
+            distances = zones.geometry.distance(bus.geometry)
+            # Find the index of the nearest zone
+            nearest_zone_idx = distances.idxmin()
+            # Return the id of the nearest zone
+            return zones.loc[nearest_zone_idx, 'id']
+        
+        # Assign the nearest zone to each bus without a zone
+        for idx, bus in buses_no_zone.iterrows():
+            nearest_zone_id = find_nearest_zone(bus, zones)
+            geo_buses.at[idx, 'id'] = nearest_zone_id
+        
         def assign_zone(row):
             if pd.notnull(row["id"]):
                 if row["id"] == 1:
@@ -493,7 +528,24 @@ def build_market_model(self):
 
         # Spatial join to assign zones
         geo_buses = gpd.sjoin(geo_buses, zones[["geometry", "id"]], how="left", predicate="within")
-
+        
+        # Filter buses in Germany with no zone assigned
+        buses_no_zone = geo_buses[(geo_buses['country'] == 'DE') & (geo_buses['id'].isna())]
+        
+        # Function to find the nearest zone for each bus
+        def find_nearest_zone(bus, zones):
+            # Calculate distances to all zones
+            distances = zones.geometry.distance(bus.geometry)
+            # Find the index of the nearest zone
+            nearest_zone_idx = distances.idxmin()
+            # Return the id of the nearest zone
+            return zones.loc[nearest_zone_idx, 'id']
+        
+        # Assign the nearest zone to each bus without a zone
+        for idx, bus in buses_no_zone.iterrows():
+            nearest_zone_id = find_nearest_zone(bus, zones)
+            geo_buses.at[idx, 'id'] = nearest_zone_id
+        
         def assign_zone(row):
             if pd.notnull(row["id"]):
                 if row["id"] == 1:
@@ -532,7 +584,8 @@ def build_market_model(self):
             'shx': 'https://zenodo.org/record/14833526/files/BZR_config_14_DE5.shx',
             'dbf': 'https://zenodo.org/record/14833526/files/BZR_config_14_DE5.dbf',
             'prj': 'https://zenodo.org/record/14833526/files/BZR_config_14_DE5.prj'
-        }
+        } 
+        #import pdb; pdb.set_trace()
 
         # saving path
         extract_path = "/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones"
@@ -550,7 +603,7 @@ def build_market_model(self):
                 else:
                     print(f"downloading failed for {filetype}: {response.status_code}")
                     
-        
+        #import pdb; pdb.set_trace()
         # Load shapefile for five zones (Zone_1, Zone_2, Zone_3, Zone_4, Zone_5)
         zones = gpd.read_file("/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones/BZR_config_14_DE5.shp").to_crs(epsg=4326)
         
@@ -566,7 +619,28 @@ def build_market_model(self):
 
         # Spatial join to assign zones
         geo_buses = gpd.sjoin(geo_buses, zones[["geometry", "id"]], how="left", predicate="within")
+        
+        # Filter buses in Germany with no zone assigned
+        buses_no_zone = geo_buses[(geo_buses['country'] == 'DE') & (geo_buses['id'].isna())]
 
+        # Filter buses in Germany with no zone assigned
+        buses_no_zone = geo_buses[(geo_buses['country'] == 'DE') & (geo_buses['id'].isna())]
+        
+        # Function to find the nearest zone for each bus
+        def find_nearest_zone(bus, zones):
+            # Calculate distances to all zones
+            distances = zones.geometry.distance(bus.geometry)
+            # Find the index of the nearest zone
+            nearest_zone_idx = distances.idxmin()
+            # Return the id of the nearest zone
+            return zones.loc[nearest_zone_idx, 'id']
+        
+        # Assign the nearest zone to each bus without a zone
+        for idx, bus in buses_no_zone.iterrows():
+            nearest_zone_id = find_nearest_zone(bus, zones)
+            geo_buses.at[idx, 'id'] = nearest_zone_id
+
+    
         def assign_zone(row):
             if pd.notnull(row["id"]):
                 if row["id"] == 1:
@@ -594,7 +668,7 @@ def build_market_model(self):
         )
         medoid_idx = pd.Series(dtype=str)
         
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         
     else:
         logger.warning(
@@ -710,7 +784,7 @@ def build_market_model(self):
     # Set country tags for market model
     self.buses_by_country(apply_on="pre_market_model")
     self.geolocation_buses(apply_on="pre_market_model")
-    import pdb; pdb.set_trace()
+    #import pdb; pdb.set_trace()
     
 
 

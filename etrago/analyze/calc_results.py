@@ -281,12 +281,13 @@ def german_network(self):
         Network with all components in Germany
 
     """
-    keep_cntr = ["DE"]
-    new_idx = self.network.buses[
-        self.network.buses.country.isin(keep_cntr)
+   
+    keep_cntr = ["DE", "LU"]
+    new_idx = self.buses[
+        self.buses.country.isin(keep_cntr)
     ].index
 
-    new_network = self.network.copy()
+    new_network = self.copy()
 
     # drop components of other countries
     new_network.mremove(
@@ -499,7 +500,7 @@ def system_costs_germany(self):
     import_costs = (
         export_negative + import_positive - export_positive - import_negative
     )
-
+    #print(export_negative, import_positive, export_positive, import_negative)
     return marginal_cost, invest_cost, import_costs
 
 
@@ -522,7 +523,6 @@ def ac_export(self):
         (self.network.lines.bus1.isin(de_buses.index))
         & (self.network.lines.bus0.isin(for_buses.index))
     ]
-
     return (
         self.network.lines_t.p0[exp.index]
         .sum(axis=1)
@@ -534,6 +534,42 @@ def ac_export(self):
         .sum()
     )
 
+def ac_export_de_lu(self):
+    """Calculate electricity exports and imports over AC lines
+
+    Returns
+    -------
+    float
+        Electricity export (if negative: import) from Germany
+
+    """
+    de_buses = self.network.buses[
+        (self.network.buses.country == "DE") |
+        (self.network.buses.country == "LU")
+    ]
+    
+    for_buses = self.network.buses[
+        ~self.network.buses.country.isin(["DE", "LU"])
+    ]
+    
+    exp = self.network.lines[
+        (self.network.lines.bus0.isin(de_buses.index))
+        & (self.network.lines.bus1.isin(for_buses.index))
+    ]
+    imp = self.network.lines[
+        (self.network.lines.bus1.isin(de_buses.index))
+        & (self.network.lines.bus0.isin(for_buses.index))
+    ]
+    return (
+        self.network.lines_t.p0[exp.index]
+        .sum(axis=1)
+        .mul(self.network.snapshot_weightings.generators)
+        .sum()
+        + self.network.lines_t.p1[imp.index]
+        .sum(axis=1)
+        .mul(self.network.snapshot_weightings.generators)
+        .sum()
+    )
 
 def ac_export_per_country(self):
     """Calculate electricity exports and imports over AC lines per country
@@ -582,6 +618,60 @@ def ac_export_per_country(self):
     return result
 
 
+def ac_export_de_lu_per_country(self):
+    """Calculate electricity exports and imports over AC lines per country
+
+    Returns
+    -------
+    float
+        Electricity export (if negative: import) from Germany in TWh
+
+    """
+    
+    de_lu_buses = self.network.buses[
+        (self.network.buses.country == "DE") |
+        (self.network.buses.country == "LU")
+    ]
+
+    
+    for_buses = self.network.buses[
+        ~self.network.buses.country.isin(["DE", "LU"])
+    ]
+
+    result = pd.Series(index=for_buses.country.unique())
+
+    for c in for_buses.country.unique():
+        exp = self.network.lines[
+            (self.network.lines.bus0.isin(de_lu_buses.index))
+            & (
+                self.network.lines.bus1.isin(
+                    for_buses[for_buses.country == c].index
+                )
+            )
+        ]
+        imp = self.network.lines[
+            (self.network.lines.bus1.isin(de_lu_buses.index))
+            & (
+                self.network.lines.bus0.isin(
+                    for_buses[for_buses.country == c].index
+                )
+            )
+        ]
+
+        result[c] = (
+            self.network.lines_t.p0[exp.index]
+            .sum(axis=1)
+            .mul(self.network.snapshot_weightings.generators)
+            .sum()
+            + self.network.lines_t.p1[imp.index]
+            .sum(axis=1)
+            .mul(self.network.snapshot_weightings.generators)
+            .sum()
+        ) * 1e-6
+
+    return result
+
+
 def dc_export(self):
     """Calculate electricity exports and imports over DC lines
 
@@ -591,26 +681,68 @@ def dc_export(self):
         Electricity export (if negative: import) from Germany
 
     """
-    de_buses = self.network.buses[self.network.buses.country == "DE"]
-    for_buses = self.network.buses[self.network.buses.country != "DE"]
-    exp = self.network.links[
-        (self.network.links.carrier == "DC")
-        & (self.network.links.bus0.isin(de_buses.index))
-        & (self.network.links.bus1.isin(for_buses.index))
+    network = self
+    de_buses = network.buses[network.buses.country == "DE"]
+    for_buses = network.buses[network.buses.country != "DE"]
+    exp = network.links[
+        (network.links.carrier == "DC")
+        & (network.links.bus0.isin(de_buses.index))
+        & (network.links.bus1.isin(for_buses.index))
     ]
-    imp = self.network.links[
-        (self.network.links.carrier == "DC")
-        & (self.network.links.bus1.isin(de_buses.index))
-        & (self.network.links.bus0.isin(for_buses.index))
+    imp = network.links[
+        (network.links.carrier == "DC")
+        & (network.links.bus1.isin(de_buses.index))
+        & (network.links.bus0.isin(for_buses.index))
     ]
     return (
-        self.network.links_t.p0[exp.index]
+        network.links_t.p0[exp.index]
         .sum(axis=1)
-        .mul(self.network.snapshot_weightings.generators)
+        .mul(network.snapshot_weightings.generators)
         .sum()
-        + self.network.links_t.p1[imp.index]
+        + network.links_t.p1[imp.index]
         .sum(axis=1)
-        .mul(self.network.snapshot_weightings.generators)
+        .mul(network.snapshot_weightings.generators)
+        .sum()
+    )
+
+
+def dc_export_de_lu(self):
+    """Calculate electricity exports and imports over DC lines
+
+    Returns
+    -------
+    float
+        Electricity export (if negative: import) from Germany
+
+    """
+    network = self
+    de_buses = network.buses[
+        (network.buses.country == "DE") |
+        (network.buses.country == "LU")
+    ]
+    
+    for_buses = network.buses[
+        ~network.buses.country.isin(["DE", "LU"])
+    ]
+    
+    exp = network.links[
+        (network.links.carrier == "DC")
+        & (network.links.bus0.isin(de_buses.index))
+        & (network.links.bus1.isin(for_buses.index))
+    ]
+    imp = network.links[
+        (network.links.carrier == "DC")
+        & (network.links.bus1.isin(de_buses.index))
+        & (network.links.bus0.isin(for_buses.index))
+    ]
+    return (
+        network.links_t.p0[exp.index]
+        .sum(axis=1)
+        .mul(network.snapshot_weightings.generators)
+        .sum()
+        + network.links_t.p1[imp.index]
+        .sum(axis=1)
+        .mul(network.snapshot_weightings.generators)
         .sum()
     )
 
@@ -663,6 +795,132 @@ def dc_export_per_country(self):
 
     return result
 
+def dc_export_de_lu_per_country(self):
+    """Calculate electricity exports and imports over DC lines per country
+
+    Returns
+    -------
+    float
+        Electricity export (if negative: import) from Germany in TWh
+
+    """
+    network = self
+    de_lu_buses = network.buses[
+        (network.buses.country == "DE") |
+        (network.buses.country == "LU")
+    ]
+
+    for_buses = network.buses[
+        ~network.buses.country.isin(["DE", "LU"])
+    ]
+
+    result = pd.Series(index=for_buses.country.unique())
+
+    for c in for_buses.country.unique():
+        exp = network.links[
+            (network.links.carrier == "DC")
+            & (network.links.bus0.isin(de_lu_buses.index))
+            & (
+                network.links.bus1.isin(
+                    for_buses[for_buses.country == c].index
+                )
+            )
+        ]
+        imp = network.links[
+            (network.links.carrier == "DC")
+            & (network.links.bus1.isin(de_lu_buses.index))
+            & (
+                network.links.bus0.isin(
+                    for_buses[for_buses.country == c].index
+                )
+            )
+        ]
+
+        result[c] = (
+            network.links_t.p0[exp.index]
+            .sum(axis=1)
+            .mul(network.snapshot_weightings.generators)
+            .sum()
+            + network.links_t.p1[imp.index]
+            .sum(axis=1)
+            .mul(network.snapshot_weightings.generators)
+            .sum()
+        ) * 1e-6
+
+    return result
+
+def market_export_per_country(self):
+    """
+    Calculate electricity exports and imports over DC lines per country,
+    using every 5th hour of the year and multiplying by 5.
+
+    Returns
+    -------
+    pd.Series
+        Electricity export/import per country in TWh
+        Positive values: export, negative values: import
+    """
+    network = self
+    de_buses = network.buses[network.buses.country == "DE"]
+    for_buses = network.buses[network.buses.country != "DE"]
+
+    # Erstelle eine Liste mit jedem 5. Stundenindex (0, 5, 10, ..., 8755)
+    selected_hours = range(0, 8760, 5)
+
+    # Initialisiere Ergebnis-Serie
+    result = pd.Series(index=for_buses.country.unique(), dtype=float)
+
+    for country in for_buses.country.unique():
+        # Export-Links (von DE zum Land)
+        exp_links = network.links[
+            (network.links.carrier == "DC") &
+            (network.links.bus0.isin(de_buses.index)) &
+            (network.links.bus1.isin(for_buses[for_buses.country == country].index))
+        ]
+
+        # Import-Links (vom Land zu DE)
+        imp_links = network.links[
+            (network.links.carrier == "DC") &
+            (network.links.bus1.isin(de_buses.index)) &
+            (network.links.bus0.isin(for_buses[for_buses.country == country].index))
+        ]
+
+        # Berechne Export für ausgewählte Stunden
+        export_value = 0.0
+        if not exp_links.empty:
+            export_value = (
+                network.links_t.p0[exp_links.index]
+                .iloc[selected_hours]  # Nur ausgewählte Stunden
+                .sum(axis=1)
+                .mul(network.snapshot_weightings.generators.iloc[selected_hours])
+                .sum()
+            )
+
+        # Berechne Import für ausgewählte Stunden
+        import_value = 0.0
+        if not imp_links.empty:
+            import_value = (
+                network.links_t.p1[imp_links.index]
+                .iloc[selected_hours]  # Nur ausgewählte Stunden
+                .sum(axis=1)
+                .mul(network.snapshot_weightings.generators.iloc[selected_hours])
+                .sum()
+            )
+
+        # Netto-Export berechnen, mit 5 multiplizieren und in TWh umrechnen
+        export_twh = export_value * 1e-6
+        import_twh = import_value * 1e-6
+        saldo_twh = (export_value + import_value) * 1e-6
+    
+        # DataFrame erstellen
+        df = pd.DataFrame({
+            'Land': [country],
+            'Import (TWh)': [import_twh],
+            'Export (TWh)': [export_twh],
+            'Saldo (TWh)': [saldo_twh]
+        })
+
+    return df
 
 def calc_etrago_results(self):
     """Function that calculates main results of grid optimization
@@ -991,3 +1249,40 @@ def total_redispatch(network, only_de=True, plot=False):
             "potential": total_ramp_down_potential,
         },
     }
+
+
+def battery_capacity(self):
+    
+    ac_buses = self.buses[(self.buses.carrier=="AC")]
+    ac_buses_de = ac_buses[ac_buses.country.isin(["DE", "LU"])]
+    storages = self.storage_units[self.storage_units.bus.isin(ac_buses_de.index)]
+    batteries = storages[storages.carrier =="battery"]
+    
+    return batteries.p_nom_opt.sum()
+
+def electrolyser_capacity(self):
+    ac_buses = self.buses[(self.buses.carrier=="AC")]
+    ac_buses_de = ac_buses[ac_buses.country.isin(["DE", "LU"])]
+    links = self.links[self.links.bus0.isin(ac_buses_de.index)]
+    electrolysers = links[links.carrier =="power_to_H2"]
+    
+    return electrolysers
+    
+def electrolyser_dispatch(self):
+    ac_buses = self.buses[(self.buses.carrier=="AC")]
+    ac_buses_de = ac_buses[ac_buses.country.isin(["DE", "LU"])]
+    links = self.links[self.links.bus0.isin(ac_buses_de.index)]
+    electrolysers = links[links.carrier == "power_to_H2"]
+    electrolyser_dispatch = self.links_t.p0[electrolysers.index]   
+    
+    sum_per_link = electrolyser_dispatch.sum(axis=0)
+    return electrolyser_dispatch
+    
+
+def fuel_cell_capacity(self):
+    ac_buses = self.buses[(self.buses.carrier=="AC")]
+    ac_buses_de = ac_buses[ac_buses.country.isin(["DE", "LU"])]
+    links = self.links[self.links.bus1.isin(ac_buses_de.index)]
+    fuel_cells = links[links.carrier =="H2_to_power"]
+    
+    return fuel_cells.p_nom_opt.sum() 
