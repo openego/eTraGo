@@ -1048,19 +1048,41 @@ def run_spatial_clustering_gas(self):
                 h2_network, weight_h2, n_clusters_h2 = preprocessing(
                     self, "H2_grid"
                 )
-            
-            focus_region = self.args["network_clustering"]["method"]["focus_region"]
+
+            focus_region = self.args["network_clustering"]["method"][
+                "focus_region"
+            ]
             if focus_region:
 
-                func = 'sigmoid-20'
-                cluster_within = self.args["network_clustering"]['gas_grids']['cluster_ch4_within_focus']
-                weight_ch4 = focus_weighting(self, ch4_network, weight_ch4, focus_region, func, cluster_within,
-                                save=self.args["network_clustering"]["gas_grids"]["ch4_weight_tocsv"])
-                
+                func = "sigmoid-20"
+                cluster_within = self.args["network_clustering"]["gas_grids"][
+                    "cluster_ch4_within_focus"
+                ]
+                weight_ch4 = focus_weighting(
+                    self,
+                    ch4_network,
+                    weight_ch4,
+                    focus_region,
+                    func,
+                    cluster_within,
+                    save=self.args["network_clustering"]["gas_grids"][
+                        "ch4_weight_tocsv"
+                    ],
+                )
+
                 if "H2_grid" in self.network.links.carrier.unique():
-                    cluster_within = self.args["network_clustering"]['gas_grids']['cluster_h2_within_focus']
-                    weight_h2 = focus_weighting(self, h2_network, weight_h2, focus_region, func, cluster_within)
-            
+                    cluster_within = self.args["network_clustering"][
+                        "gas_grids"
+                    ]["cluster_h2_within_focus"]
+                    weight_h2 = focus_weighting(
+                        self,
+                        h2_network,
+                        weight_h2,
+                        focus_region,
+                        func,
+                        cluster_within,
+                    )
+
             if method == "kmeans":
                 if settings["k_ch4_busmap"]:
                     busmap = pd.read_csv(

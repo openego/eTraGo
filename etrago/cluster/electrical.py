@@ -32,8 +32,8 @@ if "READTHEDOCS" not in os.environ:
         aggregateoneport,
         get_clustering_from_busmap,
     )
-    from six import iteritems
     from shapely.geometry import LineString, Point
+    from six import iteritems
     import geopandas as gpd
     import numpy as np
     import pandas as pd
@@ -509,7 +509,7 @@ def select_elec_network(etrago, apply_on="grid_model"):
     """
     if apply_on == "grid_model":
         elec_network = etrago.network.copy()
-        
+
     elif apply_on == "market_model":
         elec_network = etrago.network_tsa.copy()
     else:
@@ -1055,7 +1055,7 @@ def weighting_for_scenario(network, save=None):
     )
 
     weight[weight == 0] = 1
-    
+
     if save:
         weight.to_csv(save)
 
@@ -1084,14 +1084,27 @@ def run_spatial_clustering(self):
             self.disaggregated_network = self.network.copy(with_time=False)
 
         elec_network, weight, n_clusters, busmap_foreign = preprocessing(self)
-        
-        focus_region = self.args["network_clustering"]["method"]["focus_region"]
+
+        focus_region = self.args["network_clustering"]["method"][
+            "focus_region"
+        ]
         if focus_region:
 
-            func = 'sigmoid-100'
-            cluster_within = self.args["network_clustering"]['electricity_grid']['cluster_within_focus']
-            weight = focus_weighting(self, elec_network, weight, focus_region, func, cluster_within,
-                            save=self.args["network_clustering"]["electricity_grid"]["bus_weight_tocsv"])
+            func = "sigmoid-100"
+            cluster_within = self.args["network_clustering"][
+                "electricity_grid"
+            ]["cluster_within_focus"]
+            weight = focus_weighting(
+                self,
+                elec_network,
+                weight,
+                focus_region,
+                func,
+                cluster_within,
+                save=self.args["network_clustering"]["electricity_grid"][
+                    "bus_weight_tocsv"
+                ],
+            )
 
         if self.args["network_clustering"]["method"]["algorithm"] == "kmeans":
             if not self.args["network_clustering"]["electricity_grid"][
@@ -1103,7 +1116,7 @@ def run_spatial_clustering(self):
                     self, elec_network, weight, n_clusters
                 )
                 medoid_idx = pd.Series(dtype=str)
-                
+
             else:
                 busmap = pd.Series(dtype=str)
                 medoid_idx = pd.Series(dtype=str)

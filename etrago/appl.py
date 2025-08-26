@@ -121,7 +121,9 @@ args = {
     },
     "network_clustering": {
         "method": {
-            "focus_region": ["Region Hannover"], # None, shape-file or list with string for Kreise
+            "focus_region": [
+                "Region Hannover"
+            ],  # None, shape-file or list with string for Kreise
             "algorithm": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
             "remove_stubs": False,  # remove stubs before kmeans clustering
             "use_reduced_coordinates": False,  # if True, do not average cluster coordinates in kmeans
@@ -134,7 +136,7 @@ args = {
         },
         "electricity_grid": {
             "active": True,  # choose if clustering is activated
-            "cluster_within_focus": False, # False for no clustering within focus region
+            "cluster_within_focus": False,  # False for no clustering within focus region
             "n_clusters": 30,  # total number of resulting AC nodes
             "cluster_foreign": False,  # take foreign AC buses into account, True or False
             "k_elec_busmap": False,  # False or path/to/busmap.csv
@@ -143,9 +145,9 @@ args = {
         },
         "gas_grids": {
             "active": True,  # choose if clustering is activated
-            "cluster_ch4_within_focus": True, #  # False for no clustering within focus region
+            "cluster_ch4_within_focus": True,  #  # False for no clustering within focus region
             "n_clusters_ch4": 15,  # total number of resulting CH4 nodes
-            "cluster_h2_within_focus": True, #  # False for no clustering within focus region
+            "cluster_h2_within_focus": True,  #  # False for no clustering within focus region
             "n_clusters_h2": 15,  # total number of resulting H2 nodes
             "cluster_foreign_ch4": False,  # take foreign CH4 buses into account, True or False
             "k_ch4_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -433,7 +435,7 @@ def run_etrago(args, json_path):
         Choose if you want to apply a clustering of to the network buses and
         specify settings.
         The provided dictionary can have the following entries:
-            
+
         * "method" : dict
             Choose general settings for network clusterings:
 
