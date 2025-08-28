@@ -55,7 +55,7 @@ args = {
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
         "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        "formulation": "linopy",
+        "formulation": "pyomo",
         "market_optimization": {
             "active": False,
             "market_zones": "status_quo",  # only used if type='market_grid'
@@ -72,7 +72,7 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 168,
+    "end_snapshot": 10,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -84,7 +84,7 @@ args = {
         "BarHomogeneous": 1,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
-    "scn_name": "eGon100RE",  # scenario: eGon2035, eGon100RE or status2019
+    "scn_name": "eGon2035_lowflex",  # scenario: eGon2035, eGon100RE or status2019
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
@@ -113,7 +113,7 @@ args = {
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
-    "delete_dispensable_ac_buses": True,  # bool. Find and delete dispensable buses
+    "delete_dispensable_ac_buses": False,  # bool. Find and delete dispensable buses
     "network_clustering_ehv": {
         "active": False,  # choose if clustering of HV buses to EHV buses is activated
         "busmap": False,  # False or path to stored busmap
@@ -121,7 +121,7 @@ args = {
     },
     "network_clustering": {
         "method": {
-            "focus_region": None,  # None, shape-file or list with string for Kreise
+            "focus_region": ["Region Hannover"],  # None, shape-file or list with string for Kreise
             "algorithm": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
             "remove_stubs": False,  # remove stubs before kmeans clustering
             "use_reduced_coordinates": False,  # if True, do not average cluster coordinates in kmeans
@@ -144,7 +144,7 @@ args = {
         "gas_grids": {
             "active": True,  # choose if clustering is activated
             "cluster_ch4_within_focus": True,  #  False for no clustering within focus region
-            "n_clusters_ch4": 15,  # total number of resulting CH4 nodes
+            "n_clusters_ch4": 80,  # total number of resulting CH4 nodes
             "cluster_h2_within_focus": True,  #  False for no clustering within focus region
             "n_clusters_h2": 15,  # total number of resulting H2 nodes
             "cluster_foreign_ch4": False,  # take foreign CH4 buses into account, True or False
@@ -687,6 +687,8 @@ def run_etrago(args, json_path):
 
     # skip snapshots
     etrago.skip_snapshots()
+    
+    etrago.args["scn_name"] = "eGon2035"
 
     # start linear optimal powerflow calculations
     etrago.optimize()
@@ -707,11 +709,38 @@ def run_etrago(args, json_path):
 
 
 if __name__ == "__main__":
-    # execute etrago function
-    print(datetime.datetime.now())
-    etrago = run_etrago(args, json_path=None)
+    
+    import sys
+
+    old_stdout = sys.stdout
+    log_file = open('console.log',"w")
+    sys.stdout = log_file
 
     print(datetime.datetime.now())
+    
+    spatial_resolution = [50, 100, 150, 200, 250, 300]
+    
+    for i in range (0, len(spatial_resolution)):
+            
+        args['network_clustering']['electricity_grid']['n_clusters'] = spatial_resolution[i]
+        
+        args['csv_export'] = 'Zooming-Tests/AC-'+str(args['network_clustering']['electricity_grid']['n_clusters'])
+        
+        old_stdout = sys.stdout
+        path_log = args['csv_export']
+        os.makedirs(path_log, exist_ok=True)
+        log_file = open(args['csv_export']+'/console.log',"w")
+        sys.stdout = log_file
+        
+        print(datetime.datetime.now())
+                    
+        etrago = run_etrago(args, json_path=None)
+        
+        print(datetime.datetime.now())
+        
+        sys.stdout = old_stdout
+        log_file.close()
+        
     etrago.session.close()
     # plots: more in tools/plot.py
     # make a line loading plot
