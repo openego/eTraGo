@@ -679,7 +679,10 @@ def run_etrago(args, json_path):
 if __name__ == "__main__":
     # execute etrago function
     print(datetime.datetime.now())
+    args["method"]["distribution_grids"] = False
     etrago = run_etrago(args, json_path=None)
+    args["method"]["distribution_grids"] = True
+    etrago_dg = run_etrago(args, json_path=None)
     print(datetime.datetime.now())
     etrago.session.close()
     # plots: more in tools/plot.py
