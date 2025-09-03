@@ -489,7 +489,8 @@ def run_etrago(args, json_path):
             bus1 = (mv_grids.bus_id.astype(str) + "_distribution_grid").values,
             p_nom_min = 500,
             p_nom_extendable = True,
-            capital_cost = 100
+            capital_cost = 100,
+            p_min_pu = -1
             )
         
         # Import power plants table
