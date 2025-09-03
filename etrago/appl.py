@@ -655,6 +655,8 @@ def run_etrago(args, json_path):
     # skip snapshots
     etrago.skip_snapshots()
 
+    etrago.network.links[etrago.network.links.carrier == "central_gas_boiler"].p_nom *= 10000
+
     # start linear optimal powerflow calculations
     etrago.lopf()
 
