@@ -1,10 +1,39 @@
-etrago\.tools package
+etrago.tools package
 =====================
 
-Submodules
-----------
+etrago.tools.calc\_results module
+----------------------------------
 
-etrago\.tools\.io module
+.. automodule:: etrago.tools.calc_results
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+etrago.tools.constraints module
+----------------------------------
+
+.. automodule:: etrago.tools.constraints
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+etrago.tools.execute module
+----------------------------------
+
+.. automodule:: etrago.tools.execute
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+etrago.tools.extendable module
+----------------------------------
+
+.. automodule:: etrago.tools.extendable
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+etrago.tools.io module
 ------------------------
 
 .. automodule:: etrago.tools.io
@@ -12,45 +41,26 @@ etrago\.tools\.io module
     :undoc-members:
     :show-inheritance:
 
+etrago.tools.network module
+-----------------------------
 
-etrago\.tools\.extendable module
-------------------------
-
-.. automodule:: etrago.tools.extendable
+.. automodule:: etrago.tools.network
     :members:
     :undoc-members:
     :show-inheritance:
 
-
-etrago\.tools\.plot module
---------------------------
+etrago.tools.plot module
+---------------------------
 
 .. automodule:: etrago.tools.plot
     :members:
     :undoc-members:
     :show-inheritance:
 
-etrago\.tools\.snapshot\_clustering module
-------------------------------------------
-
-.. automodule:: etrago.tools.snapshot_clustering
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-etrago\.tools\.utilities module
+etrago.tools.utilities module
 -------------------------------
 
 .. automodule:: etrago.tools.utilities
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
-Module contents
----------------
-
-.. automodule:: etrago.tools
     :members:
     :undoc-members:
     :show-inheritance:

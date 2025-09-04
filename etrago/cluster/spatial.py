@@ -18,22 +18,21 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # File description for read-the-docs
-""" spatial.py defines the methods to run spatial clustering on networks."""
+"""spatial.py defines the methods to run spatial clustering on networks."""
 
 import os
 
 if "READTHEDOCS" not in os.environ:
     from itertools import product
     from math import ceil
-    from pickle import dump
     import logging
     import multiprocessing as mp
 
     from networkx import NetworkXNoPath
-    from pypsa.networkclustering import (
-        _flatten_multiindex,
+    from pypsa.clustering.spatial import (
         busmap_by_kmeans,
         busmap_by_stubs,
+        flatten_multiindex,
         get_clustering_from_busmap,
     )
     from sklearn.cluster import KMeans
@@ -41,8 +40,14 @@ if "READTHEDOCS" not in os.environ:
     import networkx as nx
     import numpy as np
     import pandas as pd
+    import pypsa
 
-    from etrago.tools.utilities import *
+    from etrago.tools.utilities import (
+        buses_grid_linked,
+        buses_of_vlvl,
+        connected_grid_lines,
+        connected_transformer,
+    )
 
     logger = logging.getLogger(__name__)
 
@@ -92,7 +97,7 @@ def nan_links(x):
 
 
 def ext_storage(x):
-    v = any(x[x == True])
+    v = any(x[x])
     return v
 
 
@@ -103,68 +108,85 @@ def sum_with_inf(x):
         return x.sum()
 
 
+def strategies_buses():
+    return {"geom": nan_links, "country": "first"}
+
+
+def strategies_lines():
+    return {"geom": nan_links, "country": "first"}
+
+
 def strategies_one_ports():
     return {
         "StorageUnit": {
-            "marginal_cost": np.mean,
-            "capital_cost": np.mean,
-            "efficiency_dispatch": np.mean,
-            "standing_loss": np.mean,
-            "efficiency_store": np.mean,
-            "p_min_pu": np.min,
+            "marginal_cost": "mean",
+            "capital_cost": "mean",
+            "efficiency_dispatch": "mean",
+            "standing_loss": "mean",
+            "efficiency_store": "mean",
+            "p_min_pu": "min",
             "p_nom_extendable": ext_storage,
             "p_nom_max": sum_with_inf,
+            "scn_name": "first",
         },
         "Store": {
-            "marginal_cost": np.mean,
-            "capital_cost": np.mean,
-            "standing_loss": np.mean,
-            "e_nom": np.sum,
-            "e_nom_min": np.sum,
+            "marginal_cost": "mean",
+            "capital_cost": "mean",
+            "standing_loss": "mean",
+            "e_nom": "sum",
+            "e_nom_min": "sum",
             "e_nom_max": sum_with_inf,
-            "e_initial": np.sum,
+            "e_initial": "sum",
+            "e_min_pu": "mean",
+            "e_max_pu": "mean",
         },
     }
 
 
 def strategies_generators():
     return {
-        "p_nom_min": np.min,
+        "p_nom_min": "min",
         "p_nom_max": sum_with_inf,
-        "weight": np.sum,
-        "p_nom": np.sum,
-        "p_nom_opt": np.sum,
-        "marginal_cost": np.mean,
-        "capital_cost": np.mean,
+        "weight": "sum",
+        "p_nom": "sum",
+        "p_nom_opt": "sum",
+        "marginal_cost": "mean",
+        "capital_cost": "mean",
         "e_nom_max": sum_with_inf,
+        "up_time_before": "mean",
     }
 
 
 def strategies_links():
     return {
-        "scn_name": _make_consense_links,
+        "scn_name": "first",
         "bus0": _make_consense_links,
         "bus1": _make_consense_links,
         "carrier": _make_consense_links,
-        "p_nom": np.sum,
-        "p_nom_extendable": _make_consense_links,
+        "p_nom": "sum",
+        "p_nom_extendable": "any",
         "p_nom_max": sum_with_inf,
-        "capital_cost": np.mean,
-        "length": np.mean,
+        "capital_cost": "mean",
+        "length": "mean",
         "geom": nan_links,
         "topo": nan_links,
         "type": nan_links,
-        "efficiency": np.mean,
-        "p_nom_min": np.sum,
-        "p_set": np.mean,
-        "p_min_pu": np.min,
-        "p_max_pu": np.max,
-        "marginal_cost": np.mean,
+        "efficiency": "mean",
+        "p_nom_min": "sum",
+        "p_set": "mean",
+        "p_min_pu": "mean",
+        "p_max_pu": "mean",
+        "marginal_cost": "mean",
         "terrain_factor": _make_consense_links,
-        "p_nom_opt": np.mean,
+        "p_nom_opt": "mean",
         "country": nan_links,
-        "build_year": np.mean,
-        "lifetime": np.mean,
+        "build_year": "mean",
+        "lifetime": "mean",
+        "min_up_time": "mean",
+        "min_down_time": "mean",
+        "up_time_before": "mean",
+        "down_time_before": "mean",
+        "committable": "all",
     }
 
 
@@ -186,8 +208,10 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
 
     Returns
     -------
-    new_df : links aggregated based on bus0, bus1 and carrier
-    new_pnl : links time series aggregated
+    new_df :
+        links aggregated based on bus0, bus1 and carrier
+    new_pnl :
+        links time series aggregated
     """
 
     def normed_or_uniform(x):
@@ -228,8 +252,11 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
     )
     strategies = strategies_links()
     strategies.update(cus_strateg)
-    new_df = links.groupby(grouper, axis=0).agg(strategies)
-    new_df.index = _flatten_multiindex(new_df.index).rename("name")
+    strategies.pop("topo")
+    strategies.pop("geom")
+
+    new_df = links.groupby(grouper).agg(strategies)
+    new_df.index = flatten_multiindex(new_df.index).rename("name")
     new_df = pd.concat(
         [new_df, network.links.loc[~links_agg_b]], axis=0, sort=False
     )
@@ -248,8 +275,8 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
                     df_agg = df_agg.multiply(
                         weighting.loc[df_agg.columns], axis=1
                     )
-                pnl_df = df_agg.groupby(grouper, axis=1).sum()
-                pnl_df.columns = _flatten_multiindex(pnl_df.columns).rename(
+                pnl_df = df_agg.T.groupby(grouper).sum().T
+                pnl_df.columns = flatten_multiindex(pnl_df.columns).rename(
                     "name"
                 )
                 new_pnl[attr] = pd.concat(
@@ -276,7 +303,7 @@ def graph_from_edges(edges):
 
     Returns
     -------
-    M : :class:`networkx.classes.multigraph.MultiGraph
+    M : :class:`networkx.classes.multigraph.MultiGraph`
     """
 
     M = nx.MultiGraph()
@@ -301,7 +328,7 @@ def gen(nodes, n, graph):
         List of nodes in the system.
     n : int
         Number of desired multiprocessing units.
-    graph : :class:`networkx.classes.multigraph.MultiGraph
+    graph : :class:`networkx.classes.multigraph.MultiGraph`
         Graph representation of an electrical grid.
 
     Returns
@@ -323,7 +350,7 @@ def shortest_path(paths, graph):
     ----------
     paths : list
         List of pairs containing a source and a target node
-    graph : :class:`networkx.classes.multigraph.MultiGraph
+    graph : :class:`networkx.classes.multigraph.MultiGraph`
         Graph representation of an electrical grid.
 
     Returns
@@ -339,7 +366,7 @@ def shortest_path(paths, graph):
 
     df_isna = df.isnull()
     for s, t in paths:
-        while df_isna.loc[(s, t), "path_length"] == True:
+        while df_isna.loc[(s, t), "path_length"]:
             try:
                 s_to_other = nx.single_source_dijkstra_path_length(graph, s)
                 for t in idx.levels[1]:
@@ -354,7 +381,7 @@ def shortest_path(paths, graph):
     return df
 
 
-def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
+def busmap_by_shortest_path(etrago, fromlvl, tolvl, cpu_cores=4):
     """
     Creates a busmap for the EHV-Clustering between voltage levels based
     on dijkstra shortest path. The result is automatically written to the
@@ -371,8 +398,6 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
         Container for all network components.
     session : sqlalchemy.orm.session.Session object
         Establishes interactions with the database.
-    scn_name : str
-        Name of the scenario.
     fromlvl : list
         List of voltage-levels to cluster.
     tolvl : list
@@ -385,13 +410,17 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     None
     """
 
-    # cpu_cores = mp.cpu_count()
-
     # data preperation
     s_buses = buses_grid_linked(etrago.network, fromlvl)
     lines = connected_grid_lines(etrago.network, s_buses)
     transformer = connected_transformer(etrago.network, s_buses)
     mask = transformer.bus1.isin(buses_of_vlvl(etrago.network, tolvl))
+
+    dc = etrago.network.links[etrago.network.links.carrier == "DC"]
+    dc.index = "DC_" + dc.index
+    lines_plus_dc = pd.concat([lines, dc])
+    lines_plus_dc = lines_plus_dc[etrago.network.lines.columns]
+    lines_plus_dc["carrier"] = "AC"
 
     # temporary end points, later replaced by bus1 pendant
     t_buses = transformer[mask].bus0
@@ -401,7 +430,8 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
 
     # graph creation
     edges = [
-        (row.bus0, row.bus1, row.length, ix) for ix, row in lines.iterrows()
+        (row.bus0, row.bus1, row.length, ix)
+        for ix, row in lines_plus_dc.iterrows()
     ]
     M = graph_from_edges(edges)
 
@@ -411,7 +441,6 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     chunksize = ceil(len(ppaths) / cpu_cores)
     container = p.starmap(shortest_path, gen(ppaths, chunksize, M))
     df = pd.concat(container)
-    dump(df, open("df.p", "wb"))
 
     # post processing
     df.sort_index(inplace=True)
@@ -461,93 +490,52 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     df = pd.concat([df, tofill], ignore_index=True, axis=0)
     df.drop_duplicates(inplace=True)
 
-    # prepare data for export
-
-    df["scn_name"] = scn_name
-    df["version"] = etrago.args["gridversion"]
-
-    if not df.version.any():
-        df.version = "testcase"
-
     df.rename(columns={"source": "bus0", "target": "bus1"}, inplace=True)
-    df.set_index(["scn_name", "bus0", "bus1"], inplace=True)
 
-    df.to_sql(
-        "egon_etrago_hv_busmap",
-        con=etrago.engine,
-        schema="grid",
-        if_exists="append",
-    )
+    busmap = pd.Series(df.bus1.values, index=df.bus0).to_dict()
 
-    return
+    return busmap
 
 
-def busmap_from_psql(etrago):
+def busmap_ehv_clustering(etrago):
     """
-    Retrieves busmap from `model_draft.ego_grid_pf_hv_busmap` on the
-    <OpenEnergyPlatform>[www.openenergy-platform.org] by a given scenario
-    name. If this busmap does not exist, it is created with default values.
+    Generates a busmap that can be used to cluster an electrical network to
+    only extra high voltage buses. If a path to a busmap in a csv file is
+    passed in the arguments, it loads the csv file and returns it.
 
     Parameters
     ----------
-    network : pypsa.Network
-        Container for all network components.
-    session : sqlalchemy.orm.session.Session object
-        Establishes interactions with the database.
-    scn_name : str
-        Name of the scenario.
+    etrago : Etrago
+        An instance of the Etrago class
 
     Returns
     -------
     busmap : dict
         Maps old bus_ids to new bus_ids.
     """
-    scn_name = (
-        etrago.args["scn_name"]
-        if etrago.args["scn_extension"] == None
-        else etrago.args["scn_name"]
-        + "_ext_"
-        + "_".join(etrago.args["scn_extension"])
-    )
 
-    from saio.grid import egon_etrago_hv_busmap
-
-    filter_version = etrago.args["gridversion"]
-
-    if not filter_version:
-        filter_version = "testcase"
-
-    def fetch():
-        query = (
-            etrago.session.query(
-                egon_etrago_hv_busmap.bus0, egon_etrago_hv_busmap.bus1
-            )
-            .filter(egon_etrago_hv_busmap.scn_name == scn_name)
-            .filter(egon_etrago_hv_busmap.version == filter_version)
-        )
-
-        return dict(query.all())
-
-    busmap = fetch()
-
-    # TODO: Or better try/except/finally
-    if not busmap:
-        print("Busmap does not exist and will be created.\n")
-
+    if etrago.args["network_clustering_ehv"]["busmap"] is False:
         cpu_cores = etrago.args["network_clustering"]["CPU_cores"]
         if cpu_cores == "max":
             cpu_cores = mp.cpu_count()
         else:
             cpu_cores = int(cpu_cores)
 
-        busmap_by_shortest_path(
+        busmap = busmap_by_shortest_path(
             etrago,
-            scn_name,
             fromlvl=[110],
             tolvl=[220, 380, 400, 450],
             cpu_cores=cpu_cores,
         )
-        busmap = fetch()
+        pd.DataFrame(busmap.items(), columns=["bus0", "bus1"]).to_csv(
+            "ehv_elecgrid_busmap_result.csv",
+            index=False,
+        )
+    else:
+        busmap = pd.read_csv(etrago.args["network_clustering_ehv"]["busmap"])
+        busmap = pd.Series(
+            busmap.bus1.apply(str).values, index=busmap.bus0.apply(str)
+        ).to_dict()
 
     return busmap
 
@@ -601,9 +589,9 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
             if kmean_settings["use_reduced_coordinates"]:
                 # TODO : FIX THIS HACK THAT HAS UNEXPECTED SIDE-EFFECTS,
                 # i.e. network is changed in place!!
-                network.buses.loc[
-                    busmap.index, ["x", "y"]
-                ] = network.buses.loc[busmap, ["x", "y"]].values
+                network.buses.loc[busmap.index, ["x", "y"]] = (
+                    network.buses.loc[busmap, ["x", "y"]].values
+                )
 
             clustering = get_clustering_from_busmap(
                 network,
@@ -684,7 +672,6 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
     chunksize = ceil(len(ppathss) / cpu_cores)
     container = p.starmap(shortest_path, gen(ppathss, chunksize, M))
     df = pd.concat(container)
-    dump(df, open("df.p", "wb"))
 
     # assignment of data points to closest k-medoids centers
     df["path_length"] = pd.to_numeric(df["path_length"])
@@ -715,8 +702,9 @@ def kmedoids_dijkstra_clustering(
     etrago, buses, connections, weight, n_clusters
 ):
     """
-    Applies a k-medoids clustering on the given network and calls the function to conduct a Dijkstra's
-    algorithm afterwards for the consideration of the network's topology in the spatial clustering.
+    Applies a k-medoids clustering on the given network and calls the function
+    to conduct a Dijkstra's algorithm afterwards for the consideration of the
+    network's topology in the spatial clustering.
 
     Parameters
     ----------
@@ -771,7 +759,7 @@ def kmedoids_dijkstra_clustering(
         kmeans.fit(points)
 
         busmap = pd.Series(
-            data=kmeans.predict(buses.loc[buses_i, ["x", "y"]]),
+            data=kmeans.predict(buses.loc[buses_i, ["x", "y"]].values),
             index=buses_i,
             dtype=object,
         )
@@ -787,13 +775,52 @@ def kmedoids_dijkstra_clustering(
 
         medoid_idx = distances.idxmin()
 
-        # dijkstra's algorithm
-        busmap = dijkstras_algorithm(
-            buses,
-            connections,
-            medoid_idx,
-            etrago.args["network_clustering"]["CPU_cores"],
-        )
+        if len(busmap) > n_clusters:
+            # dijkstra's algorithm
+            busmap = dijkstras_algorithm(
+                buses,
+                connections,
+                medoid_idx,
+                etrago.args["network_clustering"]["CPU_cores"],
+            )
+        elif len(busmap) < n_clusters:
+            logger.warning(
+                f"""
+            The number supplied to the parameter n_clusters for
+            {buses.carrier[0]} buses is larger than the actual number of buses
+            in the network.
+            """
+            )
+
         busmap.index.name = "bus_id"
 
     return busmap, medoid_idx
+
+
+def drop_nan_values(network):
+    """
+    Drops nan values after clustering an replaces output data time series with
+    empty dataframes
+
+    Parameters
+    ----------
+    network : pypsa.Network
+        Container for all network components.
+
+    Returns
+    -------
+    None.
+
+    """
+
+    # Drop nan values after clustering
+    network.links.min_up_time.fillna(0, inplace=True)
+    network.links.min_down_time.fillna(0, inplace=True)
+    network.links.up_time_before.fillna(0, inplace=True)
+    network.links.down_time_before.fillna(0, inplace=True)
+    # Drop nan values in timeseries after clustering
+    for c in network.iterate_components():
+        for pnl in c.attrs[
+            (c.attrs.status == "Output") & (c.attrs.varying)
+        ].index:
+            c.pnl[pnl] = pd.DataFrame(index=network.snapshots)

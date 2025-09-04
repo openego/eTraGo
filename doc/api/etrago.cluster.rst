@@ -1,30 +1,35 @@
-etrago\.cluster package
+etrago.cluster package
 =======================
 
-Submodules
-----------
 
-etrago\.cluster\.networkclustering module
+etrago.cluster.electrical module
 -----------------------------------------
 
-.. automodule:: etrago.cluster.networkclustering
+.. automodule:: etrago.cluster.electrical
     :members:
     :undoc-members:
     :show-inheritance:
 
-etrago\.cluster\.snapshot module
+etrago.cluster.gas module
+-----------------------------------------
+
+.. automodule:: etrago.cluster.gas
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+etrago.cluster.temporal module
 --------------------------------
 
-.. automodule:: etrago.cluster.snapshot
+.. automodule:: etrago.cluster.temporal
     :members:
     :undoc-members:
     :show-inheritance:
 
-Module contents
----------------
+etrago.cluster.spatial module
+--------------------------------
 
-.. automodule:: etrago.cluster
+.. automodule:: etrago.cluster.spatial
     :members:
     :undoc-members:
     :show-inheritance:
-

@@ -21,16 +21,14 @@
 """
 Extendable.py defines function to set PyPSA components extendable.
 """
-from etrago.tools.utilities import convert_capital_costs, find_snapshots
-
-from etrago.cluster.snapshot import snapshot_clustering
+from math import sqrt
+import time
 
 import numpy as np
 import pandas as pd
 
-import time
-from math import sqrt
-
+from etrago.cluster.temporal import snapshot_clustering
+from etrago.tools.utilities import convert_capital_costs, find_snapshots
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -39,7 +37,8 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol, ClaraBuettner, KathiEsterl, CarlosEpia"
+__author__ = """ulfmueller, s3pp, wolfbunke, mariusves, lukasol, ClaraBuettner,
+ KathiEsterl, CarlosEpia"""
 
 
 def extendable(
@@ -60,13 +59,16 @@ def extendable(
     Parameters
     ----------
     grid_max_D : int, optional
-        Upper bounds for electrical grid expansion relative to existing capacity. The default is None.
+        Upper bounds for electrical grid expansion relative to existing
+        capacity. The default is None.
     grid_max_abs_D : dict, optional
         Absolute upper bounds for electrical grid expansion in Germany.
     grid_max_foreign : int, optional
-        Upper bounds for expansion of electrical foreign lines relative to the existing capacity. The default is 4.
+        Upper bounds for expansion of electrical foreign lines relative to the
+        existing capacity. The default is 4.
     grid_max_abs_foreign : dict, optional
-        Absolute upper bounds for expansion of foreign electrical grid. The default is None.
+        Absolute upper bounds for expansion of foreign electrical grid.
+        The default is None.
 
     Returns
     -------
@@ -77,13 +79,18 @@ def extendable(
     network = self.network
     extendable_settings = self.args["extendable"]
 
-    if not "as_in_db" in extendable_settings["extendable_components"]:
+    if "as_in_db" not in extendable_settings["extendable_components"]:
         network.lines.s_nom_extendable = False
         network.transformers.s_nom_extendable = False
         network.links.p_nom_extendable = False
         network.storage_units.p_nom_extendable = False
         network.stores.e_nom_extendable = False
         network.generators.p_nom_extendable = False
+
+    if "H2_feedin" not in extendable_settings["extendable_components"]:
+        network.mremove(
+            "Link", network.links[network.links.carrier == "H2_feedin"].index
+        )
 
     if "network" in extendable_settings["extendable_components"]:
         network.lines.s_nom_extendable = True
@@ -98,12 +105,12 @@ def extendable(
             network.links.loc[
                 network.links.carrier == "DC", "p_nom_extendable"
             ] = True
-            network.links.loc[
-                network.links.carrier == "DC", "p_nom_min"
-            ] = network.links.p_nom
-            network.links.loc[
-                network.links.carrier == "DC", "p_nom_max"
-            ] = float("inf")
+            network.links.loc[network.links.carrier == "DC", "p_nom_min"] = (
+                network.links.p_nom
+            )
+            network.links.loc[network.links.carrier == "DC", "p_nom_max"] = (
+                float("inf")
+            )
 
     if "german_network" in extendable_settings["extendable_components"]:
         buses = network.buses[network.buses.country == "DE"]
@@ -303,21 +310,59 @@ def extendable(
 
         network.storage_units.loc[foreign_battery, "p_nom_extendable"] = True
 
-        network.storage_units.loc[
-            foreign_battery, "p_nom_max"
-        ] = network.storage_units.loc[foreign_battery, "p_nom"]
+        network.storage_units.loc[foreign_battery, "p_nom_max"] = (
+            network.storage_units.loc[foreign_battery, "p_nom"]
+        )
 
-        network.storage_units.loc[
-            foreign_battery, "p_nom"
-        ] = network.storage_units.loc[foreign_battery, "p_nom_min"]
+        network.storage_units.loc[foreign_battery, "p_nom"] = (
+            network.storage_units.loc[foreign_battery, "p_nom_min"]
+        )
 
-        network.storage_units.loc[
-            foreign_battery, "capital_cost"
-        ] = network.storage_units.loc[de_battery, "capital_cost"].max()
+        network.storage_units.loc[foreign_battery, "capital_cost"] = (
+            network.storage_units.loc[de_battery, "capital_cost"].max()
+        )
 
-        network.storage_units.loc[
-            foreign_battery, "marginal_cost"
-        ] = network.storage_units.loc[de_battery, "marginal_cost"].max()
+        network.storage_units.loc[foreign_battery, "marginal_cost"] = (
+            network.storage_units.loc[de_battery, "marginal_cost"].max()
+        )
+
+    if (
+        "foreign_storage_unlimited"
+        in extendable_settings["extendable_components"]
+    ):
+        foreign_battery = network.storage_units[
+            (
+                network.storage_units.bus.isin(
+                    network.buses.index[network.buses.country != "DE"]
+                )
+            )
+            & (network.storage_units.carrier == "battery")
+        ].index
+
+        de_battery = network.storage_units[
+            (
+                network.storage_units.bus.isin(
+                    network.buses.index[network.buses.country == "DE"]
+                )
+            )
+            & (network.storage_units.carrier == "battery")
+        ].index
+
+        network.storage_units.loc[foreign_battery, "p_nom_extendable"] = True
+
+        network.storage_units.loc[foreign_battery, "p_nom_max"] = np.inf
+
+        network.storage_units.loc[foreign_battery, "p_nom"] = (
+            network.storage_units.loc[foreign_battery, "p_nom_min"]
+        )
+
+        network.storage_units.loc[foreign_battery, "capital_cost"] = (
+            network.storage_units.loc[de_battery, "capital_cost"].max()
+        )
+
+        network.storage_units.loc[foreign_battery, "marginal_cost"] = (
+            network.storage_units.loc[de_battery, "marginal_cost"].max()
+        )
 
     # Extension settings for extension-NEP 2035 scenarios
     if "overlay_network" in extendable_settings["extendable_components"]:
@@ -357,7 +402,7 @@ def extendable(
 
     # constrain network expansion to maximum
 
-    if not grid_max_abs_D == None:
+    if grid_max_abs_D is not None:
         buses = network.buses[
             (network.buses.country == "DE") & (network.buses.carrier == "AC")
         ]
@@ -373,7 +418,7 @@ def extendable(
             "p_nom_max",
         ] = grid_max_abs_D["dc"]
 
-    if not grid_max_abs_foreign == None:
+    if grid_max_abs_foreign is not None:
         foreign_buses = network.buses[
             (network.buses.country != "DE") & (network.buses.carrier == "AC")
         ]
@@ -395,7 +440,7 @@ def extendable(
             "p_nom_max",
         ] = grid_max_abs_foreign["dc"]
 
-    if not grid_max_D == None:
+    if grid_max_D is not None:
         buses = network.buses[
             (network.buses.country == "DE") & (network.buses.carrier == "AC")
         ]
@@ -421,7 +466,7 @@ def extendable(
             grid_max_D * network.links.p_nom
         )
 
-    if not grid_max_foreign == None:
+    if grid_max_foreign is not None:
         foreign_buses = network.buses[
             (network.buses.country != "DE") & (network.buses.carrier == "AC")
         ]
@@ -490,7 +535,8 @@ def line_max_abs(
     },
 ):
     """
-    Function to calculate limitation for capacity expansion of lines in network.
+    Function to calculate limitation for capacity expansion of lines in
+    network.
 
     Parameters
     ----------
@@ -535,7 +581,8 @@ def line_max_abs(
         wires=line_max_abs["380"]["wires"],
         circuits=line_max_abs["380"]["circuits"],
     ) * (network.lines["cables"] / network.lines["total_cables"])
-    # set the s_nom_max depending on the voltage level and the share of the route
+    # set the s_nom_max depending on the voltage level
+    # and the share of the route
     network.lines.loc[
         (network.lines.bus0.isin(buses.index))
         & (network.lines.bus1.isin(buses.index))
@@ -587,7 +634,8 @@ def line_max_abs(
 
 def transformer_max_abs(network, buses):
     """
-    Function to calculate limitation for capacity expansion of transformers in network.
+    Function to calculate limitation for capacity expansion of transformers in
+    network.
 
     Parameters
     ----------
@@ -603,8 +651,8 @@ def transformer_max_abs(network, buses):
     """
 
     # To determine the maximum extendable capacity of a transformer, the sum of
-    # the maximum capacities of the lines connected to it is calculated for each
-    # of its 2 sides. The smallest one is selected.
+    # the maximum capacities of the lines connected to it is calculated for
+    # each of its 2 sides. The smallest one is selected.
     smax_bus0 = network.lines.s_nom_max.groupby(network.lines.bus0).sum()
     smax_bus1 = network.lines.s_nom_max.groupby(network.lines.bus1).sum()
     smax_bus = pd.concat([smax_bus0, smax_bus1], axis=1)
@@ -646,9 +694,11 @@ def transformer_max_abs(network, buses):
     # the calculated maximum. For these cases, max capacity is set to be the
     # equal to the min capacity.
     network.transformers["s_nom_max"] = network.transformers.apply(
-        lambda x: x["s_nom_max"]
-        if float(x["s_nom_max"]) > float(x["s_nom_min"])
-        else x["s_nom_min"],
+        lambda x: (
+            x["s_nom_max"]
+            if float(x["s_nom_max"]) > float(x["s_nom_min"])
+            else x["s_nom_min"]
+        ),
         axis=1,
     )
 
@@ -736,17 +786,17 @@ def extension_preselection(etrago, method, days=3):
     network.lines.loc[
         ~network.lines.index.isin(extended_lines), "s_nom_extendable"
     ] = False
-    network.lines.loc[
-        network.lines.s_nom_extendable, "s_nom_min"
-    ] = network.lines.s_nom
+    network.lines.loc[network.lines.s_nom_extendable, "s_nom_min"] = (
+        network.lines.s_nom
+    )
     network.lines.loc[network.lines.s_nom_extendable, "s_nom_max"] = np.inf
 
     network.links.loc[
         ~network.links.index.isin(extended_links), "p_nom_extendable"
     ] = False
-    network.links.loc[
-        network.links.p_nom_extendable, "p_nom_min"
-    ] = network.links.p_nom
+    network.links.loc[network.links.p_nom_extendable, "p_nom_min"] = (
+        network.links.p_nom
+    )
     network.links.loc[network.links.p_nom_extendable, "p_nom_max"] = np.inf
 
     network.snapshot_weightings = weighting
@@ -806,12 +856,14 @@ def print_expansion_costs(network):
 
     if not ext_storage.empty:
         print(
-            "Investment costs for all storage units in selected snapshots [EUR]:",
+            """Investment costs for all storage units in selected snapshots
+            [EUR]:""",
             round(storage_costs, 2),
         )
 
     if not ext_lines.empty:
         print(
-            "Investment costs for all lines and transformers in selected snapshots [EUR]:",
+            """Investment costs for all lines and transformers in selected
+             snapshots [EUR]:""",
             round(network_costs, 2),
         )

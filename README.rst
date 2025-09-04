@@ -19,7 +19,7 @@ eTraGo
 Optimization of flexibility options for transmission grids based on PyPSA
 
 A speciality in this context is that transmission grids are described by the
-380, 220 and 110 kV in Germany. Conventionally the 110kV grid is part of the
+380, 220 and 110 kV in Germany. Conventionally, the 110kV grid is part of the
 distribution grid. The integration of the transmission and 'upper' distribution
 grid is part of eTraGo.
 
@@ -27,13 +27,20 @@ The focus of optimization are flexibility options with a special focus on
 energy storages. Grid expansion measures are not part of this tool and will be
 instead part of 'eGo' https://github.com/openego/eGo
 
-.. warning::
-  From now on eTraGo depends on a sector coupled data-model. This is not published on 
-  the oedb yet, the data has to be created using
-  `eGon-data <https://github.com/openego/eGon-data>`_.
-  Not all functions and features are compatible to the sector coupled model yet.
-  
-  When you want to use eTraGo for optimizations, please use the latest release 0.8.0. 
+eTraGo is documented on `readthedocs <https://etrago.readthedocs.io>`_.
+
+
+Input data
+==========
+The grid model data for eTraGo was created with the open source tool 
+`eGon-data <https://github.com/openego/eGon-data.>`_. The resulting data will 
+be pubished on the `OpenEnergyPlatform <https://openenergy-platform.org/.>`_.
+As long as the data is not published there, a local database is needed. 
+We published a backup of the required tables and instruction on how to use it 
+on zenodo:
+
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.8376714.svg
+   :target: https://doi.org/10.5281/zenodo.8376714
 
 
 Installation
@@ -88,7 +95,7 @@ you create a virtual environment (where you like it) and activate it:
 
 .. code-block:: bash
 
-   $ virtualenv venv --clear -p python3.8
+   $ virtualenv venv --clear -p python3.10
    $ source venv/bin/activate
    $ cd venv
 

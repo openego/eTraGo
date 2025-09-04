@@ -23,36 +23,33 @@ Define class Etrago
 """
 
 import logging
+import os
 
-from egoio.tools import db
 from pypsa.components import Network
 from sqlalchemy.orm import sessionmaker
 import pandas as pd
 
+if "READTHEDOCS" not in os.environ:
+    from etrago.tools import db
+
 from etrago import __version__
-from etrago.cluster.disaggregation import run_disaggregation
-from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
-from etrago.cluster.gas import run_spatial_clustering_gas
-from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
-from etrago.tools.calc_results import calc_etrago_results
-from etrago.tools.execute import (
-    dispatch_disaggregation,
-    lopf,
-    run_pf_post_lopf,
+from etrago.analyze.calc_results import (
+    ac_export,
+    ac_export_per_country,
+    calc_atlas_results,
+    calc_etrago_results,
+    dc_export,
+    dc_export_per_country,
+    german_network,
+    system_costs_germany,
 )
-from etrago.tools.extendable import extendable
-from etrago.tools.io import (
-    NetworkScenario,
-    add_ch4_h2_correspondence,
-    decommissioning,
-    extension,
-)
-from etrago.tools.plot import (
+from etrago.analyze.plot import (
     bev_flexibility_potential,
     demand_side_management,
     flexibility_usage,
     heat_stores,
     hydrogen_stores,
+    plot_carrier,
     plot_clusters,
     plot_gas_generation,
     plot_gas_summary,
@@ -61,15 +58,44 @@ from etrago.tools.plot import (
     plot_h2_summary,
     plot_heat_loads,
     plot_heat_summary,
+    shifted_energy,
+)
+from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
+from etrago.cluster.gas import run_spatial_clustering_gas
+from etrago.cluster.temporal import skip_snapshots, snapshot_clustering
+from etrago.disaggregate.spatial import run_disaggregation
+from etrago.disaggregate.temporal import dispatch_disaggregation
+from etrago.execute import lopf, optimize, run_pf_post_lopf
+from etrago.execute.grid_optimization import (
+    add_redispatch_generators,
+    grid_optimization,
+)
+from etrago.execute.market_optimization import (
+    build_market_model,
+    market_optimization,
+)
+from etrago.execute.sclopf import (
+    iterate_sclopf,
+    post_contingency_analysis_lopf,
+)
+from etrago.tools.extendable import extendable
+from etrago.tools.io import (
+    NetworkScenario,
+    add_ch4_h2_correspondence,
+    decommissioning,
+    extension,
 )
 from etrago.tools.utilities import (
     add_missing_components,
     adjust_CH4_gen_carriers,
+    adjust_chp_model,
+    adjust_PtH2_model,
     buses_by_country,
     check_args,
     convert_capital_costs,
     crossborder_capacity,
     delete_dispensable_ac_buses,
+    delete_irrelevant_oneports,
     drop_sectors,
     export_to_csv,
     filter_links_by_carrier,
@@ -77,9 +103,11 @@ from etrago.tools.utilities import (
     geolocation_buses,
     get_args_setting,
     get_clustering_data,
+    levelize_abroad_inland_parameters,
     load_shedding,
     manual_fixes_datamodel,
     set_branch_capacity,
+    set_control_strategies,
     set_line_costs,
     set_q_foreign_loads,
     set_q_national_loads,
@@ -185,12 +213,30 @@ class Etrago:
                 csv_folder_name, name, ignore_standard_types
             )
 
-            if self.args["disaggregation"] is not None:
+            if self.args["spatial_disaggregation"] is not None:
                 self.disaggregated_network = Network(
                     csv_folder_name + "/disaggregated_network",
                     name,
                     ignore_standard_types,
                 )
+
+            if self.args["method"]["market_optimization"]:
+                try:
+                    self.market_model = Network(
+                        csv_folder_name + "/market",
+                        name,
+                        ignore_standard_types,
+                    )
+                except ValueError:
+                    logger.warning(
+                        """
+                        Could not import a market_model but the selected
+                        method in the args indicated that it should be there.
+                        This happens when the exported network was not solved
+                        yet.Run 'etrago.optimize()' to build and solve the
+                        market model.
+                        """
+                    )
 
             self.get_clustering_data(csv_folder_name)
 
@@ -240,23 +286,47 @@ class Etrago:
 
     snapshot_clustering = snapshot_clustering
 
+    add_redispatch_generators = add_redispatch_generators
+
+    build_market_model = build_market_model
+
+    grid_optimization = grid_optimization
+
+    market_optimization = market_optimization
+
     lopf = lopf
 
-    dispatch_disaggregation = dispatch_disaggregation
+    optimize = optimize
+
+    temporal_disaggregation = dispatch_disaggregation
 
     pf_post_lopf = run_pf_post_lopf
 
-    disaggregation = run_disaggregation
+    spatial_disaggregation = run_disaggregation
 
     calc_results = calc_etrago_results
+
+    calc_atlas_results = calc_atlas_results
+
+    calc_ac_export = ac_export
+
+    calc_ac_export_per_country = ac_export_per_country
+
+    calc_dc_export = dc_export
+
+    calc_dc_export_per_country = dc_export_per_country
 
     export_to_csv = export_to_csv
 
     filter_links_by_carrier = filter_links_by_carrier
 
+    german_network = german_network
+
     set_line_costs = set_line_costs
 
     set_trafo_costs = set_trafo_costs
+
+    system_costs_germany = system_costs_germany
 
     drop_sectors = drop_sectors
 
@@ -267,6 +337,8 @@ class Etrago:
     plot_grid = plot_grid
 
     plot_clusters = plot_clusters
+
+    plot_carrier = plot_carrier
 
     plot_gas_generation = plot_gas_generation
 
@@ -292,11 +364,25 @@ class Etrago:
 
     delete_dispensable_ac_buses = delete_dispensable_ac_buses
 
+    delete_irrelevant_oneports = delete_irrelevant_oneports
+
     get_clustering_data = get_clustering_data
 
     adjust_CH4_gen_carriers = adjust_CH4_gen_carriers
 
     manual_fixes_datamodel = manual_fixes_datamodel
+
+    shifted_energy = shifted_energy
+
+    post_contingency_analysis = post_contingency_analysis_lopf
+
+    sclopf = iterate_sclopf
+
+    adjust_PtH2_model = adjust_PtH2_model
+
+    adjust_chp_model = adjust_chp_model
+
+    levelize_abroad_inland_parameters = levelize_abroad_inland_parameters
 
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)
@@ -324,7 +410,10 @@ class Etrago:
 
         self.decommissioning()
 
-        self.add_ch4_h2_correspondence()
+        if ("H2_grid" in self.network.buses.carrier.unique()) & (
+            "H2_grid" not in self.network.links.carrier.unique()
+        ):
+            self.add_ch4_h2_correspondence()
 
         logger.info("Imported network from db")
 
@@ -377,6 +466,12 @@ class Etrago:
         self.convert_capital_costs()
 
         self.delete_dispensable_ac_buses()
+
+        self.delete_irrelevant_oneports()
+
+        set_control_strategies(self.network)
+
+        self.levelize_abroad_inland_parameters()
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)

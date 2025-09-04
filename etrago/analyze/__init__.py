@@ -1,6 +1,4 @@
-"""
-
-"""
+""" """
 
 __copyright__ = "tba"
 __license__ = "tba"

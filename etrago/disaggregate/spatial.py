@@ -14,9 +14,7 @@ from etrago.tools.utilities import residual_load
 
 
 class Disaggregation:
-    def __init__(
-        self, original_network, clustered_network, clustering, skip=()
-    ):
+    def __init__(self, original_network, clustered_network, busmap, skip=()):
         """
         :param original_network: Initial (unclustered) network structure
         :param clustered_network: Clustered network used for the optimization
@@ -25,11 +23,11 @@ class Disaggregation:
         """
         self.original_network = original_network
         self.clustered_network = clustered_network
-        self.clustering = clustering
+        self.busmap = busmap
 
         self.buses = pd.merge(
             original_network.buses,
-            self.clustering.busmap.to_frame(name="cluster"),
+            busmap.to_frame(name="cluster"),
             left_index=True,
             right_index=True,
         )
@@ -67,9 +65,9 @@ class Disaggregation:
 
         :param cluster: Index of the cluster to disaggregate
         :return: Tuple of (partial_network, external_buses) where
-        `partial_network` is the result of the partial decomposition
-        and `external_buses` represent clusters adjacent to `cluster` that may
-        be influenced by calculations done on the partial network.
+            `partial_network` is the result of the partial decomposition
+            and `external_buses` represent clusters adjacent to `cluster` that
+            may be influenced by calculations done on the partial network.
         """
 
         # Create an empty network
@@ -126,9 +124,9 @@ class Disaggregation:
             if not left_external_connectors.empty:
                 ca_option = pd.get_option("mode.chained_assignment")
                 pd.set_option("mode.chained_assignment", None)
-                left_external_connectors.loc[
-                    :, "bus0"
-                ] = left_external_connectors.loc[:, "bus0"].apply(from_busmap)
+                left_external_connectors.loc[:, "bus0"] = (
+                    left_external_connectors.loc[:, "bus0"].apply(from_busmap)
+                )
                 pd.set_option("mode.chained_assignment", ca_option)
                 external_buses = pd.concat(
                     (external_buses, left_external_connectors.bus0)
@@ -141,9 +139,9 @@ class Disaggregation:
             if not right_external_connectors.empty:
                 ca_option = pd.get_option("mode.chained_assignment")
                 pd.set_option("mode.chained_assignment", None)
-                right_external_connectors.loc[
-                    :, "bus1"
-                ] = right_external_connectors.loc[:, "bus1"].apply(from_busmap)
+                right_external_connectors.loc[:, "bus1"] = (
+                    right_external_connectors.loc[:, "bus1"].apply(from_busmap)
+                )
                 pd.set_option("mode.chained_assignment", ca_option)
                 external_buses = pd.concat(
                     (external_buses, right_external_connectors.bus1)
@@ -233,16 +231,15 @@ class Disaggregation:
             #       series accordingly, but there must be bug somewhere because
             #       using it, the time series in the clusters and sums of the
             #       time series after disaggregation don't match up.
-            """
-            series = getattr(self.original_network, bustype + '_t')
-            partial_series = type(series)()
-            for s in series:
-                partial_series[s] = series[s].loc[
-                        :,
-                        getattr(partial_network, bustype)
-                        .index.intersection(series[s].columns)]
-            setattr(partial_network, bustype + '_t', partial_series)
-            """
+
+            # series = getattr(self.original_network, bustype + '_t')
+            # partial_series = type(series)()
+            # for s in series:
+            #     partial_series[s] = series[s].loc[
+            #             :,
+            #             getattr(partial_network, bustype)
+            #             .index.intersection(series[s].columns)]
+            # setattr(partial_network, bustype + '_t', partial_series)
 
         # Just a simple sanity check
         # TODO: Remove when sure that disaggregation will not go insane anymore
@@ -267,6 +264,7 @@ class Disaggregation:
         """
         Decompose each cluster into separate units and try to optimize them
         separately
+
         :param scenario:
         :param solver: Solver that may be used to optimize partial networks
         """
@@ -280,6 +278,7 @@ class Disaggregation:
         }
         profile = cProfile.Profile()
         profile = noops
+
         for i, cluster in enumerate(sorted(clusters)):
             log.info(f"Decompose {cluster=} ({i + 1}/{n})")
             profile.enable()
@@ -287,6 +286,7 @@ class Disaggregation:
             partial_network, externals = self.construct_partial_network(
                 cluster, scenario
             )
+
             profile.disable()
             self.stats["clusters"].loc[cluster, "decompose"] = time.time() - t
             log.info(
@@ -324,7 +324,9 @@ class Disaggregation:
         ):
             log.info(f"Attribute sums, {bt}, clustered - disaggregated:")
             cnb = getattr(self.clustered_network, bt)
+            cnb = cnb[cnb.carrier != "DC"]
             onb = getattr(self.original_network, bt)
+            onb = onb[onb.carrier != "DC"]
             log.info(
                 "{:>{}}: {}".format(
                     "p_nom_opt",
@@ -622,6 +624,7 @@ class UniformDisaggregation(Disaggregation):
                         f" & (bus1 in {index})"
                     )
                 pnb = pnb.query(query)
+
                 assert not pnb.empty or (
                     # In some cases, a district heating grid is connected to a
                     # substation only via a resistive_heater but not e.g. by a
@@ -647,6 +650,13 @@ class UniformDisaggregation(Disaggregation):
                     + "partial network."
                 )
                 if pnb.empty:
+                    continue
+
+                # Exclude DC links from the disaggregation because it does not
+                # make sense to disaggregated them uniformly.
+                # A new power flow calculation in the high resolution would
+                # be required.
+                if pnb.carrier.iloc[0] == "DC":
                     continue
 
                 if not (
@@ -718,14 +728,21 @@ class UniformDisaggregation(Disaggregation):
                 for s in bustypes[bustype]["series"]:
                     if s in self.skip:
                         continue
+
                     filtered = pnb.loc[filters.get(s, slice(None))]
+
+                    if filtered.empty:
+                        continue
+
                     clt = cl_t[s].loc[:, clb.index[0]]
                     weight = reduce(
                         multiply,
                         (
-                            filtered.loc[:, key]
-                            if not timed(key)
-                            else pn_t[key].loc[:, filtered.index]
+                            (
+                                filtered.loc[:, key]
+                                if not timed(key)
+                                else pn_t[key].loc[:, filtered.index]
+                            )
                             for key in weights[s]
                         ),
                         1,
@@ -744,6 +761,7 @@ class UniformDisaggregation(Disaggregation):
                     )
                     delta = abs((new_columns.sum(axis=1) - clt).sum())
                     epsilon = 1e-5
+
                     assert delta < epsilon, (
                         "Sum of disaggregated time series does not match"
                         f" aggregated timeseries: {delta=} > {epsilon=}."
@@ -752,12 +770,23 @@ class UniformDisaggregation(Disaggregation):
 
     def transfer_results(self, *args, **kwargs):
         kwargs["bustypes"] = ["generators", "links", "storage_units", "stores"]
-        kwargs["series"] = {
-            "generators": {"p"},
-            "links": {"p0", "p1"},
-            "storage_units": {"p", "state_of_charge"},
-            "stores": {"e", "p"},
-        }
+
+        # Only disaggregate reactive power (q) if a pf_post_lopf was performed
+        # and there is data in resulting q time series
+        if self.original_network.generators_t.q.empty:
+            kwargs["series"] = {
+                "generators": {"p"},
+                "links": {"p0", "p1"},
+                "storage_units": {"p", "state_of_charge"},
+                "stores": {"e", "p"},
+            }
+        else:
+            kwargs["series"] = {
+                "generators": {"p", "q"},
+                "links": {"p0", "p1"},
+                "storage_units": {"p", "q", "state_of_charge"},
+                "stores": {"e", "p"},
+            }
         return super().transfer_results(*args, **kwargs)
 
 
@@ -799,8 +828,8 @@ def update_constraints(network, externals):
 
 def run_disaggregation(self):
     log.debug("Running disaggregation.")
-    if self.clustering:
-        disagg = self.args.get("disaggregation")
+    if self.args["network_clustering"]["active"]:
+        disagg = self.args.get("spatial_disaggregation")
         skip = () if self.args["pf_post_lopf"]["active"] else ("q",)
         t = time.time()
         if disagg:
@@ -808,14 +837,14 @@ def run_disaggregation(self):
                 disaggregation = MiniSolverDisaggregation(
                     self.disaggregated_network,
                     self.network,
-                    self.clustering,
+                    self.busmap,
                     skip=skip,
                 )
             elif disagg == "uniform":
                 disaggregation = UniformDisaggregation(
                     original_network=self.disaggregated_network,
                     clustered_network=self.network,
-                    clustering=self.clustering,
+                    busmap=pd.Series(self.busmap["busmap"]),
                     skip=skip,
                 )
 

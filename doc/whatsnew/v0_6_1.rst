@@ -1,5 +1,5 @@
 Release 0.6.1 (Juli 18, 2018)
-++++++++++++++++++++++++++++
+++++++++++++++++++++++++++++++
 eTraGo works with pypi and is suitable for eGo 0.2.0
 
 Added features

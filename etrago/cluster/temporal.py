@@ -18,7 +18,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # File description for read-the-docs
-""" This module contains functions for reducing the complexity of a PyPSA network in temporal dimension by
+"""This module contains functions for reducing the complexity of a PyPSA
+ network in temporal dimension by
 a) downsampling to every n-th snapshot
 b) clustering to typical periods (eg days, weeks)
 c) clustering to segments of variable length
@@ -26,11 +27,11 @@ Essentially used is the tsam package
 ( https://github.com/FZJ-IEK3-VSA/tsam ) developed by Leander Kotzur et al.
 """
 
-import pandas as pd
 import os
 
+import pandas as pd
+
 if "READTHEDOCS" not in os.environ:
-    import pyomo.environ as po
     import tsam.timeseriesaggregation as tsam
 
 __copyright__ = (
@@ -39,12 +40,14 @@ __copyright__ = (
     "Centre for Sustainable Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "ClaraBuettner, ulfmueller, KathiEsterl, simnh, wheitkoetter, BartelsJ, AmeliaNadal"
+__author__ = """ClaraBuettner, ulfmueller, KathiEsterl, simnh, wheitkoetter,
+ BartelsJ, AmeliaNadal"""
 
 
 def snapshot_clustering(self):
     """
-    Function to call the snapshot clustering function with the respecting method and settings.
+    Function to call the snapshot clustering function with the respecting
+    method and settings.
 
     Raises
     ------
@@ -57,9 +60,9 @@ def snapshot_clustering(self):
 
     """
 
-    if self.args["snapshot_clustering"]["active"] == True:
+    if self.args["snapshot_clustering"]["active"]:
         # save second network for optional dispatch disaggregation
-        if self.args["temporal_disaggregation"]["active"] == True:
+        if self.args["temporal_disaggregation"]["active"]:
             self.network_tsa = self.network.copy()
 
         if self.args["snapshot_clustering"]["method"] == "segmentation":
@@ -83,7 +86,8 @@ def snapshot_clustering(self):
             )
         else:
             raise ValueError(
-                "Type of clustering should be 'typical_periods' or 'segmentation'"
+                """Type of clustering should be 'typical_periods' or
+                'segmentation'"""
             )
 
 
@@ -97,7 +101,8 @@ def tsam_cluster(
     segm_hoursperperiod=24,
 ):
     """
-    Conducts the clustering of the snapshots for temporal aggregation with the respecting method.
+    Conducts the clustering of the snapshots for temporal aggregation with the
+    respecting method.
 
     Parameters
     ----------
@@ -108,14 +113,15 @@ def tsam_cluster(
     how : {'daily', 'weekly', 'monthly'}, optional
         Definition of period for typical_periods. The default is 'daily'.
     extremePeriodMethod : {'None','append','new_cluster_center',
-                           'replace_cluster_center'}, optional
-        Method to consider extreme snapshots in reduced timeseries. The default is 'None'.
+        'replace_cluster_center'}, optional Method to consider extreme
+        snapshots in reduced timeseries. The default is 'None'.
     segmentation : boolean, optional
         Argument to activate segmenation method. The default is False.
     segment_no : int, optional
         Number of segments for segmentation. The default is 10.
     segm_hoursperperiod : int, optional
-        Only for segmentation, ensures to cluster to segments considering all snapshots. The default is 24.
+        Only for segmentation, ensures to cluster to segments considering all
+        snapshots. The default is 24.
 
     Returns
     -------
@@ -200,8 +206,9 @@ def tsam_cluster(
     timeseries_creator = aggregation.createTypicalPeriods()
     timeseries = timeseries_creator.copy()
 
-    # If Segmentation is True, insert 'Dates' and 'SegmentNo' column in timeseries
-    if segmentation == True:
+    # If Segmentation is True, insert 'Dates' and 'SegmentNo' column in
+    # timeseries
+    if segmentation:
         weights = timeseries.index.get_level_values(2)
         dates_df = timeseries_df.index.get_level_values(0)
         dates = []
@@ -230,7 +237,7 @@ def tsam_cluster(
     clusterOrder = aggregation.clusterOrder
     clusterCenterIndices = aggregation.clusterCenterIndices
 
-    if segmentation == True:
+    if segmentation:
         if extremePeriodMethod != "None":
             timeseries = segmentation_extreme_periods(
                 timeseries_df, timeseries, extremePeriodMethod
@@ -288,7 +295,8 @@ def tsam_cluster(
     df_cluster = pd.DataFrame(
         {
             "Cluster": clusterOrder,  # Cluster of the day
-            "RepresentativeDay": representative_day,  # representative day of the cluster
+            "RepresentativeDay": representative_day,  # representative day of
+            # the cluster
             "last_hour_RepresentativeDay": last_hour_datetime,
         }
     )  # last hour of the cluster
@@ -325,8 +333,8 @@ def segmentation_extreme_periods(
     timeseries : pd.DataFrame
         Information on segments after segmentation.
     extremePeriodMethod : {'None','append','new_cluster_center',
-                           'replace_cluster_center'}, optional
-        Method to consider extreme snapshots in reduced timeseries. The default is 'None'.
+        'replace_cluster_center'}, optional method to consider extreme
+        snapshots in reduced timeseries. The default is 'None'.
 
     Raises
     ------
@@ -365,9 +373,9 @@ def segmentation_extreme_periods(
                 if date < maxi:
                     i = i + 1
                 else:
-                    timeseries[
-                        "SegmentDuration_Extreme"
-                    ] = timeseries.index.get_level_values("SegmentDuration")
+                    timeseries["SegmentDuration_Extreme"] = (
+                        timeseries.index.get_level_values("SegmentDuration")
+                    )
                     old_row = timeseries.iloc[i].copy()
                     old_row = pd.DataFrame(old_row).transpose()
 
@@ -387,12 +395,12 @@ def segmentation_extreme_periods(
                     if new_date.isin(
                         timeseries.index.get_level_values("dates")
                     ):
-                        timeseries[
-                            "dates"
-                        ] = timeseries.index.get_level_values("dates")
-                        timeseries[
-                            "SegmentNo"
-                        ] = timeseries.index.get_level_values("SegmentNo")
+                        timeseries["dates"] = (
+                            timeseries.index.get_level_values("dates")
+                        )
+                        timeseries["SegmentNo"] = (
+                            timeseries.index.get_level_values("SegmentNo")
+                        )
                         timeseries["SegmentDuration"] = timeseries[
                             "SegmentDuration_Extreme"
                         ]
@@ -420,12 +428,12 @@ def segmentation_extreme_periods(
                         for col in new_row.columns:
                             new_row[col][0] = old_row[col][0]
 
-                        timeseries[
-                            "dates"
-                        ] = timeseries.index.get_level_values("dates")
-                        timeseries[
-                            "SegmentNo"
-                        ] = timeseries.index.get_level_values("SegmentNo")
+                        timeseries["dates"] = (
+                            timeseries.index.get_level_values("dates")
+                        )
+                        timeseries["SegmentNo"] = (
+                            timeseries.index.get_level_values("SegmentNo")
+                        )
                         timeseries["SegmentDuration"] = timeseries[
                             "SegmentDuration_Extreme"
                         ]
@@ -449,9 +457,9 @@ def segmentation_extreme_periods(
                 else:
                     if i == -1:
                         i = 0
-                    max_val[
-                        "SegmentDuration"
-                    ] = timeseries.index.get_level_values("SegmentDuration")[i]
+                    max_val["SegmentDuration"] = (
+                        timeseries.index.get_level_values("SegmentDuration")[i]
+                    )
                     max_val.set_index(
                         ["dates", "SegmentNo", "SegmentDuration"], inplace=True
                     )
@@ -462,7 +470,8 @@ def segmentation_extreme_periods(
 
         else:
             raise ValueError(
-                "Choose 'append' or 'replace_cluster_center' for consideration of extreme periods with segmentation method"
+                """Choose 'append' or 'replace_cluster_center' for
+                 consideration of extreme periods with segmentation method"""
             )
 
     # add timestep if it is not already calculated
@@ -487,9 +496,9 @@ def segmentation_extreme_periods(
                 if date < mini:
                     i = i + 1
                 else:
-                    timeseries[
-                        "SegmentDuration_Extreme"
-                    ] = timeseries.index.get_level_values("SegmentDuration")
+                    timeseries["SegmentDuration_Extreme"] = (
+                        timeseries.index.get_level_values("SegmentDuration")
+                    )
                     old_row = timeseries.iloc[i].copy()
                     old_row = pd.DataFrame(old_row).transpose()
 
@@ -509,12 +518,12 @@ def segmentation_extreme_periods(
                     if new_date.isin(
                         timeseries.index.get_level_values("dates")
                     ):
-                        timeseries[
-                            "dates"
-                        ] = timeseries.index.get_level_values("dates")
-                        timeseries[
-                            "SegmentNo"
-                        ] = timeseries.index.get_level_values("SegmentNo")
+                        timeseries["dates"] = (
+                            timeseries.index.get_level_values("dates")
+                        )
+                        timeseries["SegmentNo"] = (
+                            timeseries.index.get_level_values("SegmentNo")
+                        )
                         timeseries["SegmentDuration"] = timeseries[
                             "SegmentDuration_Extreme"
                         ]
@@ -541,12 +550,12 @@ def segmentation_extreme_periods(
                         )
                         for col in new_row.columns:
                             new_row[col][0] = old_row[col][0]
-                        timeseries[
-                            "dates"
-                        ] = timeseries.index.get_level_values("dates")
-                        timeseries[
-                            "SegmentNo"
-                        ] = timeseries.index.get_level_values("SegmentNo")
+                        timeseries["dates"] = (
+                            timeseries.index.get_level_values("dates")
+                        )
+                        timeseries["SegmentNo"] = (
+                            timeseries.index.get_level_values("SegmentNo")
+                        )
                         timeseries["SegmentDuration"] = timeseries[
                             "SegmentDuration_Extreme"
                         ]
@@ -570,9 +579,9 @@ def segmentation_extreme_periods(
                 else:
                     if i == -1:
                         i = 0
-                    min_val[
-                        "SegmentDuration"
-                    ] = timeseries.index.get_level_values("SegmentDuration")[i]
+                    min_val["SegmentDuration"] = (
+                        timeseries.index.get_level_values("SegmentDuration")[i]
+                    )
                     min_val.set_index(
                         ["dates", "SegmentNo", "SegmentDuration"], inplace=True
                     )
@@ -583,7 +592,8 @@ def segmentation_extreme_periods(
 
         else:
             raise ValueError(
-                "Choose 'append' or 'replace_cluster_center' for consideration of extreme periods with segmentation method"
+                """Choose 'append' or 'replace_cluster_center' for
+                consideration of extreme periods with segmentation method"""
             )
 
     if "row_no" in timeseries.columns:
@@ -600,7 +610,8 @@ def run(
     extreme_periods="None",
 ):
     """
-    Function to call the respecting snapshot clustering function and export the result to a csv-file.
+    Function to call the respecting snapshot clustering function and export the
+    result to a csv-file.
 
     Parameters
     ----------
@@ -613,8 +624,9 @@ def run(
     segmented_to : int, optional
         Number of segments for segmentation. The default is False.
     extremePeriodMethod : {'None','append','new_cluster_center',
-                           'replace_cluster_center'}, optional
-        Method to consider extreme snapshots in reduced timeseries. The default is 'None'.
+        'replace_cluster_center'}, optional
+        Method to consider extreme snapshots in reduced timeseries.
+        The default is 'None'.
 
     Returns
     -------
@@ -652,7 +664,7 @@ def run(
         segm_hoursperperiod=network.snapshots.size,
     )
 
-    if segmentation != False:
+    if segmentation:
         pd.DataFrame(
             timeseries.reset_index(),
             columns=["dates", "SegmentNo", "SegmentDuration"],
@@ -662,16 +674,12 @@ def run(
     else:
         if how == "daily":
             howie = "days"
-            path = "typical_days"
         elif how == "weekly":
             howie = "weeks"
-            path = "typical_weeks"
         elif how == "monthly":
             howie = "months"
-            path = "typical_months"
         elif how == "hourly":
             howie = "hours"
-            path = "typical_hours"
         df_cluster.to_csv(
             "cluster_typical-periods=" + str(n_clusters) + howie + ".csv"
         )
@@ -801,9 +809,9 @@ def skip_snapshots(self):
 
     # save second network for optional dispatch disaggregation
     if (
-        self.args["temporal_disaggregation"]["active"] == True
-        and self.args["snapshot_clustering"]["active"] == False
-    ):
+        self.args["temporal_disaggregation"]["active"]
+        and not self.args["snapshot_clustering"]["active"]
+    ) or self.args["method"]["market_optimization"]:
         self.network_tsa = self.network.copy()
 
     n_skip = self.args["skip_snapshots"]

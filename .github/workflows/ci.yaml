@@ -22,7 +22,6 @@ jobs:
         with:
           python-version: |
             3
-            3.8
             3.9
             3.10
             3.11
@@ -50,5 +49,9 @@ jobs:
           PLATFORM: ${{ matrix.os.image }}
       - name: "Build and check for packaging errors"
         run: "python -m nox -s build"
+        env:
+          PLATFORM: ${{ matrix.os.image }}
+      - name: "Install the package"
+        run: "python -m nox -s install"
         env:
           PLATFORM: ${{ matrix.os.image }}

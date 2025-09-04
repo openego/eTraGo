@@ -24,10 +24,8 @@ io.py
 Input/output operations between powerflow schema in the oedb and PyPSA.
 Additionally oedb wrapper classes to instantiate PyPSA network objects.
 
-
 Attributes
-----------
-
+-----------
 packagename: str
     Package containing orm class definitions
 temp_ormclass: str
@@ -36,7 +34,7 @@ carr_ormclass: str
     Orm class name of table with carrier id to carrier name datasets
 
 Notes
------
+-------
 A configuration file connecting the chosen optimization method with
 components to be queried is needed for NetworkScenario class.
 """
@@ -74,7 +72,6 @@ class ScenarioBase:
 
     Parameters
     ----------
-
     session : sqla.orm.session.Session
         Handles conversations with the database.
     version : str
@@ -82,7 +79,7 @@ class ScenarioBase:
     """
 
     def __init__(self, engine, session, version=None):
-        global carr_ormclass
+        global carr_ormclass  # noqa: F824
 
         saio.register_schema("grid", engine)
         self.session = session
@@ -175,8 +172,6 @@ class NetworkScenario(ScenarioBase):
         )
 
         self.timeindex = timeindex[self.start_snapshot - 1 : self.end_snapshot]
-        """ pandas.tseries.index.DateTimeIndex :
-                Index of snapshots or timesteps. """
 
     def id_to_source(self):
         ormclass = self._mapped["Source"]
@@ -201,7 +196,7 @@ class NetworkScenario(ScenarioBase):
         pd.DataFrame
             Component data.
         """
-        from saio.grid import (
+        from saio.grid import (  # noqa: F401
             egon_etrago_bus,
             egon_etrago_generator,
             egon_etrago_line,
@@ -228,7 +223,16 @@ class NetworkScenario(ScenarioBase):
                 vars()[f"egon_etrago_{name.lower()}"].version == self.version
             )
 
-        df = saio.as_pandas(query, crs=4326).set_index(index)
+        df_saio = saio.as_pandas(query, crs=4326, geometry=None).set_index(
+            index
+        )
+
+        # Copy data into new dataframe which a´has column names with type 'str'
+        # When using saio, the data type of column names is 'quoted_name',
+        # which leads to errors when using pandas.groupby()
+        df = pd.DataFrame()
+        for col in df_saio.columns:
+            df.loc[:, str(col)] = df_saio.loc[:, col]
 
         if name == "Transformer":
             df.tap_side = 0
@@ -256,7 +260,7 @@ class NetworkScenario(ScenarioBase):
         pd.DataFrame
             Component data.
         """
-        from saio.grid import (
+        from saio.grid import (  # noqa: F401
             egon_etrago_bus_timeseries,
             egon_etrago_generator_timeseries,
             egon_etrago_line_timeseries,
@@ -315,20 +319,9 @@ class NetworkScenario(ScenarioBase):
             df_all.index = df_all.index.astype(str)
 
             if not df_all.isnull().all().all():
-                # Fill empty lists with default values from pypsa
-                if col in network.component_attrs[pypsa_name].index:
-                    df_all.loc[df_all.anon_1.isnull(), "anon_1"] = df_all.loc[
-                        df_all.anon_1.isnull(), "anon_1"
-                    ].apply(
-                        lambda x: [
-                            float(
-                                network.component_attrs[pypsa_name].default[
-                                    col
-                                ]
-                            )
-                        ]
-                        * len(network.snapshots)
-                    )
+
+                # Drop empty series
+                df_all = df_all[~df_all.anon_1.isnull()]
 
                 df = df_all.anon_1.apply(pd.Series).transpose()
 
@@ -505,8 +498,8 @@ def results_to_oedb(session, network, args, grid="hv", safe_results=False):
 
     print("Uploading results to db...")
     # get last result id and get new one
-    last_res_id = session.query(func.max(ResultMeta.result_id)).scalar()
-    if last_res_id == None:
+    last_res_id = session.query(max(ResultMeta.result_id)).scalar()
+    if last_res_id is None:
         new_res_id = 1
     else:
         new_res_id = last_res_id + 1
@@ -544,7 +537,7 @@ def results_to_oedb(session, network, args, grid="hv", safe_results=False):
         if network.generators.carrier[gen] not in sources.name.values:
             new_source = Source()
             new_source.source_id = (
-                session.query(func.max(Source.source_id)).scalar() + 1
+                session.query(max(Source.source_id)).scalar() + 1
             )
             new_source.name = network.generators.carrier[gen]
             session.add(new_source)
@@ -569,7 +562,7 @@ def results_to_oedb(session, network, args, grid="hv", safe_results=False):
         if network.storage_units.carrier[stor] not in sources.name.values:
             new_source = Source()
             new_source.source_id = (
-                session.query(func.max(Source.source_id)).scalar() + 1
+                session.query(max(Source.source_id)).scalar() + 1
             )
             new_source.name = network.storage_units.carrier[stor]
             session.add(new_source)
@@ -768,8 +761,8 @@ def extension(self, **kwargs):
     To connect it to the existing network, transformers are needed.
 
     All components and its timeseries of the additional scenario need to be
-    inserted in the fitting 'model_draft.ego_grid_pf_hv_extension_' table.
-    The scn_name in the tables have to be labled with 'extension_' + scn_name
+    inserted in the fitting 'model_draft.ego_grid_pf_hv_extension\_' table.
+    The scn_name in the tables have to be labled with 'extension\_' + scn_name
     (e.g. 'extension_nep2035').
 
     Until now, the tables include three additional scenarios:
@@ -785,18 +778,21 @@ def extension(self, **kwargs):
     Generation, loads and its timeseries in Belgium and Norway for scenario
     'NEP 2035'
 
-
-     Parameters
-     -----
-          network : The existing network container (e.g. scenario 'NEP 2035')
-          session : session-data
-          overlay_scn_name : Name of the additional scenario
-          (WITHOUT 'extension_')
-          start_snapshot, end_snapshot: Simulation time
+    Parameters
+    -----------
+    network :
+        The existing network container (e.g. scenario 'NEP 2035')
+    session :
+        session-data
+    overlay_scn_name :
+        Name of the additional scenario (WITHOUT 'extension\_')
+    start_snapshot :
+    end_snapshot:
+        Simulation time
 
     Returns
-    ------
-          network : Network container including existing and additional network
+    -------
+    Network container including existing and additional network
 
     """
     if self.args["scn_extension"] is not None:
@@ -833,21 +829,22 @@ def decommissioning(self, **kwargs):
     Currently, only lines can be decommissioned.
 
     All components of the decommissioning scenario need to be inserted in
-    the fitting 'model_draft.ego_grid_pf_hv_extension_' table.
-    The scn_name in the tables have to be labled with 'decommissioning_'
+    the fitting 'model_draft.ego_grid_pf_hv_extension\_' table.
+    The scn_name in the tables have to be labled with 'decommissioning\_'
     + scn_name (e.g. 'decommissioning_nep2035').
 
-
     Parameters
-    -----
-        network : The existing network container (e.g. scenario 'NEP 2035')
-        session : session-data
-        overlay_scn_name : Name of the decommissioning scenario
-
+    -----------
+    network :
+        The existing network container (e.g. scenario 'NEP 2035')
+    session :
+        session-data
+    overlay_scn_name :
+        Name of the decommissioning scenario
 
     Returns
     ------
-        network : Network container including decommissioning
+    Network container including decommissioning
 
     """
     if self.args["scn_decommissioning"] is not None:
@@ -876,11 +873,6 @@ def decommissioning(self, **kwargs):
                 row["scn_name"]
                 == "extension_" + self.args["scn_decommissioning"]
             ):
-                v_nom_dec = df_decommisionning["v_nom"][
-                    (df_decommisionning.project == row["project"])
-                    & (df_decommisionning.project_id == row["project_id"])
-                ]
-
                 self.network.lines.s_nom_min[
                     self.network.lines.index == idx
                 ] = self.network.lines.s_nom_min
@@ -895,18 +887,20 @@ def distance(x0, x1, y0, y1):
     """
     Function that calculates the square of the distance between two points.
 
-
     Parameters
-    -----
-        x0:  x - coordinate of point 0
-        x1:  x - coordinate of point 1
-        y0:  y - coordinate of point 0
-        y1:  y - coordinate of point 1
-
+    ---------
+    x0 :
+        x - coordinate of point 0
+    x1 :
+        x - coordinate of point 1
+    y0 :
+        y - coordinate of point 0
+    y1 :
+        y - coordinate of point 1
 
     Returns
-    ------
-        distance : float
+    --------
+    distance : float
         square of distance
 
     """
@@ -922,18 +916,16 @@ def calc_nearest_point(bus1, network):
     Function that finds the geographical nearest point in a network from a
     given bus.
 
-
     Parameters
-    -----
-        bus1:  float
+    -----------
+    bus1 : float
         id of bus
-        network: Pypsa network container
+    network : Pypsa network container
         network including the comparable buses
 
-
     Returns
-    ------
-        bus0 : float
+    -------
+    bus0 : float
         bus_id of nearest point
 
     """
