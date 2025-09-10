@@ -284,11 +284,17 @@ def buses_by_country(self, apply_on="grid_model"):
         "Germany": "DE",
         "Russia": "RU",
     }
-
-    # read Germany borders from egon-data
-    query = "SELECT * FROM boundaries.vg250_lan"
-    con = self.engine
-    germany_sh = gpd.read_postgis(query, con, geom_col="geometry")
+    if not self.args["import_from_files"]:
+        # read Germany borders from egon-data
+        query = "SELECT * FROM boundaries.vg250_lan"
+        con = self.engine
+        germany_sh = gpd.read_postgis(query, con, geom_col="geometry")
+    else:
+        germany_sh = gpd.read_file(
+            self.args["import_from_files"] + "/boundaries_vg250_lan.geojson",
+            geom_col="geometry",
+            index_col="id"
+            )
 
     # read Europe borders. Original data downloaded from naturalearthdata.com/
     # under Public Domain license
