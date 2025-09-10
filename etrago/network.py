@@ -387,6 +387,34 @@ class Etrago:
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)
 
+    def build_network(self):
+
+        if not self.args["import_from_files"]:
+            self.build_network_from_db()
+        else:
+            import pypsa
+            self.network = pypsa.Network(self.args["import_from_files"])
+            self.network.snapshots = self.network.snapshots[
+                self.args["start_snapshot"]-1:self.args["end_snapshot"]-1]
+
+            if ("H2_grid" in self.network.buses.carrier.unique()) & (
+                "H2_grid" not in self.network.links.carrier.unique()
+            ):
+                h2_buses = self.network.buses[
+                    self.network.buses.carrier=="H2_grid"]
+                self.ch4_h2_mapping = pd.Series()
+                for h2_bus in h2_buses.index:
+                    x = h2_buses.loc[h2_bus, "x"]
+                    y = h2_buses.loc[h2_bus, "y"]
+                    self.ch4_h2_mapping.loc[self.network.buses[
+                        (self.network.buses.carrier=="CH4")
+                        &(self.network.buses.x==x)
+                        &(self.network.buses.y==y)
+                        ].index[0]] = h2_bus
+                    self.ch4_h2_mapping.index.name = "CH4_bus"
+
+            logger.info("Imported network from files")
+
     def build_network_from_db(self):
         """Function that imports transmission grid from chosen database
 

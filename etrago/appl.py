@@ -51,13 +51,14 @@ args = {
     # Setup and Configuration:
     "db": "egon-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
+    "import_from_files": "/home/clara/full_network_eGon2035",
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
         "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "formulation": "linopy",
         "market_optimization":
             {
-                "active": True,
+                "active": False,
                 "market_zones": "status_quo", # only used if type='market_grid'
                 "rolling_horizon": {# Define parameter of market optimization
                     "planning_horizon": 168, # number of snapshots in each optimization
@@ -84,7 +85,7 @@ args = {
         "BarHomogeneous": 1,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
-    "scn_name": "eGon100RE",  # scenario: eGon2035, eGon100RE or status2019
+    "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
@@ -702,8 +703,8 @@ def run_etrago(args, json_path):
     """
     etrago = Etrago(args, json_path=json_path)
 
-    # import network from database
-    etrago.build_network_from_db()
+    # import network from database or files
+    etrago.build_network()
 
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
