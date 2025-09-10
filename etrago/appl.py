@@ -150,20 +150,12 @@ args = {
                 "base": ["CH4", "AC"],
                 "strategy": "simultaneous",  # select strategy to cluster other sectors
             },
-            "rural_heat": {
-                "base": ["CH4", "AC"],
-                "strategy": "simultaneous",  # select strategy to cluster other sectors
-            },
             "H2": {
                 "base": ["CH4"],
                 "strategy": "consecutive",  # select strategy to cluster other sectors
             },
             "H2_saltcavern": {
                 "base": ["H2_grid"],
-                "strategy": "consecutive",  # select strategy to cluster other sectors
-            },
-            "Li_ion": {
-                "base": ["AC"],
                 "strategy": "consecutive",  # select strategy to cluster other sectors
             },
         },
