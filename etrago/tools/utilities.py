@@ -2481,11 +2481,9 @@ def set_branch_capacity(etrago):
     if not network.lines_t.s_max_pu.empty:
         # Set time dependend s_max_pu for
         # lines without dynamic line rating to 1.0
-        network.lines_t.s_max_pu[
-            network.lines[
-                ~network.lines.index.isin(network.lines_t.s_max_pu.columns)
-            ].index
-        ] = 1.0
+        network.lines_t.s_max_pu = network.lines_t.s_max_pu.reindex(
+            columns=network.lines.index, fill_value=1.0
+            )
 
         # Multiply time dependend s_max_pu with static branch capacitiy fator
         network.lines_t.s_max_pu[
