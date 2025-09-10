@@ -196,13 +196,15 @@ class Etrago:
 
             self.get_args_setting(json_path)
 
-            conn = db.connection(section=self.args["db"])
+            if not self.args["import_from_files"]:
 
-            session = sessionmaker(bind=conn)
+                conn = db.connection(section=self.args["db"])
 
-            self.engine = conn
+                session = sessionmaker(bind=conn)
 
-            self.session = session()
+                self.engine = conn
+
+                self.session = session()
 
             self.check_args()
 
