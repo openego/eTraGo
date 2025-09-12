@@ -431,7 +431,11 @@ def optimize(self):
         self.market_optimization()
 
         if self.args["scn_name"] in [
-                "eGon100RE", "powerd2025", "powerd2030", "powerd2035"]:
+            "eGon100RE",
+            "powerd2025",
+            "powerd2030",
+            "powerd2035",
+        ]:
             self.network = self.adjust_PtH2_model(apply_on="grid_model")
             logger.info("PtH2-Model adjusted in network")
 
@@ -444,7 +448,11 @@ def optimize(self):
     elif self.args["method"]["type"] == "lopf":
 
         if self.args["scn_name"] in [
-                "eGon100RE", "powerd2025", "powerd2030", "powerd2035"]:
+            "eGon100RE",
+            "powerd2025",
+            "powerd2030",
+            "powerd2035",
+        ]:
             self.network = self.adjust_PtH2_model(apply_on="grid_model")
             logger.info("PtH2-Model adjusted in network")
 

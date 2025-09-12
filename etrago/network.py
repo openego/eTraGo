@@ -467,7 +467,11 @@ class Etrago:
         set_control_strategies(self.network)
 
         if self.args["scn_name"] in [
-                "eGon100RE", "powerd2025", "powerd2030", "powerd2035"]:
+            "eGon100RE",
+            "powerd2025",
+            "powerd2030",
+            "powerd2035",
+        ]:
             self.levelize_abroad_inland_parameters()
 
     def _ts_weighted(self, timeseries):
