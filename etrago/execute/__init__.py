@@ -430,22 +430,34 @@ def optimize(self):
     if self.args["method"]["market_optimization"]["active"]:
         self.market_optimization()
 
-        self.network = self.adjust_PtH2_model(apply_on="grid_model")
-        logger.info("PtH2-Model adjusted in network")
+        if self.args["scn_name"] in [
+            "eGon100RE",
+            "powerd2025",
+            "powerd2030",
+            "powerd2035",
+        ]:
+            self.network = self.adjust_PtH2_model(apply_on="grid_model")
+            logger.info("PtH2-Model adjusted in network")
 
-        self.network = self.adjust_chp_model(apply_on="grid_model")
-        logger.info("CHP model in foreign countries adjusted in network")
+            self.network = self.adjust_chp_model(apply_on="grid_model")
+            logger.info("CHP model in foreign countries adjusted in network")
         # self.market_results_to_grid()
 
         self.grid_optimization()
 
     elif self.args["method"]["type"] == "lopf":
 
-        self.network = self.adjust_PtH2_model(apply_on="grid_model")
-        logger.info("PtH2-Model adjusted in network")
+        if self.args["scn_name"] in [
+            "eGon100RE",
+            "powerd2025",
+            "powerd2030",
+            "powerd2035",
+        ]:
+            self.network = self.adjust_PtH2_model(apply_on="grid_model")
+            logger.info("PtH2-Model adjusted in network")
 
-        self.network = self.adjust_chp_model(apply_on="grid_model")
-        logger.info("CHP model in foreign countries adjusted in network")
+            self.network = self.adjust_chp_model(apply_on="grid_model")
+            logger.info("CHP model in foreign countries adjusted in network")
 
         self.lopf()
 
