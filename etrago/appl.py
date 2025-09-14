@@ -44,7 +44,7 @@ __author__ = (
 if "READTHEDOCS" not in os.environ:
     # Sphinx does not run this code.
     # Do not import internal packages directly
-
+                
     from etrago import Etrago
 
 args = {
@@ -84,7 +84,7 @@ args = {
         "BarHomogeneous": 1,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
-    "scn_name": "eGon100RE",  # scenario: eGon2035, eGon100RE or status2019
+    "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
@@ -187,7 +187,7 @@ args = {
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": True,  # meet the demand at value of loss load cost
     "foreign_lines": {
-        "carrier": "AC",  # 'DC' for modeling foreign lines as links
+        "carrier": "DC",  # 'DC' for modeling foreign lines as links
         "capacity": "osmTGmod",  # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
     },
     "comments": None,
