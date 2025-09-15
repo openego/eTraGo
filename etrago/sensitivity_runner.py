@@ -200,6 +200,14 @@ class SensitivityEtrago(Etrago):
         self.network.generators.loc[solar_generators.index, "capital_cost"] = new_capital_cost
         print(f"✅ capital_cost auf {new_capital_cost:.2f} €/MW/a für {len(solar_generators)} Solar-Generator(en) gesetzt.")
 
+    def update_capital_cost_of_batteries(self, new_capital_cost):
+        """
+        Updates the capital_cost for all battery storage units.
+        """
+
+        # Update capital_cost
+        self.network.storage_units.capital_cost = new_capital_cost
+        print(f"✅ capital_cost set to {new_capital_cost:.2f} €/MW/a for battery storage unit(s).")
 
     def limit_solar_rooftop_potential(self, max_capacity_mw=655.916):
         """
@@ -237,7 +245,7 @@ class SensitivityEtrago(Etrago):
 
     def set_biomass_CHP_and_add_boiler(self):
         """
-        Fixes capacity of central_biomass_solid_CHP in Ingolstadt to 3.45 MW,
+        Add capacity of central_biomass_solid_CHP in Ingolstadt to 3.45 MW,
         and adds an extendable rural_biomass_solid_boiler to the rural_heat bus.
         """
 
@@ -491,6 +499,33 @@ def run_solar_cost_sensitivity():
         print(f"✅ Ergebnisse gespeichert unter: {export_dir}")
 
 
+def run_battery_cost_sensitivity():
+    """
+    Runs a sensitivity analysis by varying the capital cost of battery storage units
+    in the interest area and saving the optimization results for each cost value.
+    """
+    cost_values = [15813.72, 13539.00, 11508.15, 9477.30, 7446.45, 5415.60, 3384.75]  # €/MW/a # 233.60 , 200, 170, 140, 110, 80, 50
+
+    for cost in cost_values:
+        print(f"🔄 Starting battery cost sensitivity with capital_cost = {cost:.2f} €/MW/a")
+
+        # Initialize model
+        etrago = SensitivityEtrago(args=args)
+
+        # Update battery capital costs
+        etrago.update_capital_cost_of_batteries(cost)
+
+        # Prepare export directory
+        export_dir = f"results/sensitivity_battery_cost_{cost:.2f}".replace(".", "_")
+        os.makedirs(export_dir, exist_ok=True)
+        etrago.args["csv_export"] = export_dir
+
+        # Run optimization
+        etrago.optimize()
+
+        print(f"✅ Results saved to: {export_dir}")
+
+
 def run_modified_base_model_with_biomass_and_solar():
     """
     Runs the base model with fixed biomass CHP, added rural biomass boiler,
@@ -540,7 +575,7 @@ def run_co2_price_sensitivity():
     Ergebnisse werden in separate Ordner exportiert.
     """
 
-    CO2_prices = [200]  # in €/tCO2
+    CO2_prices = [60]  # in €/tCO2
 
     for price in CO2_prices:
         print(f"🔄 Starte CO₂-Sensitivität mit CO2-Preis = {price:.2f} €/tCO2")
@@ -644,12 +679,12 @@ def run_central_heat_store_capital_cost_sensitivity():
 
 
 
-
 if __name__ == "__main__":
     #run_solar_cost_sensitivity()
-    run_modified_base_model_with_biomass_and_solar()
+    #run_battery_cost_sensitivity()
+    #run_modified_base_model_with_biomass_and_solar()
     #run_ch4_cost_sensitivity()
-    #run_co2_price_sensitivity()
+    run_co2_price_sensitivity()
     #run_rural_heat_pump_capital_cost_sensitivity()
     #run_central_heat_pump_capital_cost_sensitivity()
     #run_central_heat_store_capital_cost_sensitivity()

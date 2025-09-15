@@ -4084,6 +4084,7 @@ def add_extendable_solar_generators_to_interest_area(self):
 
     print(f"Extendable solar_thermal_collector generator {new_thermal_index} added successfully on rural_heat bus {rural_heat_bus}.")
 
+
 def replace_gas_links_with_extendable(self):
     """
     Replaces selected gas-based links in the interest area with extendable variants.
@@ -4186,8 +4187,6 @@ def replace_gas_links_with_extendable(self):
         print(f"Removed original link {index} ({carrier})")
 
 
-
-
 def reset_gas_CHP_capacities(self):
     """
     reset_gas_CHP_capacities in interest area
@@ -4206,148 +4205,6 @@ def reset_gas_CHP_capacities(self):
 
     for index in gas_links.index:
         self.network.links.at[index, "p_nom"] = 0
-
-
-def add_gas_CHP_extendable(self):
-    """
-    Dupliziert gasbasierte Links und central_resistive_heater ohne Effizienz-Zeitreihe als investierbare Variante.
-    Setzt capital_cost, ggf. marginal_cost und setzt p_nom auf aktuelle Daten bei ausgewählten Technologien.
-    """
-    # carriers of gas links
-    carriers = [
-        #"central_gas_CHP",
-        #"central_gas_CHP_heat",
-        "central_gas_boiler",
-        "central_resistive_heater"
-    ]
-
-    # Technologie-spezifische p_nom-Vorgaben [MW]
-    installed_p_nom = {
-        "central_gas_CHP": 22.86
-    }
-
-    # Technologie-spezifische p_nom_max-Vorgaben [MW]
-    p_nom_max_map = {
-        "central_gas_boiler": 1.83,
-        "central_resistive_heater":1.83
-    }
-
-    # capital_cost (annualised investment costs [€/MW/a])
-    capital_cost_map = {
-        "central_gas_CHP": 41295.8840,
-        "central_gas_CHP_heat": 0,
-        "central_gas_boiler": 3754.1726,
-        "central_resistive_heater": 5094.8667
-    }
-
-    # VOM (€/MWh)
-    marginal_cost_map = {
-        "central_resistive_heater": 1.0582,
-        "central_gas_CHP_heat": 0,
-        "central_gas_boiler": 1.0582
-
-    }
-
-    default_attrs = [
-        'efficiency', 'start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time',
-        'up_time_before', 'down_time_before', 'ramp_limit_up', 'ramp_limit_down',
-        'ramp_limit_start_up', 'ramp_limit_shut_down', "p_nom_mod",
-        "marginal_cost_quadratic", "stand_by_cost"
-    ]
-
-    # filter for interest gas_links
-    connected_links = find_links_connected_to_interest_buses(self)
-    gas_links = connected_links[connected_links.carrier.isin(carriers)]
-
-    next_link_id = max([int(i) for i in self.network.links.index if str(i).isdigit()]) + 1
-
-    for exist_index, row in gas_links.iterrows():
-
-        carrier = row.carrier
-        link_attrs = {attr: row.get(attr, 0) for attr in default_attrs}
-
-        # set capital_cost [€/MW/a] and marginal_cost [€/MWh]
-        link_attrs["capital_cost"] = capital_cost_map.get(carrier, 0)
-        link_attrs["marginal_cost"] = marginal_cost_map.get(carrier, row.get("marginal_cost", 0))
-
-        # p_nom setzen, falls spezifiziert
-        if carrier in installed_p_nom:
-            link_attrs["p_nom"] = installed_p_nom[carrier]
-            link_attrs["p_nom_min"] = installed_p_nom[carrier]
-
-        # p_nom_max setzen, falls spezifiziert
-        if carrier in p_nom_max_map:
-            link_attrs["p_nom_max"] = p_nom_max_map[carrier]
-
-        new_index = str(next_link_id)
-        next_link_id += 1
-
-        self.network.add("Link",
-                         name=new_index,
-                         bus0=row.bus0,
-                         bus1=row.bus1,
-                         carrier=carrier,
-                         p_nom_extendable=True,
-                         **link_attrs)
-
-        self.network.links.at[new_index, "scn_name"] = "eGon2035"
-        print(f"Neuer Link {new_index} ({carrier}) mit installed p_nom={link_attrs.get('p_nom', 'n/a')} hinzugefügt.")
-
-
-def add_gas_CHP_fixed(self):
-    """
-    Adds fixed-capacity gas CHP links (electric and heat output).
-    Sets p_nom = p_nom_min and disables investment (p_nom_extendable=False).
-    """
-
-    # Relevant technologies and their fixed capacities
-    fixed_links = {
-        "central_gas_CHP": 22.83,         # [MW electric]
-        "central_gas_CHP_heat": 35.76     # [MW thermal]
-    }
-
-    # Capital cost map [€/MW/a]
-    capital_cost_map = {
-        "central_gas_CHP": 41295.8840,
-        "central_gas_CHP_heat": 0
-    }
-
-    # Link attributes to transfer from existing links
-    default_attrs = [
-        'efficiency', 'start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time',
-        'up_time_before', 'down_time_before', 'ramp_limit_up', 'ramp_limit_down',
-        'ramp_limit_start_up', 'ramp_limit_shut_down', "p_nom_mod",
-        "marginal_cost", "marginal_cost_quadratic", "stand_by_cost"
-    ]
-
-    # Find matching links from area of interest
-    connected_links = find_links_connected_to_interest_buses(self)
-    gas_links = connected_links[connected_links.carrier.isin(fixed_links.keys())]
-
-    next_link_id = max([int(i) for i in self.network.links.index if str(i).isdigit()]) + 1
-
-    for exist_index, row in gas_links.iterrows():
-        carrier = row.carrier
-
-        # Copy default attributes from original link
-        link_attrs = {attr: row.get(attr, 0) for attr in default_attrs}
-        link_attrs["p_nom"] = fixed_links[carrier]
-        link_attrs["p_nom_min"] = fixed_links[carrier]
-        link_attrs["capital_cost"] = capital_cost_map.get(carrier, 0)
-
-        new_index = str(next_link_id)
-        next_link_id += 1
-
-        self.network.add("Link",
-                         name=new_index,
-                         bus0=row.bus0,
-                         bus1=row.bus1,
-                         carrier=carrier,
-                         p_nom_extendable=False,
-                         **link_attrs)
-
-        self.network.links.at[new_index, "scn_name"] = "eGon2035"
-        print(f"Fixer Link {new_index} ({carrier}) mit p_nom = {fixed_links[carrier]} MW hinzugefügt.")
 
 
 def get_matching_biogs_bus(self):
@@ -4909,8 +4766,6 @@ def print_capital_costs(self):
         print(f"\n=== Capital Costs: {comp} ===")
         print(df)
 
-
-#    return cost_summary
 
 def set_cyclic_constraints(self):
     """
