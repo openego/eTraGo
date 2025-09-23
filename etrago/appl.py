@@ -718,7 +718,9 @@ def run_etrago(args, json_path):
             "Bus",
             names = mv_grids.bus_id.astype(str) + "_distribution_grid",
             carrier = "distribution_grid",
-            country = "DE"
+            country = "DE",
+            x = etrago.network.buses.loc[mv_grids.bus_id.astype(str), "x"].values,
+            y = etrago.network.buses.loc[mv_grids.bus_id.astype(str), "y"].values
             )
         
         # Create link between transmission an distribution grid
