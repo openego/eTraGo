@@ -112,7 +112,6 @@ args = {
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
-    "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
     "network_clustering_ehv": {
         "active": False,  # choose if clustering of HV buses to EHV buses is activated
         "busmap": False,  # False or path to stored busmap
@@ -395,12 +394,6 @@ def run_etrago(args, json_path):
             Limit overall energy production country-wise for each generator
             by carrier. Set upper/lower limit in p.u.
 
-    delete_dispensable_ac_buses: bool
-        Choose if electrical buses that are only connecting two lines should be
-        removed. These buses have no other components attached to them. The
-        connected lines are merged. This reduces the spatial complexity without
-        losing any accuracy.
-        Default: True.
     network_clustering_ehv : dict
         Choose if you want to apply an extra high voltage clustering to the
         electrical network.

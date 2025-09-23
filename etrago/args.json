@@ -60,7 +60,6 @@
     },
     "generator_noise": 789456,
     "extra_functionality": {},
-    "delete_dispensable_ac_buses": true,
     "network_clustering_ehv": {
         "active": false,
         "busmap": false
