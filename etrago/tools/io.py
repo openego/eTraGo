@@ -209,7 +209,7 @@ class NetworkScenario(ScenarioBase):
         )
 
         if self.scenario_extension:
-            from saio.grid import (  # noqa: F811
+            from saio.grid import (  # noqa: F401,F811
                 egon_etrago_extension_bus as egon_etrago_bus,
                 egon_etrago_extension_line as egon_etrago_line,
                 egon_etrago_extension_link as egon_etrago_link,
