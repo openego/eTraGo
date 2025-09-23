@@ -85,7 +85,7 @@ args = {
         "BarHomogeneous": 1,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
-    "scn_name": "eGon2035",  # scenario: eGon2035 or eGon100RE
+    "scn_name": "eGon2035_lowflex",  # scenario: eGon2035 or eGon100RE
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
@@ -835,7 +835,9 @@ def run_etrago(args, json_path):
             bus = (mv_grids.bus_id.astype(str) + "_distribution_grid").values
             )
         
-        loads_per_bus = etrago.network.loads_t.p_set.copy()
+        loads_per_bus = etrago.network.loads_t.p_set[
+            etrago.network.loads[etrago.network.loads.carrier=="AC"].index].copy()
+        
         loads_per_bus.rename(etrago.network.loads.bus, axis= "columns", inplace=True)
         
         # Add AC loads in distribution grids
@@ -854,7 +856,7 @@ def run_etrago(args, json_path):
                                  .bus.isin(ac_nodes_germany)].index] *= 0.2
     
     
-        ## Connect rural heat and BEV chargerto distribution grids
+        ## Connect rural heat and BEV charger to distribution grids
         etrago.network.links.loc[
             etrago.network.links.carrier=="rural_heat_pump", "bus0"] = etrago.network.links.loc[
         etrago.network.links.carrier=="rural_heat_pump", "bus0"] + "_distribution_grid"
@@ -862,6 +864,10 @@ def run_etrago(args, json_path):
         etrago.network.links.loc[
             etrago.network.links.carrier=="BEV_charger", "bus0"] = etrago.network.links.loc[
         etrago.network.links.carrier=="BEV_charger", "bus0"] + "_distribution_grid"
+
+        etrago.network.loads.loc[
+            etrago.network.loads.carrier=="land_transport_EV", "bus"] = etrago.network.loads.loc[
+                etrago.network.loads.carrier=="land_transport_EV", "bus"] + "_distribution_grid"
 
         # Add PV home storage units to distribution grid
         battery_storages = etrago.network.storage_units[
