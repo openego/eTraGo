@@ -36,6 +36,7 @@ from pyomo.environ import Constraint, PositiveReals, Var
 import numpy as np
 import pandas as pd
 import pypsa
+import saio
 import sqlalchemy.exc
 
 if "READTHEDOCS" not in os.environ:
@@ -285,10 +286,16 @@ def buses_by_country(self, apply_on="grid_model"):
         "Russia": "RU",
     }
 
+    if "toep.iks.cs.ovgu.de" in str(self.engine.url):
+        saio.register_schema("model_draft", self.engine)
+        from saio.model_draft import edut_00_013 as vg250_lan
+    else:
+        saio.register_schema("boundaries", self.engine)
+        from saio.boundaries import vg250_lan
     # read Germany borders from egon-data
-    query = "SELECT * FROM boundaries.vg250_lan"
-    con = self.engine
-    germany_sh = gpd.read_postgis(query, con, geom_col="geometry")
+    query = self.session.query(vg250_lan)
+
+    germany_sh = saio.as_pandas(query, geometry="geometry")
 
     # read Europe borders. Original data downloaded from naturalearthdata.com/
     # under Public Domain license
