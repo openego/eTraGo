@@ -2829,14 +2829,27 @@ def adjust_CH4_gen_carriers(self):
         marginal_cost_def = {"CH4": 40.9765, "biogas": 25.6}
 
         engine = db.connection(section=self.args["db"])
+
         try:
-            sql = f"""
-            SELECT gas_parameters
-            FROM scenario.egon_scenario_parameters
-            WHERE name = '{self.args["scn_name"].split("_")[0]}';"""
-            df = pd.read_sql(sql, engine)
+            if "toep.iks.cs.ovgu.de" in str(engine.url):
+                saio.register_schema("model_draft", engine)
+                from saio.model_draft import (
+                    edut_00_137 as egon_scenario_parameters
+                    )
+            else:
+                saio.register_schema("grid", engine)
+                from saio.grid import (
+                    egon_scenario_parameters
+                    )
+            df = saio.as_pandas(
+                self.session.query(egon_scenario_parameters)
+                .filter(
+                    egon_scenario_parameters.name ==
+                    self.args["scn_name"].split("_")[0]
+                )
+            )
             marginal_cost = df["gas_parameters"][0]["marginal_cost"]
-        except sqlalchemy.exc.ProgrammingError:
+        except sqlalchemy.exc.NoSuchTableError:
             marginal_cost = marginal_cost_def
 
         self.network.generators.loc[
