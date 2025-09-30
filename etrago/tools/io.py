@@ -152,7 +152,9 @@ class NetworkScenario(ScenarioBase):
         start- and end_snapshot."""
 
         if self.test_oep_active:
-            from saio.model_draft import edut_00_073 as egon_etrago_temp_resolution
+            from saio.model_draft import (
+                edut_00_073 as egon_etrago_temp_resolution,
+            )
         else:
             from saio.grid import egon_etrago_temp_resolution
 
@@ -340,15 +342,12 @@ class NetworkScenario(ScenarioBase):
         for col in columns:
             tbl = vars()[f"egon_etrago_{name.lower()}_timeseries"]
 
-            query = (
-                self.session.query(
-                    getattr(tbl, index_col),
-                    literal_column(
-                        f"{col}[{self.start_snapshot}:{self.end_snapshot}]"
-                        ).label(col)
-                )
-                .filter(tbl.scn_name == self.scn_name)
-            )
+            query = self.session.query(
+                getattr(tbl, index_col),
+                literal_column(
+                    f"{col}[{self.start_snapshot}:{self.end_snapshot}]"
+                ).label(col),
+            ).filter(tbl.scn_name == self.scn_name)
 
             if self.version:
                 query = query.filter(
@@ -1033,16 +1032,18 @@ def add_ch4_h2_correspondence(self):
     It contains the mapping from H2 buses to their corresponding CH4 buses.
 
     """
-    h2_buses = self.network.buses[self.network.buses.carrier=="H2_grid"]
+    h2_buses = self.network.buses[self.network.buses.carrier == "H2_grid"]
     self.ch4_h2_mapping = pd.Series()
     for h2_bus in h2_buses.index:
         x = h2_buses.loc[h2_bus, "x"]
         y = h2_buses.loc[h2_bus, "y"]
-        self.ch4_h2_mapping.loc[self.network.buses[
-            (self.network.buses.carrier=="CH4")
-            &(self.network.buses.x==x)
-            &(self.network.buses.y==y)
-            ].index[0]] = h2_bus
+        self.ch4_h2_mapping.loc[
+            self.network.buses[
+                (self.network.buses.carrier == "CH4")
+                & (self.network.buses.x == x)
+                & (self.network.buses.y == y)
+            ].index[0]
+        ] = h2_bus
         self.ch4_h2_mapping.index.name = "CH4_bus"
 
 

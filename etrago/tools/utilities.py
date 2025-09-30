@@ -2834,18 +2834,15 @@ def adjust_CH4_gen_carriers(self):
             if "toep.iks.cs.ovgu.de" in str(engine.url):
                 saio.register_schema("model_draft", engine)
                 from saio.model_draft import (
-                    edut_00_137 as egon_scenario_parameters
-                    )
+                    edut_00_137 as egon_scenario_parameters,
+                )
             else:
                 saio.register_schema("grid", engine)
-                from saio.grid import (
-                    egon_scenario_parameters
-                    )
+                from saio.grid import egon_scenario_parameters
             df = saio.as_pandas(
-                self.session.query(egon_scenario_parameters)
-                .filter(
-                    egon_scenario_parameters.name ==
-                    self.args["scn_name"].split("_")[0]
+                self.session.query(egon_scenario_parameters).filter(
+                    egon_scenario_parameters.name
+                    == self.args["scn_name"].split("_")[0]
                 )
             )
             marginal_cost = df["gas_parameters"][0]["marginal_cost"]
@@ -2855,7 +2852,8 @@ def adjust_CH4_gen_carriers(self):
                 The database query failed for
                 'scenario.egon_scenario_parameters'.
                 Fallback values are being used. Error message: {e}
-                """)
+                """
+            )
             marginal_cost = marginal_cost_def
 
         self.network.generators.loc[
