@@ -3900,55 +3900,94 @@ def levelize_abroad_inland_parameters(self):
 
 def find_interest_buses(self):
     """
-    Identifiziere alle Busse innerhalb von Regionen, deren Name
-    in args["interest_area"] als Teilstring vorkommt.
+    Identify all buses located within the regions defined by
+    name fragments in ``args["interest_area"]``.
 
-    args["interest_area"] ist eine Liste von Namensfragmenten.
+    Parameters
+    ----------
+    self : :class:`Etrago
+        Class instance containing:
+        - ``self.args`` : dict
+            Dictionary of model arguments, must include:
+            * ``"interest_area"`` : list of str
+              List of name fragments for region selection.
+            * ``"nuts_3_map"`` : str
+              Path to GeoJSON file with NUTS-3 boundaries.
+        - ``self.network`` : pypsa.Network
+            PyPSA network object with bus coordinates.
+
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        GeoDataFrame containing the subset of network buses
+        located within the selected interest area. Includes
+        all original bus attributes and geometry column.
     """
     args = self.args
 
-    # GeoJSON einlesen
+    # Read NUTS-3 level map from GeoJSON
     nuts = gpd.read_file(args["nuts_3_map"])
     nuts["NUTS_NAME"] = nuts["NUTS_NAME"].str.strip()
 
-    # Matchen über str.contains für alle Einträge in args["interest_area"]
+    # Match all entries from args["interest_area"] via substring search
     area_filter = args["interest_area"]
-    mask = nuts["NUTS_NAME"].apply(lambda name: any(area.lower() in name.lower() for area in area_filter))
+    mask = nuts["NUTS_NAME"].apply(
+        lambda name: any(area.lower() in name.lower() for area in area_filter)
+    )
     interest_area = nuts[mask]
 
     if interest_area.empty:
-        raise ValueError(f"Keine Region mit Teilstrings {area_filter} in GeoJSON gefunden.")
+        raise ValueError(
+            f"No region with substrings {area_filter} found in GeoJSON."
+        )
 
-    # Busse zu GeoDataFrame
+    # Convert network buses to GeoDataFrame with coordinates
     buses = gpd.GeoDataFrame(
         self.network.buses.copy(),
         geometry=gpd.points_from_xy(self.network.buses.x, self.network.buses.y),
         crs="EPSG:4326"
     )
 
-    # CRS-Anpassung
-    # buses = buses.to_crs(interest_area.crs)
+    # Ensure CRS is consistent between areas and buses
     if interest_area.crs != "EPSG:4326":
         interest_area = interest_area.to_crs("EPSG:4326")
 
-    # Leere Geometrien ausschließen
-    interest_area = interest_area[~interest_area.geometry.is_empty & interest_area.geometry.notnull()]
+    # Exclude empty or null geometries
+    interest_area = interest_area[
+        ~interest_area.geometry.is_empty & interest_area.geometry.notnull()
+    ]
 
-    # Räumlicher Schnitt
+    # Perform spatial intersection to find buses within interest area
     buses_in_area = buses[buses.geometry.within(interest_area.unary_union)]
-    # buses_in_area = buses[buses.geometry.within(interest_area.buffer(0.005).unary_union)]
-
-    #print(f"{len(buses_in_area)} Busse in {area_filter} gefunden.")
-    #print(buses_in_area.carrier)
 
     return buses_in_area
 
+
 def find_links_connected_to_interest_buses(self):
-    # find buses in interst area
+    """
+    Find all network links connected to buses within the defined interest area.
+
+    Parameters
+    ----------
+    self : :class:`Etrago`
+        Class instance containing:
+        - ``network`` : pypsa.Network
+            PyPSA network object with links and buses.
+        - ``args`` : dict
+            Dictionary of model arguments, required by
+            :func:`find_interest_buses` to identify the region.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame containing all links for which either
+        ``bus0`` or ``bus1`` is located in the interest area.
+    """
+    # Identify buses within the interest area
     gdf_buses_interest = find_interest_buses(self)
     buses_of_interest = gdf_buses_interest.index.tolist()
 
-    # Links where bus0 or bus1 is in the area of interest
+    # Select links connected to those buses
     links = self.network.links.copy()
     connected_links = links[
         (links["bus0"].isin(buses_of_interest)) |
@@ -3960,17 +3999,36 @@ def find_links_connected_to_interest_buses(self):
 
 def get_next_index(etrago, component="Generator", carrier="solar_rooftop"):
     """
-    Gibt den nächsten freien Index im Format '{int} {carrier}' für das angegebene
-    PyPSA-Komponentenobjekt (z.B. 'Generator' oder 'Link') zurück.
+    Get the next available index for a PyPSA component of a given carrier.
 
-    Beispiel: "17 solar_rooftop"
+    The index follows the format ``"{int} {carrier}"``, for example
+    ``"17 solar_rooftop"``. Existing indices are scanned, and the next
+    free integer is returned.
+
+    Parameters
+    ----------
+    etrago : :class:`Etrago`
+        Class instance containing the PyPSA network.
+    component : str, optional
+        Name of the PyPSA component (e.g. ``"Generator"`` or ``"Link"``).
+        Default is ``"Generator"``.
+    carrier : str, optional
+        Carrier name used to filter components (e.g. ``"solar_rooftop"``).
+        Default is ``"solar_rooftop"``.
+
+    Returns
+    -------
+    str
+        Next available component index in the format
+        ``"{int} {carrier}"``.
     """
     n = etrago.network.copy()
     comp_df = getattr(n, component.lower() + "s")
 
-    # Nur Komponenten mit dem angegebenen Carrier
+    # Select only components with the specified carrier
     filtered = comp_df[comp_df.carrier == carrier]
 
+    # Extract all used integer indices for this carrier
     used_ids = []
     for idx in filtered.index:
         pattern = rf"(\d+)\s+{re.escape(carrier)}"
@@ -3978,16 +4036,33 @@ def get_next_index(etrago, component="Generator", carrier="solar_rooftop"):
         if match:
             used_ids.append(int(match.group(1)))
 
+    # Determine the next free index
     next_id = max(used_ids) + 1 if used_ids else 0
+
     return f"{next_id} {carrier}"
 
 
 def add_extendable_solar_generators_to_interest_area(self):
     """
-    Adds two extendable solar generators to the interest area:
-    1. An extendable solar_rooftop generator on the AC bus (duplicate of existing, but p_nom=0 and new extendable gen).
-    2. A solar_thermal_collector generator on the rural_heat bus.
-    """
+        Add two extendable solar generators within the interest area.
+
+        The function performs:
+        1) Deactivate existing ``solar_rooftop`` generators in the area (set ``p_nom=0``),
+           then add a new extendable ``solar_rooftop`` generator on the AC bus and copy
+           the time series from an existing PV unit.
+        2) Add an extendable ``solar_thermal_collector`` generator on the rural_heat bus,
+           copying default operational attributes from an existing solar-thermal unit.
+
+        Parameters
+        ----------
+        self : :class:`Etrago`
+            Model instance with ``network`` (pypsa.Network) and region utilities
+            (e.g., :func:`find_interest_buses`), as well as helper :func:`get_next_index`.
+
+        Returns
+        -------
+        None
+        """
 
     # Define default attributes to be copied from existing generators
     default_attrs = [
@@ -4087,13 +4162,28 @@ def add_extendable_solar_generators_to_interest_area(self):
 
 def replace_gas_links_with_extendable(self):
     """
-    Replaces selected gas-based links in the interest area with extendable variants.
+    Replace selected gas-based links in the interest area with extendable variants.
 
-    - Duplicates original gas-based links as investable links with defined costs and constraints.
-    - For 'central_gas_CHP' and 'central_gas_CHP_heat', the new carriers are suffixed with '_1'.
-    - Removes the original links from the network afterward.
+    The function:
+    - Duplicates original gas-based links as investable (extendable) links with
+      predefined costs and constraints.
+    - For ``central_gas_CHP`` and ``central_gas_CHP_heat``, applies a ``"_1"`` suffix
+      to the new carrier names (to support custom coupling constraints downstream).
+    - Removes the original links from the network afterwards.
+    - ``industrial_gas_CHP`` is intentionally not modified.
 
-    'industrial_gas_CHP' is not affected.
+    Parameters
+    ----------
+    self : :class:`Etrago`
+        Model instance providing:
+        - ``network`` : pypsa.Network
+            Network with ``links`` component to be modified.
+        - ``find_links_connected_to_interest_buses`` : callable
+            Helper to select links connected to buses in the interest area.
+
+    Returns
+    -------
+    None
     """
 
     replace_carriers = [
@@ -4189,7 +4279,21 @@ def replace_gas_links_with_extendable(self):
 
 def reset_gas_CHP_capacities(self):
     """
-    reset_gas_CHP_capacities in interest area
+    Reset installed capacities (``p_nom``) of selected gas-based links to zero
+    within the interest area.
+
+    Parameters
+    ----------
+    self : :class:`Etrago`
+        Model instance providing:
+        - ``network`` : pypsa.Network
+            Network with a ``links`` component to modify.
+        - ``find_links_connected_to_interest_buses`` : callable
+            Helper that returns links connected to buses in the interest area.
+
+    Returns
+    -------
+    None
     """
 
     carriers = [
@@ -4209,7 +4313,24 @@ def reset_gas_CHP_capacities(self):
 
 def get_matching_biogs_bus(self):
     """
-    get Bus_id of Bus only with CH4_biogas-generator
+    Identify the bus that hosts only a ``CH4_biogas`` generator (and the
+    associated ``load shedding`` unit).
+
+    The function checks all buses and returns those where the generator
+    composition consists exclusively of these two carriers.
+
+    Parameters
+    ----------
+    self : :class:`Etrago`
+        Model instance providing:
+        - ``network`` : pypsa.Network
+            Network with a ``generators`` component.
+
+    Returns
+    -------
+    pandas.Index
+        Index of buses that contain exactly two generators: one with
+        carrier ``CH4_biogas`` and one with carrier ``load shedding``.
     """
 
     bus_groups = self.network.generators.groupby("bus")
@@ -4229,9 +4350,33 @@ def get_matching_biogs_bus(self):
 
 def add_biogas_CHP_extendable(self):
     """
-    add extendable biogas_CHP-Powerplant, located in Ingolstadt
-    """
+    Add extendable biogas CHP links located in the interest area.
 
+    The function creates four investable links (power and heat, central and rural)
+    sourced from the bus that exclusively hosts the ``CH4_biogas`` generator:
+    - ``central_biogas_CHP``            -> AC bus (electric output)
+    - ``central_biogas_CHP_heat``       -> central_heat bus (thermal output)
+    - ``rural_biogas_CHP``              -> AC bus (electric output)
+    - ``rural_biogas_CHP_heat``         -> rural_heat bus (thermal output)
+
+    Costs, efficiencies, and operational attributes are taken from maps below and
+    complemented by defaults copied from an existing gas CHP link.
+
+    Parameters
+    ----------
+    self : :class:`Etrago`
+        Model instance providing:
+        - ``network`` : pypsa.Network
+            Network with ``links`` and ``generators`` components.
+        - ``find_interest_buses`` : callable
+            Helper to select buses in the interest area (AC, central_heat, rural_heat).
+        - ``get_matching_biogs_bus`` : callable
+            Helper to find the source bus hosting the biogas generator only.
+
+    Returns
+    -------
+    None
+    """
     carriers = [
         "central_biogas_CHP",
         "central_biogas_CHP_heat",
@@ -4239,16 +4384,19 @@ def add_biogas_CHP_extendable(self):
         "rural_biogas_CHP_heat"
     ]
 
+    # Capital costs per carrier (units consistent with project cost convention)
     capital_cost_map = {
         "central_biogas_CHP": 30467.1058,
         "rural_biogas_CHP": 30467.1058
     }
 
+    # Variable costs per carrier
     marginal_cost_map = {
         "central_biogas_CHP": 3.2669,
         "rural_biogas_CHP": 3.2669
     }
 
+    # Efficiencies per carrier (electrical and thermal)
     efficiency_map = {
         "central_biogas_CHP": 0.455,
         "central_biogas_CHP_heat": 0.484,
@@ -4256,6 +4404,7 @@ def add_biogas_CHP_extendable(self):
         "rural_biogas_CHP_heat": 0.484
     }
 
+    # Operational attributes copied from an existing link as defaults
     default_attrs = [
         'start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time',
         'up_time_before', 'down_time_before', 'ramp_limit_up', 'ramp_limit_down',
@@ -4263,29 +4412,34 @@ def add_biogas_CHP_extendable(self):
         "marginal_cost_quadratic", "stand_by_cost"
     ]
 
+    # Determine next numeric link id (assumes existing numeric link names)
     next_link_id = max([int(i) for i in self.network.links.index if str(i).isdigit()]) + 1
 
-    # get default attributes from exitsting CHP-Link
+    # Use an existing gas CHP as template for default operational attributes
     existing_central_gas_CHP = self.network.links[self.network.links.carrier == "central_gas_CHP"].iloc[0]
     link_attrs = {attr: existing_central_gas_CHP.get(attr, 0) for attr in default_attrs}
 
-    # get AC-Bus and central_heat-Bus in Ingolstadt
+    # Resolve target buses in the interest area
     buses_ing = self.find_interest_buses()
     AC_bus_ing = buses_ing[buses_ing.carrier == "AC"].index[0]
     cH_bus_ing = buses_ing[buses_ing.carrier == "central_heat"].index[0]
     dH_bus_ing = buses_ing[buses_ing.carrier == "rural_heat"].index[0]
 
+    # Source bus that exclusively hosts CH4_biogas (and load shedding)
     biogas_bus_id = get_matching_biogs_bus(self)
 
+    # Add one link per carrier with extendable capacity
     for carrier in carriers:
-
+        # Set carrier-specific cost and efficiency parameters
         link_attrs["capital_cost"] = capital_cost_map.get(carrier, 0)
         link_attrs["marginal_cost"] = marginal_cost_map.get(carrier, 0)
         link_attrs["efficiency"] = efficiency_map.get(carrier, 0)
 
+        # New unique link name
         new_index = str(next_link_id)
         next_link_id += 1
 
+        # Map outputs to the corresponding bus
         if carrier in ("central_biogas_CHP", "rural_biogas_CHP"):
             bus1 = AC_bus_ing
         elif carrier == "central_biogas_CHP_heat":
@@ -4293,24 +4447,44 @@ def add_biogas_CHP_extendable(self):
         elif carrier == "rural_biogas_CHP_heat":
             bus1 = dH_bus_ing
 
-        self.network.add("Link",
-                         name=new_index,
-                         bus0=biogas_bus_id,
-                         bus1=bus1,
-                         carrier=carrier,
-                         p_nom=0,
-                         p_nom_extendable=True,
-                         **link_attrs)
-
+        # Add extendable link with zero initial capacity
+        self.network.add(
+            "Link",
+            name=new_index,
+            bus0=biogas_bus_id,
+            bus1=bus1,
+            carrier=carrier,
+            p_nom=0,
+            p_nom_extendable=True,
+            **link_attrs
+        )
         self.network.links.at[new_index, "scn_name"] = "eGon2035"
-        print(f"Neuer Link {new_index} ({carrier}) mit installed p_nom={link_attrs.get('p_nom', 'n/a')} hinzugefügt.")
+        print(f"New link {new_index} ({carrier}) added with installed p_nom={link_attrs.get('p_nom', 'n/a')}.")
 
 
 def add_biomass_CHP_extendable(self):
     """
-    add extendable biomass_solid_CHP-Powerplant, located in Ingolstadt
-    """
+    Add extendable biomass solid CHP links and a dedicated biomass bus in the interest area (e.g., Ingolstadt).
 
+    The function:
+    - Creates a new ``biomass_solid`` bus with geographic attributes.
+    - Adds a fixed-capacity ``biomass_solid`` generator (fuel supply proxy) on that bus.
+    - Creates four investable links (power/heat, central/rural) from the biomass bus to the
+      respective target buses in the interest area.
+
+    Parameters
+    ----------
+    self : :class:`Etrago`
+        Model instance providing:
+        - ``network`` : pypsa.Network
+            Network with ``buses``, ``generators`` and ``links`` components.
+        - ``find_interest_buses`` : callable
+            Helper to select AC, central_heat and rural_heat buses in the interest area.
+
+    Returns
+    -------
+    None
+    """
     carriers = [
         "central_biomass_solid_CHP",
         "central_biomass_solid_CHP_heat",
@@ -4318,16 +4492,15 @@ def add_biomass_CHP_extendable(self):
         "rural_biomass_solid_CHP_heat"
     ]
 
+    # CAPEX, OPEX and efficiencies per carrier (consistent with project conventions)
     capital_cost_map = {
         "central_biomass_solid_CHP": 67513.5457,
         "rural_biomass_solid_CHP": 65684.0021
     }
-
     marginal_cost_map = {
         "central_biomass_solid_CHP": 1.3590,
         "rural_biomass_solid_CHP": 1.4445
     }
-
     efficiency_map = {
         "central_biomass_solid_CHP": 0.291,
         "central_biomass_solid_CHP_heat": 0.8309,
@@ -4335,6 +4508,7 @@ def add_biomass_CHP_extendable(self):
         "rural_biomass_solid_CHP_heat": 0.9733
     }
 
+    # Operational attributes copied from an existing link as defaults
     default_attrs = [
         'start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time',
         'up_time_before', 'down_time_before', 'ramp_limit_up', 'ramp_limit_down',
@@ -4342,88 +4516,100 @@ def add_biomass_CHP_extendable(self):
         "marginal_cost_quadratic", "stand_by_cost"
     ]
 
-    # Add new bus with additional attributes
+    # --- Create a new biomass_solid bus (location set to Ingolstadt coordinates) ---
     new_bus = str(self.network.buses.index.astype(np.int64).max() + 1)
 
-    self.network.add("Bus",
-                     new_bus,
-                     carrier="biomass_solid",
-                     v_nom=1.0,
-                     x=11.342843544333306,
-                     y=48.76756488279032
-                     )
+    self.network.add(
+        "Bus",
+        new_bus,
+        carrier="biomass_solid",
+        v_nom=1.0,
+        x=11.342843544333306,
+        y=48.76756488279032
+    )
     self.network.buses.at[new_bus, "scn_name"] = "eGon2035"
     self.network.buses.at[new_bus, "country"] = "DE"
 
-    # Add new generator for biomass_carrier with additional attributes
-
-    self.network.add("Generator",
-                     name=f"{new_bus} biomass_solid",
-                     bus=new_bus,
-                     carrier="biomass_solid",
-                     p_nom=10000,
-                     p_nom_extendable=False,
-                     marginal_cost=39.74,
-                     capital_cost=0,
-                     efficiency=1.0
-                     )
-
+    # --- Add a fixed-capacity biomass_solid generator as fuel supply proxy on the new bus ---
+    self.network.add(
+        "Generator",
+        name=f"{new_bus} biomass_solid",
+        bus=new_bus,
+        carrier="biomass_solid",
+        p_nom=10000,
+        p_nom_extendable=False,
+        marginal_cost=39.74,
+        capital_cost=0,
+        efficiency=1.0
+    )
     self.network.generators.at[f"{new_bus} biomass_solid", "e_nom_max"] = 11305.00
-
     self.network.generators.at[f"{new_bus} biomass_solid", "scn_name"] = "eGon2035"
+    print(f"New bus {new_bus} with carrier 'biomass_solid' added successfully.")
 
-    print(f"New Bus {new_bus} with carrier biomass_solid added successfully.")
-
-    # Add Links biomass_solid
-
-    # create new link_id
+    # --- Prepare link creation ---
+    # Next numeric link id (assumes numeric link indices exist)
     next_link_id = max([int(i) for i in self.network.links.index if str(i).isdigit()]) + 1
 
-    # get AC-Bus and central_heat-Bus in Ingolstadt
+    # Resolve target buses in interest area (AC, central heat, rural heat)
     buses_ing = self.find_interest_buses()
     AC_bus_ing = buses_ing[buses_ing.carrier == "AC"].index[0]
     cH_bus_ing = buses_ing[buses_ing.carrier == "central_heat"].index[0]
     dH_bus_ing = buses_ing[buses_ing.carrier == "rural_heat"].index[0]
 
-    # get AC-Bus_id in Ingolstadt
-    ac_buses = buses_ing[buses_ing.carrier == "AC"]
-    ac_bus_ing = ac_buses.index[0]
-
-    # get default attributes from exitsting CHP-Link
+    # Use an existing gas CHP as template for default operational attributes
     existing_central_gas_CHP = self.network.links[self.network.links.carrier == "central_gas_CHP"].iloc[0]
     link_attrs = {attr: existing_central_gas_CHP.get(attr, 0) for attr in default_attrs}
 
+    # --- Add extendable biomass CHP links from biomass bus to target buses ---
     for carrier in carriers:
-
+        # Apply carrier-specific costs and efficiencies
         link_attrs["capital_cost"] = capital_cost_map.get(carrier, 0)
         link_attrs["marginal_cost"] = marginal_cost_map.get(carrier, 0)
         link_attrs["efficiency"] = efficiency_map.get(carrier, 0)
 
+        # New unique link name
         new_index = str(next_link_id)
         next_link_id += 1
 
+        # Map each carrier to its output bus
         if carrier in ("central_biomass_solid_CHP", "rural_biomass_solid_CHP"):
-            bus1 = AC_bus_ing
+            bus1 = AC_bus_ing               # electric output
         elif carrier == "central_biomass_solid_CHP_heat":
-            bus1 = cH_bus_ing
+            bus1 = cH_bus_ing               # central heat output
         elif carrier == "rural_biomass_solid_CHP_heat":
-            bus1 = dH_bus_ing
+            bus1 = dH_bus_ing               # rural heat output
 
-        self.network.add("Link",
-                         name=new_index,
-                         bus0=new_bus,
-                         bus1=bus1,
-                         carrier=carrier,
-                         p_nom=0,
-                         p_nom_extendable=True,
-                         **link_attrs)
-
+        # Add extendable link with zero initial capacity
+        self.network.add(
+            "Link",
+            name=new_index,
+            bus0=new_bus,
+            bus1=bus1,
+            carrier=carrier,
+            p_nom=0,
+            p_nom_extendable=True,
+            **link_attrs
+        )
         self.network.links.at[new_index, "scn_name"] = "eGon2035"
-        print(f"Neuer Link {new_index} ({carrier}) mit installed p_nom={link_attrs.get('p_nom', 'n/a')} hinzugefügt.")
+        print(f"New link {new_index} ({carrier}) added with installed p_nom={link_attrs.get('p_nom', 'n/a')}.")
+
 
 def add_biomass_boiler_extendable(self):
     """
-    Add extendable biomass_solid_boiler to rural_heat bus in the interest area.
+    Add an extendable biomass solid boiler on the rural heat bus in the interest area.
+
+    Parameters
+    ----------
+    self : :class:`Etrago`
+        Model instance providing:
+        - ``network`` : pypsa.Network
+            Network with ``generators`` and ``buses`` components.
+        - ``find_interest_buses`` : callable
+            Helper to resolve the ``rural_heat`` bus in the interest area.
+
+    Returns
+    -------
+    None
     """
 
     # Carrier name for the generator
@@ -4456,11 +4642,28 @@ def add_biomass_boiler_extendable(self):
 
     print(f"Biomass boiler {carrier} successfully added at bus {dH_bus_ing}.")
 
+
 def add_extendable_heat_pumps_to_interest_area(self):
     """
-    Dupliziert zentrale und ländliche Wärmepumpen in der Region.
-    Setzt investierbare Variante, kopiert 'efficiency'-Zeitreihe,
-    und übernimmt spezifische Kostenparameter.
+    Duplicate central and rural heat pumps in the interest area as investable links.
+
+    For each matching heat pump link, the function:
+    - Sets the existing link's ``p_nom`` to zero (to avoid double counting).
+    - Adds a new extendable link with specified capital and marginal costs.
+    - Copies the time series for ``links_t.efficiency`` if available.
+
+    Parameters
+    ----------
+    self : :class:`Etrago`
+        Model instance providing:
+        - ``network`` : pypsa.Network
+            Network with ``links`` and ``links_t.efficiency``.
+        - ``find_links_connected_to_interest_buses`` : callable
+            Helper to select links connected to interest-area buses.
+
+    Returns
+    -------
+    None
     """
 
     heat_pump_carriers = ["central_heat_pump", "rural_heat_pump"]
@@ -4512,173 +4715,248 @@ def add_extendable_heat_pumps_to_interest_area(self):
             self.network.links_t.efficiency[new_index] = self.network.links_t.efficiency[old_index].copy()
 
         self.network.links.at[new_index, "scn_name"] = "eGon2035"
-        print(f"Wärmepumpe {new_index} ({carrier}) erfolgreich dupliziert mit Zeitreihe.")
+        print(f"Heat pump {new_index} ({carrier}) duplicated as extendable with time series.")
 
 def set_battery_parameter_interest_area(self):
     """
-    Setzt p_nom_min = 0 für alle Batterien (storage_units) in der interest area.
+    Set minimum capacity and capital cost for all battery storage units in the interest area.
+
+    Sets ``p_nom_min`` and ``capital_cost`` for rows in ``storage_units`` where
+    ``carrier == "battery"`` and the unit's bus lies within the interest area.
+
+    Parameters
+    ----------
+    self : :class:`Etrago`
+        Model instance providing:
+        - ``network`` : pypsa.Network
+            Must contain ``storage_units`` with columns ``bus``, ``carrier``,
+            ``p_nom_min`` and ``capital_cost``.
+        - ``find_interest_buses`` : callable
+            Helper to resolve buses in the interest area.
+
+    Returns
+    -------
+    None
     """
-    # Busse in der Region bestimmen
-    buses_ingolstadt = find_interest_buses(self)
-    bus_list = buses_ingolstadt.index.to_list()
-
-    # Filtermaske: nur Batterien in der Region
-    mask = (self.network.storage_units.bus.isin(bus_list)) & (self.network.storage_units.carrier == "battery")
-
-    p_nom_min = 18.15
-    capital_cost = 18744.86095
-
-    # Setze p_nom_min = 0 direkt in der Original-Tabelle
-    self.network.storage_units.loc[mask, "p_nom_min"] = p_nom_min
-
-    # capital_cost setzen
-    self.network.storage_units.loc[mask, "capital_cost"] = capital_cost
-
-    print(
-        f"Für {mask.sum()} Batterien in der interest area wurde "
-        f"p_nom_min = {p_nom_min} und capital_cost = {capital_cost} gesetzt."
-    )
-
-def set_battery_and_heat_store_parameters_interest_area(self):
-    """
-    Setzt p_nom_min und capital_cost für Batterien (storage_units) sowie
-    capital_cost für Wärmespeicher (stores) in der interest area.
-    """
-
-    # Busse der interest area bestimmen
+    # Resolve buses in the interest area
     buses_ingolstadt = self.find_interest_buses()
     bus_list = buses_ingolstadt.index.to_list()
 
-    # Filtermaske für Batterien
-    mask_battery = (
-        (self.network.storage_units.bus.isin(bus_list)) &
-        (self.network.storage_units.carrier == "battery")
+    # Filter mask: battery storage units located in the interest area
+    mask = (
+        self.network.storage_units.bus.isin(bus_list)
+        & (self.network.storage_units.carrier == "battery")
     )
 
-    # Parameter für Batterien
+    # Target parameters
+    p_nom_min = 18.15
+    capital_cost = 18744.86095
+
+    # Apply parameters
+    self.network.storage_units.loc[mask, "p_nom_min"] = p_nom_min
+    self.network.storage_units.loc[mask, "capital_cost"] = capital_cost
+
+    print(
+        f"Updated {mask.sum()} battery storage units in the interest area: "
+        f"p_nom_min = {p_nom_min}, capital_cost = {capital_cost}."
+    )
+
+
+def set_battery_and_heat_store_parameters_interest_area(self):
+    """
+    Set minimum capacity and capital costs for batteries, and capital costs for heat stores,
+    within the interest area.
+
+    Battery adjustments (``storage_units``):
+    - Set ``p_nom_min`` and ``capital_cost`` where ``carrier == "battery"`` and the unit's bus
+      lies within the interest area.
+
+    Heat store adjustments (``stores``):
+    - Set ``capital_cost`` for carriers ``"rural_heat_store"`` and ``"central_heat_store"`` on buses
+      within the interest area.
+
+    Parameters
+    ----------
+    self : :class:`Etrago`
+        Model instance providing:
+        - ``network`` : pypsa.Network
+            Must contain ``storage_units`` with columns ``bus``, ``carrier``, ``p_nom_min``, ``capital_cost``,
+            and ``stores`` with columns ``bus``, ``carrier``, ``capital_cost``.
+        - ``find_interest_buses`` : callable
+            Resolves buses belonging to the interest area.
+
+    Returns
+    -------
+    None
+    """
+    # Resolve buses in the interest area
+    buses_ingolstadt = self.find_interest_buses()
+    bus_list = buses_ingolstadt.index.to_list()
+
+    # --- Battery parameters (storage_units) ---
+    # Filter mask: batteries located on interest-area buses
+    mask_battery = (
+        self.network.storage_units.bus.isin(bus_list)
+        & (self.network.storage_units.carrier == "battery")
+    )
+
+    # Target parameters for batteries
     p_nom_min_battery = 18.15
     capital_cost_battery = 18744.86095
 
-    # Setze Batterie-Parameter
+    # Apply battery parameters
     self.network.storage_units.loc[mask_battery, "p_nom_min"] = p_nom_min_battery
     self.network.storage_units.loc[mask_battery, "capital_cost"] = capital_cost_battery
 
-    # Filter für Wärmespeicher in der Region
+    # --- Heat store parameters (stores) ---
+    # Filter mask: stores located on interest-area buses
     mask_stores = self.network.stores.bus.isin(bus_list)
 
-    # Selektiere nur relevante Stores
+    # Select only relevant subset once for carrier filtering below
     stores_of_interest = self.network.stores.loc[mask_stores]
 
-    # Definition capital_cost nach carrier
+    # Capital costs per heat-store carrier
     capital_cost_store_values = {
         "rural_heat_store": 27312.6386,
-        "central_heat_store": 69.0976
+        "central_heat_store": 69.0976,
     }
 
-    # Iteration über carrier und setzen der capital_cost
+    # Apply store capital costs for each target carrier
     for carrier, cap_cost in capital_cost_store_values.items():
         mask_carrier = stores_of_interest.carrier == carrier
-        affected = mask_carrier.sum()
-        self.network.stores.loc[
-            mask_stores & mask_carrier,
-            "capital_cost"
-        ] = cap_cost
+        affected = int(mask_carrier.sum())
+        self.network.stores.loc[mask_stores & mask_carrier, "capital_cost"] = cap_cost
         print(
-            f"Für {affected} Wärmespeicher vom Typ '{carrier}' wurde capital_cost = {cap_cost} gesetzt."
+            f"Updated {affected} heat stores of type '{carrier}' in the interest area: capital_cost = {cap_cost}."
         )
 
-    # Zusammenfassung für Batterien
+    # Summary for batteries
     print(
-        f"Für {mask_battery.sum()} Batterien in der interest area wurde "
-        f"p_nom_min = {p_nom_min_battery} und capital_cost = {capital_cost_battery} gesetzt."
+        f"Updated {int(mask_battery.sum())} battery storage units in the interest area: "
+        f"p_nom_min = {p_nom_min_battery}, capital_cost = {capital_cost_battery}."
     )
 
 
 def add_waste_CHP_ingolstadt(self):
     """
-    add waste_CHP-Powerplant, located in Ingolstadt
+    Add a waste-fueled CHP unit (power + heat) located in the interest area (e.g., Ingolstadt).
+
+    The function:
+    - Creates a new ``waste`` fuel bus with coordinates in Ingolstadt.
+    - Adds a fixed-capacity ``waste`` generator (fuel supply proxy) on that bus.
+    - Adds two extendable links:
+        * ``central_waste_CHP``       -> electric output to the AC bus
+        * ``central_waste_CHP_heat``  -> thermal output to the central_heat bus
+
+    Parameters
+    ----------
+    self : :class:`Etrago`
+        Model instance providing:
+        - ``network`` : pypsa.Network
+            Network with ``buses``, ``generators``, and ``links`` components.
+        - ``find_interest_buses`` : callable
+            Helper to resolve AC and central_heat buses in the interest area.
+
+    Returns
+    -------
+    None
     """
-    # Add new bus with additional attributes
+    # --- Create a new waste fuel bus (geo-coordinates set to Ingolstadt) ---
     new_bus = str(self.network.buses.index.astype(np.int64).max() + 1)
-    self.network.add("Bus",
-                     new_bus,
-                     carrier="waste",
-                     v_nom=1.0,
-                     x=11.477725514411073,
-                     y=48.76452002953957
-                     )
+    self.network.add(
+        "Bus",
+        new_bus,
+        carrier="waste",
+        v_nom=1.0,
+        x=11.477725514411073,
+        y=48.76452002953957
+    )
     self.network.buses.at[new_bus, "scn_name"] = "eGon2035"
     self.network.buses.at[new_bus, "country"] = "DE"
+    print(f"New bus {new_bus} with carrier 'waste' added.")
 
-    print(f"Neuer Bus {new_bus} mit carrier = waste hinzugefügt.")
-
-    # Add new generator for waste_carrier with additional attributes
-
-    self.network.add("Generator",
-                     name=f"{new_bus} waste",
-                     bus=new_bus,
-                     carrier="waste",
-                     p_nom=10000,
-                     p_nom_extendable=False,
-                     marginal_cost=12.6,
-                     capital_cost=0,
-                     efficiency=1.0
-                     )
-
+    # --- Add a fixed-capacity waste generator as fuel supply proxy ---
+    self.network.add(
+        "Generator",
+        name=f"{new_bus} waste",
+        bus=new_bus,
+        carrier="waste",
+        p_nom=10000,
+        p_nom_extendable=False,
+        marginal_cost=12.6,
+        capital_cost=0,
+        efficiency=1.0
+    )
     self.network.generators.at[f"{new_bus} waste", "scn_name"] = "eGon2035"
 
-    bus_ingolstadt = find_interest_buses(self)
+    # Resolve AC and central_heat buses in the interest area
+    buses_ing = self.find_interest_buses()
+    ac_bus = buses_ing[buses_ing.carrier == "AC"].index[0]
+    ch_bus = buses_ing[buses_ing.carrier == "central_heat"].index[0]
 
-    # Add Link waste -> electricity
-    ac_buses = bus_ingolstadt[bus_ingolstadt.carrier == "AC"]
-    ac_bus = ac_buses.index[0]
-    # create new link_id
-    new_link_id = str(self.network.links.index.astype(int).max() + 1)
+    # Determine the next numeric link index (robust to non-numeric names)
+    next_link_id = max([int(i) for i in self.network.links.index if str(i).isdigit()] + [0]) + 1
 
-    self.network.add("Link",
-                     name=new_link_id,
-                     bus0=new_bus,
-                     bus1=ac_bus,
-                     carrier="central_waste_CHP",
-                     p_nom=86.77,
-                     p_nom_min=86.77,  # elec_CHP_Power / n_elec
-                     marginal_cost=5.8444,
-                     capital_cost=123893.1786,
-                     p_nom_extendable=True,
-                     efficiency=0.2102
-                     )
+    # --- Add Link: waste -> electricity (AC) ---
+    elec_link_id = str(next_link_id)
+    next_link_id += 1
+    self.network.add(
+        "Link",
+        name=elec_link_id,
+        bus0=new_bus,
+        bus1=ac_bus,
+        carrier="central_waste_CHP",
+        p_nom=86.77,
+        p_nom_min=86.77,   # elec_CHP_Power / n_elec
+        marginal_cost=5.8444,
+        capital_cost=123893.1786,
+        p_nom_extendable=True,
+        efficiency=0.2102
+    )
+    self.network.links.at[elec_link_id, "scn_name"] = "eGon2035"
+    print(f"New link {elec_link_id} with carrier 'central_waste_CHP' added.")
 
-    self.network.links.at[new_link_id, "scn_name"] = "eGon2035"
-
-    print(f"Neuer Link {new_link_id} mit carrier = central_waste_CHP hinzugefügt.")
-
-    # Add Link waste -> central_heat
-    # create new link_id
-    new_link_id = str(self.network.links.index.astype(int).max() + 1)
-    central_heat_buses = bus_ingolstadt[bus_ingolstadt.carrier == "central_heat"]
-    central_heat_bus = central_heat_buses.index[0]
-
-    self.network.add("Link",
-                     name=new_link_id,
-                     bus0=new_bus,
-                     bus1=central_heat_bus,
-                     carrier="central_waste_CHP_heat",
-                    #p_nom=59.05,
-                    #p_nom_min=59.05,
-                     marginal_cost=0,
-                     p_nom_extendable=True,
-                     efficiency=0.762
-                     )
-
-    self.network.links.at[new_link_id, "scn_name"] = "eGon2035"
-
-    print(f"Neuer Link {new_link_id} mit carrier = central_waste_CHP_heat hinzugefügt.")
+    # --- Add Link: waste -> central_heat ---
+    heat_link_id = str(next_link_id)
+    next_link_id += 1
+    self.network.add(
+        "Link",
+        name=heat_link_id,
+        bus0=new_bus,
+        bus1=ch_bus,
+        carrier="central_waste_CHP_heat",
+        # p_nom and p_nom_min can be left free here; link is extendable
+        marginal_cost=0,
+        p_nom_extendable=True,
+        efficiency=0.762
+    )
+    self.network.links.at[heat_link_id, "scn_name"] = "eGon2035"
+    print(f"New link {heat_link_id} with carrier 'central_waste_CHP_heat' added.")
 
 
 def adjust_capital_costs(self):
     """
-    Update the capital_cost values of selected PyPSA components
-    (links, storage_units, stores) globally based on specified carrier types.
+    Add a waste-fueled CHP unit (power + heat) located in the interest area.
+
+    The function:
+    - Creates a new ``waste`` fuel bus with coordinates in Ingolstadt.
+    - Adds a fixed-capacity ``waste`` generator (fuel supply proxy) on that bus.
+    - Adds two extendable links:
+        * ``central_waste_CHP``       -> electric output to the AC bus
+        * ``central_waste_CHP_heat``  -> thermal output to the central_heat bus
+
+    Parameters
+    ----------
+    self : :class:`Etrago`
+        Model instance providing:
+        - ``network`` : pypsa.Network
+            Network with ``buses``, ``generators``, and ``links`` components.
+        - ``find_interest_buses`` : callable
+            Helper to resolve AC and central_heat buses in the interest area.
+
+    Returns
+    -------
+    None
     """
 
     # Define new capital costs for each component and carrier
@@ -4718,16 +4996,26 @@ def adjust_capital_costs(self):
 
 def print_capital_costs(self):
     """
-    Print a summary of capital_cost values for selected components
-    (links, storage_units, stores) grouped by carrier.
+    Print a summary of capital costs for selected network components.
+
+    For each component type (``links``, ``storage_units``, ``stores``),
+    the function groups by carrier and prints the mean ``capital_cost``.
+    Returns a dictionary with one DataFrame per component.
+
+    Parameters
+    ----------
+    self : :class:`Etrago`
+        Model instance providing:
+        - ``network`` : pypsa.Network
+            Must contain ``links``, ``storage_units`` and ``stores`` components.
 
     Returns
     -------
-    dict of pd.DataFrame
-        Each key is a component name, each value is a DataFrame with capital_costs per carrier.
+    dict of pandas.DataFrame
+        Dictionary with keys ``"links"``, ``"storage_units"`` and ``"stores"``
+        (if available in the network). Values are DataFrames with the mean
+        ``capital_cost`` per carrier, sorted by carrier.
     """
-
-    import pandas as pd  # just in case not yet imported
 
     cost_summary = {}
 
@@ -4769,7 +5057,24 @@ def print_capital_costs(self):
 
 def set_cyclic_constraints(self):
     """
-    Sets cyclic constraints for battery storage units and selected store carriers.
+    Set cyclic constraints for storage technologies in the interest area.
+
+    The function ensures that:
+    - Battery storage units (``storage_units`` with carrier == "battery"``)
+      have ``cyclic_state_of_charge`` set to True.
+    - Selected store carriers have ``e_cyclic`` set to True.
+
+    Parameters
+    ----------
+    self : :class:`Etrago`
+        Model instance providing:
+        - ``network`` : pypsa.Network
+            Must contain ``storage_units`` with column ``cyclic_state_of_charge``
+            and ``stores`` with column ``e_cyclic``.
+
+    Returns
+    -------
+    None
     """
     # Set cyclic_state_of_charge = True for all batteries in storage_units
     battery_mask = self.network.storage_units.carrier == "battery"
@@ -4785,7 +5090,24 @@ def set_cyclic_constraints(self):
 
 def update_capital_cost_of_solar_ingolstadt(self, new_capital_cost):
     """
-    Setzt den capital_cost für alle solar_rooftop Generatoren in der Interest Area Ingolstadt.
+    Update the capital cost of all solar rooftop generators located in the
+    interest area (e.g., Ingolstadt).
+
+    Parameters
+    ----------
+    self : :class:`Etrago`
+        Model instance providing:
+        - ``network`` : pypsa.Network
+            Must contain ``generators`` with columns ``bus``, ``carrier``, ``capital_cost``.
+        - ``find_interest_buses`` : callable
+            Helper to resolve buses in the interest area.
+    new_capital_cost : float
+        New capital cost value [EUR/kW] to assign to all rooftop PV generators
+        in the interest area.
+
+    Returns
+    -------
+    None
     """
     buses_ingolstadt = find_interest_buses(self)
     bus_list = buses_ingolstadt.index.to_list()
@@ -4799,4 +5121,7 @@ def update_capital_cost_of_solar_ingolstadt(self, new_capital_cost):
         return
 
     self.network.generators.loc[solar_generators.index, "capital_cost"] = new_capital_cost
-    print(f"✅ capital_cost auf {new_capital_cost:.2f} €/kW für {len(solar_generators)} Solar-Generator(en) gesetzt.")
+    print(
+        f"Updated capital_cost to {new_capital_cost:.2f} €/kW "
+        f"for {len(solar_generators)} solar_rooftop generator(s) in the interest area."
+    )

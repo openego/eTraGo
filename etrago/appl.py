@@ -183,7 +183,7 @@ args = {
         "n_clusters": 5,  # number of periods - only relevant for 'typical_periods'
         "n_segments": 5,  # number of segments - only relevant for segmentation
     },
-    "skip_snapshots": 20,  # False or number of snapshots to skip
+    "skip_snapshots": 3,  # False or number of snapshots to skip
     "temporal_disaggregation": {
         "active": False,  # choose if temporally full complex dispatch optimization should be conducted
         "no_slices": 8,  # number of subproblems optimization is divided into
@@ -769,10 +769,6 @@ def run_etrago(args, json_path):
 
     etrago.replace_gas_links_with_extendable()
 
-    #etrago.add_gas_CHP_extendable()
-
-    #etrago.add_gas_CHP_fixed()
-
     etrago.add_biogas_CHP_extendable()
 
     etrago.add_biomass_CHP_extendable()
@@ -783,8 +779,8 @@ def run_etrago(args, json_path):
 
     #etrago.add_biomass_boiler_extendable()
 
-    etrago.set_battery_parameter_interest_area()
-    #etrago.set_battery_and_heat_store_parameters_interest_area()
+    #etrago.set_battery_parameter_interest_area()
+    etrago.set_battery_and_heat_store_parameters_interest_area()
 
     etrago.set_cyclic_constraints()
 

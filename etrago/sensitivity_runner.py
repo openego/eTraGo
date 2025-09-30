@@ -172,11 +172,33 @@ import os
 
 class SensitivityEtrago(Etrago):
     def __init__(self, nc_path="base_network_Scenario_1f.nc", args=None):
-        # Initialisiere NICHT den vollen eTraGo-Workflow, sondern lade nur das gespeicherte Netzwerk
-        self.network = pypsa.Network(nc_path)
-        self.args = args  # Default-Pfad für Ergebnisexport
+        """
+        Initialize a lightweight eTraGo wrapper for sensitivity analyses.
 
-        # 🔧 Wichtige Initialisierungen für Kompatibilität
+        Loads a pre-saved PyPSA network from a NetCDF file and skips the
+        full eTraGo build workflow. Sets minimal attributes required for
+        downstream compatibility.
+
+        Parameters
+        ----------
+        nc_path : str, optional
+            Path to the saved PyPSA network (.nc). Defaults to
+            ``"base_network_Scenario_1f.nc"``.
+        args : dict or None, optional
+            Optional dictionary with runtime arguments (e.g. paths for
+            result export). Defaults to ``None``.
+
+        Returns
+        -------
+        None
+        """
+        # Load the network directly from NetCDF (no full build pipeline)
+        self.network = pypsa.Network(nc_path)
+
+        # Store optional runtime arguments as provided by the caller
+        self.args = args
+
+        # Minimal compatibility attributes used elsewhere in the project
         self.busmap = {}
         self.ch4_h2_mapping = {}
         self.tool_version = "manual_sensitivity"
@@ -184,39 +206,88 @@ class SensitivityEtrago(Etrago):
 
     def update_capital_cost_of_solar_ingolstadt(self, new_capital_cost):
         """
-        Setzt den capital_cost für alle solar_rooftop Generatoren in der Interest Area Ingolstadt.
+        Update the capital cost of all solar rooftop generators located in the
+        interest area (e.g., Ingolstadt).
+
+        Parameters
+        ----------
+        self : :class:`Etrago`
+            Model instance providing:
+            - ``network`` : pypsa.Network
+                Must contain ``generators`` with columns ``bus``, ``carrier``, ``capital_cost``.
+            - ``find_interest_buses`` : callable
+                Helper to resolve buses in the interest area.
+        new_capital_cost : float
+            New capital cost value [EUR/MW/a] to assign to all rooftop PV generators
+            in the interest area.
+
+        Returns
+        -------
+        None
         """
-        buses_ingolstadt = find_interest_buses(self)
+        # Resolve buses in the interest area
+        buses_ingolstadt = self.find_interest_buses()
         bus_list = buses_ingolstadt.index.to_list()
 
+        # Select rooftop PV generators connected to these buses
         gens = self.network.generators
         is_solar_in_ingolstadt = (gens.carrier == "solar_rooftop") & (gens.bus.isin(bus_list))
         solar_generators = gens[is_solar_in_ingolstadt]
 
         if solar_generators.empty:
-            print("⚠️ Keine passenden Solar-Generatoren in Ingolstadt gefunden.")
+            print("No matching solar_rooftop generators found in the interest area.")
             return
 
+        # Apply new capital cost
         self.network.generators.loc[solar_generators.index, "capital_cost"] = new_capital_cost
-        print(f"✅ capital_cost auf {new_capital_cost:.2f} €/MW/a für {len(solar_generators)} Solar-Generator(en) gesetzt.")
+        print(
+            f"Updated capital_cost to {new_capital_cost:.2f} €/MW/a "
+            f"for {len(solar_generators)} solar_rooftop generator(s) in the interest area."
+        )
+
 
     def update_capital_cost_of_batteries(self, new_capital_cost):
         """
-        Updates the capital_cost for all battery storage units.
-        """
-
-        # Update capital_cost
-        self.network.storage_units.capital_cost = new_capital_cost
-        print(f"✅ capital_cost set to {new_capital_cost:.2f} €/MW/a for battery storage unit(s).")
-
-    def limit_solar_rooftop_potential(self, max_capacity_mw=655.916):
-        """
-        Limits the total extendable solar rooftop capacity in Ingolstadt to a given maximum.
+        Update the capital cost of all battery storage units in the network.
 
         Parameters
         ----------
-        max_capacity_mw : float
-            Maximum allowed capacity for solar_rooftop in MW.
+        self : :class:`Etrago`
+            Model instance providing:
+            - ``network`` : pypsa.Network
+                Must contain ``storage_units`` with columns ``carrier`` and ``capital_cost``.
+        new_capital_cost : float
+            New capital cost value [EUR/MW/a] to assign to all battery storage units.
+
+        Returns
+        -------
+        None
+        """
+
+        self.network.storage_units.capital_cost = new_capital_cost
+        print(f"✅ capital_cost set to {new_capital_cost:.2f} €/MW/a for battery storage unit(s).")
+
+
+    def limit_solar_rooftop_potential(self, max_capacity_mw=655.916):
+        """
+        Limit the maximum extendable rooftop PV capacity in the interest area.
+
+        Parameters
+        ----------
+        self : :class:`Etrago`
+            Model instance providing:
+            - ``network`` : pypsa.Network
+                Must contain ``generators`` with columns ``bus``, ``carrier``,
+                ``p_nom_extendable`` and ``p_nom_max``.
+            - ``find_interest_buses`` : callable
+                Helper to resolve buses in the interest area.
+        max_capacity_mw : float, optional
+            Maximum allowed extendable capacity for rooftop PV [MW].
+            Default is 655.916.
+
+        Returns
+        -------
+        None
         """
 
         # Get all buses in interest area (Ingolstadt)
@@ -245,8 +316,29 @@ class SensitivityEtrago(Etrago):
 
     def set_biomass_CHP_and_add_boiler(self):
         """
-        Add capacity of central_biomass_solid_CHP in Ingolstadt to 3.45 MW,
-        and adds an extendable rural_biomass_solid_boiler to the rural_heat bus.
+        Set a fixed minimum capacity for central biomass CHP and add an extendable biomass boiler.
+
+        The function:
+        1) Sets ``p_nom_min = 3.45`` MW and ``p_nom_extendable = True`` for all
+           links with carrier ``"central_biomass_solid_CHP"`` connected to buses
+           in the interest area.
+        2) Adds an extendable generator of carrier ``"rural_biomass_solid_boiler"``
+           on the ``rural_heat`` bus in the interest area with given techno-economic parameters.
+
+        Parameters
+        ----------
+        self : :class:`Etrago`
+            Model instance providing:
+            - ``network`` : pypsa.Network
+                Must contain ``links`` and ``generators`` components.
+            - ``find_links_connected_to_interest_buses`` : callable
+                Helper to select links connected to interest-area buses.
+            - ``find_interest_buses`` : callable
+                Helper to resolve target buses in the interest area.
+
+        Returns
+        -------
+        None
         """
 
         # === 1. Set fixed capacity for central biomass CHP ===
@@ -297,7 +389,6 @@ class SensitivityEtrago(Etrago):
         print(f"Biomass boiler {gen_name} successfully added at bus {dH_bus_ing}.")
 
 
-
     def set_solar_PV_and_batterie_capacities(etrago, solar_p_nom=655.916, battery_p_nom=109.32, battery_p_set=18.15):
         """
         Sets fixed capacities for rooftop PV and battery storage in the interest area (e.g. Ingolstadt).
@@ -312,6 +403,10 @@ class SensitivityEtrago(Etrago):
             Minimum allowed capacity [MW] for battery storage (default: 109.32).
         battery_p_set : float, optional
             Fixed installed capacity [MW] to use for battery storage (default: 18.15).
+
+        Returns
+        -------
+        None
         """
         # === Set rooftop PV capacity ===
         gens = etrago.network.generators
@@ -349,65 +444,97 @@ class SensitivityEtrago(Etrago):
             print("No battery storage units found in the interest area.")
 
 
-
     def update_marginal_cost_of_CH4_generators(self, new_marginal_cost):
+        """
+        Update the marginal cost of all CH4-based generators in the network.
+
+        Parameters
+        ----------
+        self : :class:`Etrago`
+            Model instance providing:
+            - ``network`` : pypsa.Network
+                Must contain ``generators`` with a ``carrier`` column.
+        new_marginal_cost : float
+            New marginal cost value [EUR/MWh] to assign to all generators
+            with carrier ``CH4_NG``.
+
+        Returns
+        -------
+        None
+        """
         gens = self.network.generators
         is_ch4 = gens.carrier == "CH4_NG"
+
         if is_ch4.sum() == 0:
-            print("⚠️ Keine CH4_NG-Generatoren gefunden.")
+            print("No CH4_NG generators found in the network.")
             return
 
         self.network.generators.loc[is_ch4, "marginal_cost"] = new_marginal_cost
-        print(f"✅ marginal_cost auf {new_marginal_cost:.2f} €/MWh gesetzt ({is_ch4.sum()} CH₄-Generatoren).")
+        print(
+            f"Updated marginal_cost to {new_marginal_cost:.2f} €/MWh "
+            f"for {is_ch4.sum()} CH4 generator(s)."
+        )
 
     def update_marginal_cost_due_to_CO2_price(self, CO2_new):
         """
-        Passt die marginal costs von CH4_NG- und waste-Generatoren an,
-        um den veränderten CO2-Preis zu berücksichtigen.
+        Adjust the marginal costs of CH4_NG and waste generators
+        to reflect a change in the CO₂ price.
 
-        Formel:
+        The adjustment follows:
             marginal_cost += (CO2_new - CO2_default) * emissions_factor
 
-        Args:
-            CO2_new (float): Neuer CO2-Preis in €/tCO2.
-        """
+        Parameters
+        ----------
+        self : :class:`Etrago`
+            Model instance providing:
+            - ``network`` : pypsa.Network
+                Must contain ``generators`` with columns ``carrier`` and ``marginal_cost``.
+        CO2_new : float
+            New CO₂ price [EUR/tCO₂].
 
+        Returns
+        -------
+        None
+        """
         gens = self.network.generators
 
-        # Fester Default-Preis
-        CO2_default = 76.5  # €/tCO2
+        # Default CO₂ price (reference)
+        CO2_default = 76.5  # €/tCO₂
 
-        # Delta CO2
+        # Change in CO₂ price
         delta_CO2 = CO2_new - CO2_default
 
-        # Emissionsfaktoren in tCO2/MWh
+        # Emission factors [tCO₂/MWh] per carrier
         emissions_factors = {
             "CH4_NG": 0.201,
             "waste": 0.165
         }
 
-        # Selektiere Generatoren mit Carrier CH4_NG oder waste
+        # Select relevant generators
         mask = gens.carrier.isin(emissions_factors.keys())
-
         if mask.sum() == 0:
-            print("⚠️ Keine relevanten Generatoren mit CO2-Emissionen gefunden.")
+            print("No CH4_NG or waste generators with emissions found in the network.")
             return
 
-        # Iteriere über die betroffenen Carrier
+        # Apply adjustments carrier by carrier
         for carrier, ef in emissions_factors.items():
             carrier_mask = gens.carrier == carrier
             n = carrier_mask.sum()
             if n == 0:
                 continue
 
-            # Berechne den Zuschlag
+            # Calculate marginal cost adjustment
             delta_marginal = delta_CO2 * ef
 
-            # Addiere zum bestehenden marginal_cost
+            # Update marginal_cost column
             self.network.generators.loc[carrier_mask, "marginal_cost"] += delta_marginal
 
             print(
-                f"✅ {n} {carrier}-Generator(en): marginal_cost um {delta_marginal:.2f} €/MWh angepasst (neuer CO2-Preis: {CO2_new} €/tCO2, alt: {CO2_default} €/tCO2).")
+                f"Updated {n} {carrier} generator(s): "
+                f"marginal_cost adjusted by {delta_marginal:.2f} €/MWh "
+                f"(CO₂ price new: {CO2_new} €/tCO₂, default: {CO2_default} €/tCO₂)."
+            )
+
 
     def update_capital_cost_rural_heat_pump(self, factor):
         """
@@ -418,6 +545,10 @@ class SensitivityEtrago(Etrago):
         ----------
         factor : float
             Multiplication factor for capital costs (e.g. 0.5 for halving).
+
+        Returns
+        -------
+        None
         """
         # Get all links connected to interest area
         connected_links = self.find_links_connected_to_interest_buses()
@@ -444,6 +575,10 @@ class SensitivityEtrago(Etrago):
         ----------
         factor : float
             Multiplication factor for capital costs (e.g. 0.5 for halving).
+
+        Returns
+        -------
+        None
         """
         # Get all links connected to interest area
         connected_links = self.find_links_connected_to_interest_buses()
@@ -470,6 +605,10 @@ class SensitivityEtrago(Etrago):
         ----------
         factor : float
             Multiplication factor for capital costs (e.g. 0.5 for halving).
+
+        Returns
+        -------
+        None
         """
         cH_stores = self.network.stores[self.network.stores.carrier == "central_heat_store"]
         # Apply cost adjustment
@@ -482,29 +621,71 @@ class SensitivityEtrago(Etrago):
 # === Sensitivitäten ===
 
 def run_solar_cost_sensitivity():
-    cost_values = [13403.9771, 13986.7587, 14569.5403, 15152.3219, 15735.1035, 16317.8851, 16900.6667, 17483.4483] # 230,240,250,260,270,280,290,300
-    for cost in cost_values:
-        print(f" Starte Solar-Sensitivität mit capital_cost = {cost:.2f} €/MW/a")
+    """
+    Run a sensitivity analysis for rooftop PV capital costs in the interest area.
 
+    For each predefined capital cost value, the function:
+    - Initializes a :class:`SensitivityEtrago` instance.
+    - Updates the capital cost of rooftop PV in the interest area.
+    - Limits the rooftop PV potential to a fixed maximum.
+    - Sets up a dedicated results export directory.
+    - Runs the optimization and saves results.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    None
+    """
+
+    cost_values = [13403.9771, 13986.7587, 14569.5403,
+                   15152.3219, 15735.1035, 16317.8851,
+                   16900.6667, 17483.4483] # 230,240,250,260,270,280,290,300
+
+    for cost in cost_values:
+        print(f" Starting solar cost sensitivity with capital_cost = {cost:.2f} €/MW/a")
+
+        # Initialize network for sensitivity run
         etrago = SensitivityEtrago(args=args)
 
+        # Update rooftop PV parameters
         etrago.update_capital_cost_of_solar_ingolstadt(cost)
         etrago.limit_solar_rooftop_potential(max_capacity_mw=655.916)
 
+        # Prepare result directory for this cost value
         export_dir = f"results/sensitivity_solar_cost_{cost:.5f}".replace(".", "_")
         os.makedirs(export_dir, exist_ok=True)
         etrago.args["csv_export"] = export_dir
 
+        # Run optimization and save results
         etrago.optimize()
-        print(f"✅ Ergebnisse gespeichert unter: {export_dir}")
+        print(f"✅ Results saved to: {export_dir}")
 
 
 def run_battery_cost_sensitivity():
     """
-    Runs a sensitivity analysis by varying the capital cost of battery storage units
-    in the interest area and saving the optimization results for each cost value.
+    Run a sensitivity analysis for battery storage capital costs.
+
+    For each predefined capital cost value, the function:
+    - Initializes a :class:`SensitivityEtrago` instance.
+    - Updates the capital cost of all battery storage units.
+    - Creates a dedicated results export directory.
+    - Runs the optimization and stores results.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    None
     """
-    cost_values = [15813.72, 13539.00, 11508.15, 9477.30, 7446.45, 5415.60, 3384.75]  # €/MW/a # 233.60 , 200, 170, 140, 110, 80, 50
+
+    # Battery capital cost values [EUR/MW/a]
+    cost_values = [15813.72, 13539.00, 11508.15,
+                   9477.30, 7446.45, 5415.60, 3384.75]  # €/MW/a # 233.60 , 200, 170, 140, 110, 80, 50
 
     for cost in cost_values:
         print(f"🔄 Starting battery cost sensitivity with capital_cost = {cost:.2f} €/MW/a")
@@ -528,8 +709,20 @@ def run_battery_cost_sensitivity():
 
 def run_modified_base_model_with_biomass_and_solar():
     """
-    Runs the base model with fixed biomass CHP, added rural biomass boiler,
-    and fixed rooftop PV and battery storage capacities.
+    Run the base model with predefined biomass and solar modifications.
+
+    Scenario adjustments:
+    - Limit rooftop PV potential to a fixed maximum.
+    - Set fixed minimum capacity for central biomass CHP and add a rural biomass boiler.
+    - Fix rooftop PV and battery storage capacities to defined values.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    None
     """
 
     print("\n🔧 Running base model with biomass CHP, biomass boiler, and fixed solar/battery capacities")
@@ -537,146 +730,216 @@ def run_modified_base_model_with_biomass_and_solar():
     # Initialize model
     etrago = SensitivityEtrago(args=args)
 
-    # === Apply scenario adjustments ===
+    # Apply scenario adjustments
     etrago.limit_solar_rooftop_potential(max_capacity_mw=655.916)
     etrago.set_biomass_CHP_and_add_boiler()
     etrago.set_solar_PV_and_batterie_capacities(solar_p_nom=655.916, battery_p_nom=109.32, battery_p_set=18.15)
 
-    # === Define output path ===
+    # Define output path
     export_dir = "results/scenario_biomass_and_solar_fixed"
     os.makedirs(export_dir, exist_ok=True)
     etrago.args["csv_export"] = export_dir
 
-    # === Run optimization ===
+    # Run optimization
     etrago.optimize()
     print(f"✅ Results successfully saved to: {export_dir}")
 
 
 def run_ch4_cost_sensitivity():
-    ch4_prices = [20, 30, 60, 100]  # in €/MWh
-    for price in ch4_prices:
-        print(f" Starte CH₄-Sensitivität mit marginal_cost = {price:.2f} €/MWh_th")
+    """
+    Run a sensitivity analysis for natural gas (CH₄) prices.
 
+    For each predefined CH₄ price, the function:
+    - Initializes a :class:`SensitivityEtrago` instance.
+    - Updates the marginal cost of all CH₄ generators.
+    - Creates a dedicated results export directory.
+    - Runs the optimization and stores the results.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    None
+    """
+    ch4_prices = [20, 30, 60, 100]  # CH₄ fuel prices [EUR/MWh_th]
+
+    for price in ch4_prices:
+        print(f"Starting CH₄ sensitivity with marginal_cost = {price:.2f} €/MWh_th")
+
+        # Initialize model for sensitivity run
         etrago = SensitivityEtrago(args=args)
 
+        # Update marginal costs of CH₄ generators
         etrago.update_marginal_cost_of_CH4_generators(price)
 
+        # Prepare export directory for this price value
         export_dir = f"results/sensitivity_CH4_price_{price:.2f}".replace(".", "_")
         os.makedirs(export_dir, exist_ok=True)
         etrago.args["csv_export"] = export_dir
 
+        # Run optimization and save results
         etrago.optimize()
-        print(f"✅ Ergebnisse gespeichert unter: {export_dir}")
+        print(f"Results saved to: {export_dir}")
+
 
 def run_co2_price_sensitivity():
     """
-    Führt eine Sensitivitätsanalyse über verschiedene CO2-Preise durch.
-    Für jeden Preis wird das Modell mit angepassten marginal_costs gerechnet.
-    Ergebnisse werden in separate Ordner exportiert.
-    """
+    Run a sensitivity analysis for different CO₂ prices.
 
-    CO2_prices = [60]  # in €/tCO2
+    For each CO₂ price, the function:
+    - Initializes a :class:`SensitivityEtrago` instance.
+    - Updates marginal costs of CH₄ and waste generators according to the new CO₂ price.
+    - Creates a dedicated results export directory.
+    - Runs the optimization and stores the results.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    None
+    """
+    # CO₂ price values [EUR/tCO₂]
+    CO2_prices = [60]
 
     for price in CO2_prices:
-        print(f"🔄 Starte CO₂-Sensitivität mit CO2-Preis = {price:.2f} €/tCO2")
+        print(f"Starting CO₂ sensitivity with CO₂ price = {price:.2f} €/tCO₂")
 
-        # Neues Modell initialisieren
+        # Initialize model for sensitivity run
         etrago = SensitivityEtrago(args=args)
 
-        # CO2-bedingte Marginalkosten anpassen
+        # Adjust marginal costs according to CO₂ price
         etrago.update_marginal_cost_due_to_CO2_price(price)
 
-        # Export-Verzeichnis anlegen
+        # Prepare export directory for this CO₂ price
         export_dir = f"results/sensitivity_CO2_price_{price:.2f}".replace(".", "_")
         os.makedirs(export_dir, exist_ok=True)
         etrago.args["csv_export"] = export_dir
 
-        # Optimierung starten
+        # Run optimization and save results
         etrago.optimize()
+        print(f"Results saved to: {export_dir}")
 
-        print(f"✅ Ergebnisse gespeichert unter: {export_dir}")
 
 def run_rural_heat_pump_capital_cost_sensitivity():
     """
-    Runs a sensitivity analysis over different capital cost factors
-    for rural heat pumps. For each factor, results are exported to
-    a separate folder.
+    Run a sensitivity analysis for rural heat pump capital costs.
+
+    For each predefined factor, the function:
+    - Initializes a :class:`SensitivityEtrago` instance.
+    - Updates the capital cost of rural heat pumps by the given factor.
+    - Creates a dedicated results export directory.
+    - Runs the optimization and stores results.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    None
     """
     capital_cost_factors = [0.5, 0.9, 1.2, 1.5, 2.0]
 
     for factor in capital_cost_factors:
-        print(f"🔄 Running capital cost sensitivity with factor = {factor:.2f}")
+        print(f"Running rural heat pump capital cost sensitivity with factor = {factor:.2f}")
 
-        # Neues Modell initialisieren
+        # Initialize model for sensitivity run
         etrago = SensitivityEtrago(args=args)
 
-        # Update capital cost of rural heat pumps
+        # Update rural heat pump capital cost
         etrago.update_capital_cost_rural_heat_pump(factor)
 
-        # Set export folder
+        # Prepare export directory for this factor
         export_dir = f"results/sensitivity_rural_HP_capital_cost_{factor:.2f}".replace(".", "_")
         os.makedirs(export_dir, exist_ok=True)
         etrago.args["csv_export"] = export_dir
 
-        # Run optimization
+        # Run optimization and save results
         etrago.optimize()
+        print(f"Results saved to: {export_dir}")
 
-        print(f"✅ Results saved in: {export_dir}")
 
 def run_central_heat_pump_capital_cost_sensitivity():
     """
-    Runs a sensitivity analysis over different capital cost factors
-    for rural heat pumps. For each factor, results are exported to
-    a separate folder.
+    Run a sensitivity analysis for central heat pump capital costs.
+
+    For each predefined factor, the function:
+    - Initializes a :class:`SensitivityEtrago` instance.
+    - Updates the capital cost of central heat pumps by the given factor.
+    - Creates a dedicated export folder for results.
+    - Runs the optimization and saves outputs.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    None
     """
+    # Define factors for scaling central heat pump capital costs
     capital_cost_factors = [0.5, 0.9, 1.2, 1.5]
 
     for factor in capital_cost_factors:
-        print(f"🔄 Running capital cost sensitivity with factor = {factor:.2f}")
+        print(f"Running central heat pump capital cost sensitivity with factor = {factor:.2f}")
 
-        # Neues Modell initialisieren
+        # Initialize model for sensitivity run
         etrago = SensitivityEtrago(args=args)
 
-        # Update capital cost of rural heat pumps
+        # Apply capital cost adjustment
         etrago.update_capital_cost_central_heat_pump(factor)
 
-        # Set export folder
+        # Prepare export directory for this factor
         export_dir = f"results/sensitivity_central_HP_capital_cost_{factor:.2f}".replace(".", "_")
         os.makedirs(export_dir, exist_ok=True)
         etrago.args["csv_export"] = export_dir
 
-        # Run optimization
+        # Run optimization and save results
         etrago.optimize()
+        print(f"Results saved to: {export_dir}")
 
-        print(f"✅ Results saved in: {export_dir}")
 
 def run_central_heat_store_capital_cost_sensitivity():
     """
-    Runs a sensitivity analysis over different capital cost factors
-    for rural heat pumps. For each factor, results are exported to
-    a separate folder.
+    Run a sensitivity analysis for central heat store capital costs.
+
+    For each predefined factor, the function:
+    - Initializes a :class:`SensitivityEtrago` instance.
+    - Updates the capital cost of central heat stores by the given factor.
+    - Creates a dedicated export folder for results.
+    - Runs the optimization and saves outputs.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    None
     """
     capital_cost_factors = [0.5, 0.9, 1.2, 1.5]
 
     for factor in capital_cost_factors:
-        print(f"🔄 Running capital cost sensitivity with factor = {factor:.2f}")
+        print(f"Running central heat store capital cost sensitivity with factor = {factor:.2f}")
 
-        # Neues Modell initialisieren
+        # Initialize model for sensitivity run
         etrago = SensitivityEtrago(args=args)
 
-        # Update capital cost of rural heat pumps
+        # Apply capital cost adjustment
         etrago.update_capital_cost_central_heat_store(factor)
 
-        # Set export folder
+        # Prepare export directory for this factor
         export_dir = f"results/sensitivity_central_HS_capital_cost_{factor:.2f}".replace(".", "_")
         os.makedirs(export_dir, exist_ok=True)
         etrago.args["csv_export"] = export_dir
 
-        # Run optimization
+        # Run optimization and save results
         etrago.optimize()
-
-        print(f"✅ Results saved in: {export_dir}")
-
+        print(f"Results saved to: {export_dir}")
 
 
 if __name__ == "__main__":
