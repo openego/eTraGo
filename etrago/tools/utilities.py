@@ -2849,7 +2849,13 @@ def adjust_CH4_gen_carriers(self):
                 )
             )
             marginal_cost = df["gas_parameters"][0]["marginal_cost"]
-        except sqlalchemy.exc.NoSuchTableError:
+        except sqlalchemy.exc.NoSuchTableError as e:
+            logging.warning(
+                f"""
+                The database query failed for
+                'scenario.egon_scenario_parameters'.
+                Fallback values are being used. Error message: {e}
+                """)
             marginal_cost = marginal_cost_def
 
         self.network.generators.loc[
