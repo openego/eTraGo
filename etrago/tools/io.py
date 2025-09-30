@@ -1033,18 +1033,17 @@ def add_ch4_h2_correspondence(self):
     It contains the mapping from H2 buses to their corresponding CH4 buses.
 
     """
-
-    sql = """
-    SELECT "bus_H2", "bus_CH4", scn_name FROM grid.egon_etrago_ch4_h2;
-    """
-
-    table = pd.read_sql(sql, self.engine)
-
-    self.ch4_h2_mapping = pd.Series(
-        table.bus_H2.values, index=table.bus_CH4.values.astype(str)
-    )
-    self.ch4_h2_mapping.index.name = "CH4_bus"
-    self.ch4_h2_mapping = self.ch4_h2_mapping.astype(str)
+    h2_buses = self.network.buses[self.network.buses.carrier=="H2_grid"]
+    self.ch4_h2_mapping = pd.Series()
+    for h2_bus in h2_buses.index:
+        x = h2_buses.loc[h2_bus, "x"]
+        y = h2_buses.loc[h2_bus, "y"]
+        self.ch4_h2_mapping.loc[self.network.buses[
+            (self.network.buses.carrier=="CH4")
+            &(self.network.buses.x==x)
+            &(self.network.buses.y==y)
+            ].index[0]] = h2_bus
+        self.ch4_h2_mapping.index.name = "CH4_bus"
 
 
 if __name__ == "__main__":
