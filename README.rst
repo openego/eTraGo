@@ -33,10 +33,11 @@ eTraGo is documented on `readthedocs <https://etrago.readthedocs.io>`_.
 Input data
 ==========
 The grid model data for eTraGo was created with the open source tool 
-`eGon-data <https://github.com/openego/eGon-data.>`_. The resulting data will 
-be pubished on the `OpenEnergyPlatform <https://openenergy-platform.org/.>`_.
-As long as the data is not published there, a local database is needed. 
-We published a backup of the required tables and instruction on how to use it 
+`eGon-data <https://github.com/openego/eGon-data.>`_. The resulting data is currently 
+available in a test environment of the `OpenEnergyPlatform <https://openenergy-platform.org/.>`_
+In the future, it will be pubished on the `OpenEnergyPlatform <https://openenergy-platform.org/.>`_.
+As an alternative, a local database can be used. 
+We published scenarios as backups of the required tables and instruction on how to use it 
 on zenodo:
 
 .. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.8376714.svg

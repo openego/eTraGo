@@ -70,40 +70,26 @@ and access to it by using the
 `oedialect <https://github.com/openego/oedialect>`_, which is a SQL-Alchemy binding
 Python package for the REST-API used by the OpenEnergy Platform (OEP).
 
-In order to connect eTraGo via the oedialect with the oedb you
-have to create an account at
-`openenergy-platform.org/login <http://openenergy-platform.org/login/>`_. 
+The data for the scenarios eGon2035 and eGon2035_lowflex is currently stored on the test-OEP.
+In the future, the data will be available at the main OEP and the access will be adjusted.
+You can select 'test-oep' in the `'db' <https://github.com/openego/eTraGo/blob/7e6719b8f71c78ea8f8312d74558e59c96c1b3a2/etrago/appl.py#L51>`_
+argument of the 'args' of the :func:`etrago.appl.etrago` to access this data.
+No account or additional information is needed.
+
+As an alternative, you can refer to a local database.
 You can name the `'db' <https://github.com/openego/eTraGo/blob/7e6719b8f71c78ea8f8312d74558e59c96c1b3a2/etrago/appl.py#L51>`_
 argument of the 'args' of the :func:`etrago.appl.etrago`
 as you wish. Once the :func:`etrago.appl.etrago` is executed you will be asked 
-to enter how you want to connect to which database. If you want to use 
-the oedialect enter the following connection parameter. For <username> and
-<token> you have to take your credentials which you obtained by registering
-at `openenergy-platform.org/login <http://openenergy-platform.org/login/>`_.
+to enter how you want to connect to which database.
 
 Your API access / login data will be saved in the folder ``.etrago_database`` in the file
 ``config.ini``. Consequently, in the config.ini you can also change 
 your connection parameters or add new ones.
-In the following you can see how the config.ini looks like when you use the
-oedialect, a local postgresql database or the old psycopg2 developer connection.
+In the following you can see how the config.ini looks like when you use a local postgresql database.
 
 Once you have created a connection (which is saved in the config.ini) you do not have
 to enter the connection parameter again. The software will take the connection parameter
 which corresponds to the entry at the `'db' <https://github.com/openego/eTraGo/blob/7e6719b8f71c78ea8f8312d74558e59c96c1b3a2/etrago/appl.py#L51>`_ argument.
-
-
-oedialect connection
---------------------
-
-.. code-block:: desktop
-
-  [oedb]
-  dialect  = oedialect
-  username = <username>
-  database = oedb
-  host     = openenergy-platform.org
-  port     = 80
-  password = <token>
 
 
 Local database connection
@@ -119,15 +105,3 @@ Local database connection
    pw = YourLocalPassword
 
 
-
-Old developer connection
--------------------------
-
-.. code-block:: desktop
-
-  [oedb]
-  username = YourOEDBUserName
-  database = oedb
-  host = oe2.iws.cs.ovgu.de
-  port = 5432
-  pw = YourOEDBPassword
