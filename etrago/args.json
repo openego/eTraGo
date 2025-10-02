@@ -61,7 +61,6 @@
     },
     "generator_noise": 789456,
     "extra_functionality": {},
-    "delete_dispensable_ac_buses": true,
     "network_clustering_ehv": {
         "active": false,
         "busmap": false
@@ -72,7 +71,8 @@
         "n_clusters_AC": 30,
         "cluster_foreign_AC": false,
         "method_gas": "kmedoids-dijkstra",
-        "n_clusters_gas": 17,
+        "n_clusters_gas": 15,
+        "n_clusters_h2": 15,
         "cluster_foreign_gas": false,
         "k_elec_busmap": false,
         "k_gas_busmap": false,

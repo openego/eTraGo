@@ -81,9 +81,10 @@ args = {
         "crossover": 0,
         "logFile": "solver_etrago.log",
         "threads": 4,
+        "BarHomogeneous": 1,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
-    "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
+    "scn_name": "eGon100RE",  # scenario: eGon2035, eGon100RE or status2019
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
@@ -112,7 +113,6 @@ args = {
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
-    "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
     "network_clustering_ehv": {
         "active": False,  # choose if clustering of HV buses to EHV buses is activated
         "busmap": False,  # False or path to stored busmap
@@ -123,7 +123,8 @@ args = {
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_gas": 14,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 15,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_h2": 15,  # total number of resulting H2 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_elec_busmap": False,  # False or path/to/busmap.csv
         "k_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -146,6 +147,22 @@ args = {
             "central_heat": {
                 "base": ["CH4", "AC"],
                 "strategy": "simultaneous",  # select strategy to cluster other sectors
+            },
+            "rural_heat": {
+                "base": ["CH4", "AC"],
+                "strategy": "simultaneous",  # select strategy to cluster other sectors
+            },
+            "H2": {
+                "base": ["CH4"],
+                "strategy": "consecutive",  # select strategy to cluster other sectors
+            },
+            "H2_saltcavern": {
+                "base": ["H2_grid"],
+                "strategy": "consecutive",  # select strategy to cluster other sectors
+            },
+            "Li_ion": {
+                "base": ["AC"],
+                "strategy": "consecutive",  # select strategy to cluster other sectors
             },
         },
     },
@@ -398,12 +415,6 @@ def run_etrago(args, json_path):
             Limit overall energy production country-wise for each generator
             by carrier. Set upper/lower limit in p.u.
 
-    delete_dispensable_ac_buses: bool
-        Choose if electrical buses that are only connecting two lines should be
-        removed. These buses have no other components attached to them. The
-        connected lines are merged. This reduces the spatial complexity without
-        losing any accuracy.
-        Default: True.
     network_clustering_ehv : dict
         Choose if you want to apply an extra high voltage clustering to the
         electrical network.
@@ -461,7 +472,12 @@ def run_etrago(args, json_path):
             Defines total number of resulting CH4 nodes including DE and
             foreign nodes if `cluster_foreign_gas` is set to True, otherwise
             only DE nodes.
-            Default: 17.
+            Default: 14.
+        * "n_clusters_h2" : int
+            Defines total number of resulting H2 nodes including DE and
+            foreign nodes if `cluster_foreign_gas` is set to True, otherwise
+            only DE nodes.
+            Default: 14.
         * "cluster_foreign_gas" : bool
             If set to False, the gas buses outside Germany are not clustered
             and the buses inside Germany are clustered to complete
@@ -682,48 +698,21 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
-    # drop generators without p_nom
-    etrago.network.mremove(
-        "Generator",
-        etrago.network.generators[
-            etrago.network.generators.p_nom==0].index
-        )
-
-    # Temporary drop DLR as it is currently not working with sclopf
-    if (etrago.args["method"]["type"] == "sclopf") & (
-            not etrago.network.lines_t.s_max_pu.empty):
-        print("Setting s_max_pu timeseries to 1")
-        etrago.network.lines_t.s_max_pu = pd.DataFrame(
-            index=etrago.network.snapshots,
-        )
-
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
-
+    
     # ehv network clustering
     etrago.ehv_clustering()
 
     # spatial clustering
     etrago.spatial_clustering()
+    etrago.spatial_clustering_gas()    
 
-    etrago.spatial_clustering_gas()
-    etrago.network.links.loc[etrago.network.links.carrier=="CH4", "p_nom"] *= 100
-    etrago.network.generators_t.p_max_pu.where(etrago.network.generators_t.p_max_pu>1e-5, other=0., inplace=True)
     # snapshot clustering
     etrago.snapshot_clustering()
 
     # skip snapshots
     etrago.skip_snapshots()
-
-    # Temporary drop DLR as it is currently not working with sclopf
-    if etrago.args["method"]["type"] != "lopf":
-        etrago.network.lines_t.s_max_pu = pd.DataFrame(
-            index=etrago.network.snapshots,
-            columns=etrago.network.lines.index,
-            data=1.0,
-        )
-
-    etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
 
     # start linear optimal powerflow calculations
     etrago.optimize()
@@ -735,7 +724,6 @@ def run_etrago(args, json_path):
     etrago.pf_post_lopf()
 
     # spatial disaggregation
-    # needs to be adjusted for new sectors
     etrago.spatial_disaggregation()
 
     # calculate central etrago results

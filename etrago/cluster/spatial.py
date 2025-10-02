@@ -18,7 +18,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # File description for read-the-docs
-""" spatial.py defines the methods to run spatial clustering on networks."""
+"""spatial.py defines the methods to run spatial clustering on networks."""
 
 import logging
 import os
@@ -109,84 +109,97 @@ def sum_with_inf(x):
 
 
 def strategies_buses():
-    return {"geom": nan_links, "country": "first"}
+    return {
+        "geom": nan_links,
+        "country": "first",
+        "scn_name": "first",
+    }
 
 
 def strategies_lines():
     return {
         "geom": nan_links,
+        "country": "first",
+        "scn_name": "first",
+        "cables": "sum",
+        "topo": nan_links,
+        "total_cables": "sum",
     }
 
 
 def strategies_one_ports():
     return {
         "StorageUnit": {
-            "marginal_cost": np.mean,
-            "capital_cost": np.mean,
-            "efficiency_dispatch": np.mean,
-            "standing_loss": np.mean,
-            "efficiency_store": np.mean,
-            "p_min_pu": np.min,
+            "marginal_cost": "mean",
+            "capital_cost": "mean",
+            "efficiency_dispatch": "mean",
+            "standing_loss": "mean",
+            "efficiency_store": "mean",
+            "p_min_pu": "min",
             "p_nom_extendable": ext_storage,
             "p_nom_max": sum_with_inf,
+            "scn_name": "first",
         },
         "Store": {
-            "marginal_cost": np.mean,
-            "capital_cost": np.mean,
-            "standing_loss": np.mean,
-            "e_nom": np.sum,
-            "e_nom_min": np.sum,
+            "marginal_cost": "mean",
+            "capital_cost": "mean",
+            "standing_loss": "mean",
+            "e_nom": "sum",
+            "e_nom_min": "sum",
             "e_nom_max": sum_with_inf,
-            "e_initial": np.sum,
-            "e_min_pu": np.mean,
-            "e_max_pu": np.mean,
+            "e_initial": "sum",
+            "e_min_pu": "mean",
+            "e_max_pu": "mean",
+            "scn_name": "first",
         },
     }
 
 
 def strategies_generators():
     return {
-        "p_nom_min": np.min,
+        "p_nom_min": "min",
         "p_nom_max": sum_with_inf,
-        "weight": np.sum,
-        "p_nom": np.sum,
-        "p_nom_opt": np.sum,
-        "marginal_cost": np.mean,
-        "capital_cost": np.mean,
+        "weight": "sum",
+        "p_nom": "sum",
+        "p_nom_opt": "sum",
+        "marginal_cost": "mean",
+        "capital_cost": "mean",
         "e_nom_max": sum_with_inf,
+        "up_time_before": "mean",
+        "scn_name": "first",
     }
 
 
 def strategies_links():
     return {
-        "scn_name": _make_consense_links,
+        "scn_name": "first",
         "bus0": _make_consense_links,
         "bus1": _make_consense_links,
         "carrier": _make_consense_links,
-        "p_nom": np.sum,
-        "p_nom_extendable": _make_consense_links,
+        "p_nom": "sum",
+        "p_nom_extendable": "any",
         "p_nom_max": sum_with_inf,
-        "capital_cost": np.mean,
-        "length": np.mean,
+        "capital_cost": "mean",
+        "length": "mean",
         "geom": nan_links,
         "topo": nan_links,
         "type": nan_links,
-        "efficiency": np.mean,
-        "p_nom_min": np.sum,
-        "p_set": np.mean,
-        "p_min_pu": np.min,
-        "p_max_pu": np.max,
-        "marginal_cost": np.mean,
+        "efficiency": "mean",
+        "p_nom_min": "sum",
+        "p_set": "mean",
+        "p_min_pu": "mean",
+        "p_max_pu": "mean",
+        "marginal_cost": "mean",
         "terrain_factor": _make_consense_links,
-        "p_nom_opt": np.mean,
+        "p_nom_opt": "mean",
         "country": nan_links,
-        "build_year": np.mean,
-        "lifetime": np.mean,
-        "min_up_time": np.mean,
-        "min_down_time": np.mean,
-        "up_time_before": np.mean,
-        "down_time_before": np.mean,
-        "committable": np.all,
+        "build_year": "mean",
+        "lifetime": "mean",
+        "min_up_time": "mean",
+        "min_down_time": "mean",
+        "up_time_before": "mean",
+        "down_time_before": "mean",
+        "committable": "all",
     }
 
 
@@ -255,7 +268,7 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
     strategies.pop("topo")
     strategies.pop("geom")
 
-    new_df = links.groupby(grouper, axis=0).agg(strategies)
+    new_df = links.groupby(grouper).agg(strategies)
     new_df.index = flatten_multiindex(new_df.index).rename("name")
     new_df = pd.concat(
         [new_df, network.links.loc[~links_agg_b]], axis=0, sort=False
@@ -275,7 +288,7 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
                     df_agg = df_agg.multiply(
                         weighting.loc[df_agg.columns], axis=1
                     )
-                pnl_df = df_agg.groupby(grouper, axis=1).sum()
+                pnl_df = df_agg.T.groupby(grouper).sum().T
                 pnl_df.columns = flatten_multiindex(pnl_df.columns).rename(
                     "name"
                 )
@@ -759,7 +772,7 @@ def kmedoids_dijkstra_clustering(
         kmeans.fit(points)
 
         busmap = pd.Series(
-            data=kmeans.predict(buses.loc[buses_i, ["x", "y"]]),
+            data=kmeans.predict(buses.loc[buses_i, ["x", "y"]].values),
             index=buses_i,
             dtype=object,
         )
