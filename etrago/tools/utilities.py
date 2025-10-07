@@ -4675,7 +4675,7 @@ def add_extendable_heat_pumps_to_interest_area(self):
 
     marginal_cost_map = {
         "central_heat_pump": 2.4868
-        # rural_heat_pump bleibt bei vorhandenem Wert
+        # rural_heat_pump remains at existing value
     }
 
     connected_links = find_links_connected_to_interest_buses(self)
@@ -4716,6 +4716,7 @@ def add_extendable_heat_pumps_to_interest_area(self):
 
         self.network.links.at[new_index, "scn_name"] = "eGon2035"
         print(f"Heat pump {new_index} ({carrier}) duplicated as extendable with time series.")
+
 
 def set_battery_parameter_interest_area(self):
     """
@@ -4817,7 +4818,7 @@ def set_battery_and_heat_store_parameters_interest_area(self):
 
     # Capital costs per heat-store carrier
     capital_cost_store_values = {
-        "rural_heat_store": 27312.6386,
+        "rural_heat_store": 19118.7469,
         "central_heat_store": 69.0976,
     }
 
@@ -5086,42 +5087,3 @@ def set_cyclic_constraints(self):
     self.network.stores.loc[store_mask, "e_cyclic"] = True
 
     print("Cyclic constraints set for battery storage_units and defined store carriers.")
-
-
-def update_capital_cost_of_solar_ingolstadt(self, new_capital_cost):
-    """
-    Update the capital cost of all solar rooftop generators located in the
-    interest area (e.g., Ingolstadt).
-
-    Parameters
-    ----------
-    self : :class:`Etrago`
-        Model instance providing:
-        - ``network`` : pypsa.Network
-            Must contain ``generators`` with columns ``bus``, ``carrier``, ``capital_cost``.
-        - ``find_interest_buses`` : callable
-            Helper to resolve buses in the interest area.
-    new_capital_cost : float
-        New capital cost value [EUR/kW] to assign to all rooftop PV generators
-        in the interest area.
-
-    Returns
-    -------
-    None
-    """
-    buses_ingolstadt = find_interest_buses(self)
-    bus_list = buses_ingolstadt.index.to_list()
-
-    gens = self.network.generators
-    is_solar_in_ingolstadt = (gens.carrier == "solar_rooftop") & (gens.bus.isin(bus_list))
-    solar_generators = gens[is_solar_in_ingolstadt]
-
-    if solar_generators.empty:
-        print("⚠️ Keine passenden Solar-Generatoren in Ingolstadt gefunden.")
-        return
-
-    self.network.generators.loc[solar_generators.index, "capital_cost"] = new_capital_cost
-    print(
-        f"Updated capital_cost to {new_capital_cost:.2f} €/kW "
-        f"for {len(solar_generators)} solar_rooftop generator(s) in the interest area."
-    )

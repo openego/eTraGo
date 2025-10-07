@@ -123,7 +123,6 @@ from etrago.tools.utilities import (
     reset_gas_CHP_capacities,
     add_biogas_CHP_extendable,
     add_biomass_CHP_extendable,
-    update_capital_cost_of_solar_ingolstadt,
     add_biomass_boiler_extendable,
     adjust_capital_costs,
     print_capital_costs,
@@ -416,8 +415,6 @@ class Etrago:
     set_battery_and_heat_store_parameters_interest_area = set_battery_and_heat_store_parameters_interest_area
 
     add_waste_CHP_ingolstadt = add_waste_CHP_ingolstadt
-
-    update_capital_cost_of_solar_ingolstadt = update_capital_cost_of_solar_ingolstadt
 
     reset_gas_CHP_capacities = reset_gas_CHP_capacities
 

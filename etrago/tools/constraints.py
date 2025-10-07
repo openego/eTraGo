@@ -3847,8 +3847,6 @@ def _add_chp_ratio_constraint_linopy(self, network, snapshots):
     -------
     None
     """
-    import logging
-    logger = logging.getLogger(__name__)
     logger.info("🚀 Start writing CHP ratio constraints for all supported CHP types.")
 
     chp_techs = {
@@ -3907,62 +3905,3 @@ def _add_chp_ratio_constraint_linopy(self, network, snapshots):
                     continue
 
     logger.info("✅ Finished writing CHP ratio constraints for all supported CHP types.")
-
-
-def _add_resistive_heater_vollaststunden_constraint_linopy(network, snapshots):
-    """
-    Limits the annual full-load hours of the regional electric boiler (resistive heater)
-    with bus0 = "16" to max. 500 hours.
-
-    Parameters
-    ----------
-    network : pypsa.Network
-        Network container.
-    snapshots : pandas.Index
-        Timesteps to optimize.
-
-    Returns
-    -------
-    None.
-    """
-
-    logger.info("✔️ add_resistive_heater_vollaststunden_constraint constraint activated")
-
-    # Filtere den spezifischen Link am Bus 16
-    heater_links = network.links[
-        (network.links.carrier == "central_resistive_heater")
-        & (network.links.bus0 == "16")
-    ]
-
-    if heater_links.empty:
-        print("Keine passenden Links für den Elektroboiler an Bus 16 gefunden!")
-        return
-
-    # Summe der Nennleistung (p_nom) in MW
-    p_nom_sum = heater_links.p_nom.sum()
-
-    # Dispatch-Summe über alle Zeitschritte in MWh
-    dispatch_sum = 0
-
-    for snapshot in snapshots:
-        # Zeitschrittgewichtung in Stunden
-        timestep_hours = network.snapshot_weightings["objective"].loc[snapshot]
-
-        # Summiere alle Dispatch-Werte dieses Zeitpunkts (MW)
-        dispatch_sum += (
-            get_var(network, "Link", "p").loc[snapshot, heater_links.index].sum()
-            * timestep_hours
-        )
-
-    # Maximal zulässige Energie = Volllaststunden * Nennleistung (MWh)
-    max_energy_mwh = 500 * p_nom_sum
-
-    # Constraint definieren: Gesamterzeugung <= max. zulässige MWh
-    define_constraints(
-        network,
-        dispatch_sum,
-        "<=",
-        max_energy_mwh,
-        "Link",
-        f"vollaststunden_limit_bus16",
-    )

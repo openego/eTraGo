@@ -779,8 +779,8 @@ def run_etrago(args, json_path):
 
     #etrago.add_biomass_boiler_extendable()
 
-    #etrago.set_battery_parameter_interest_area()
-    etrago.set_battery_and_heat_store_parameters_interest_area()
+    etrago.set_battery_parameter_interest_area()
+    #etrago.set_battery_and_heat_store_parameters_interest_area()
 
     etrago.set_cyclic_constraints()
 
