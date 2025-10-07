@@ -33,6 +33,7 @@ import matplotlib
 import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
+from sqlalchemy import create_engine
 
 cartopy_present = True
 try:
@@ -3210,19 +3211,25 @@ def plot_clusters(
     else:
         fig, ax = plt.subplots()
 
-    ax.set_title(f'Clustering {self.args["network_clustering"]["method"]}')
+    ax.set_title(
+        f'Clustering {self.args["network_clustering"]["method"]["algorithm"]}'
+    )
 
     # Draw original transmission lines
     if transmission_lines:
         # AC lines
         lines = self.busmap["orig_network"].lines
+        lines.dropna(subset="geom", inplace=True)
         if (
             self.busmap["orig_network"]
             .lines["geom"]
             .apply(lambda x: isinstance(x, str))
             .any()
         ):
-            lines["geom"] = gpd.GeoSeries.from_wkt(lines["geom"])
+            lines["geom"] = gpd.GeoSeries.from_wkb(
+                lines["geom"].apply(bytes.fromhex)
+            )
+
         lines = gpd.GeoDataFrame(
             self.busmap["orig_network"].lines, geometry="geom"
         )
@@ -3243,7 +3250,7 @@ def plot_clusters(
             ),
             axis=1,
         )
-        lines.plot(ax=ax, color="grey", linewidths=0.8, zorder=1)
+        lines.plot(ax=ax, color="grey", linewidths=0.8, zorder=2)
         # DC lines
         dc_lines = self.busmap["orig_network"].links
         dc_lines = dc_lines[dc_lines["carrier"] == "DC"]
@@ -3253,7 +3260,7 @@ def plot_clusters(
             lambda x: LineString([x["point0"], x["point1"]]), axis=1
         )
         dc_lines = gpd.GeoDataFrame(dc_lines, geometry="line_geom")
-        dc_lines.plot(ax=ax, color="grey", linewidths=0.8, zorder=1)
+        dc_lines.plot(ax=ax, color="grey", linewidths=0.8, zorder=2)
 
     if gas_pipelines:
         # CH4 pipelines
@@ -3267,7 +3274,7 @@ def plot_clusters(
             pipelines["geom"] = gpd.GeoSeries.from_wkt(pipelines["geom"])
         pipelines = pipelines[pipelines["carrier"] == "CH4"]
         pipelines = gpd.GeoDataFrame(pipelines, geometry="geom")
-        pipelines.plot(ax=ax, color="grey", linewidths=0.8, zorder=1)
+        pipelines.plot(ax=ax, color="grey", linewidths=0.8, zorder=2)
 
     # Assign a random color to each cluster
     colors = {
@@ -3280,7 +3287,7 @@ def plot_clusters(
 
     # Draw original and clustered buses
     map_buses = gpd.GeoDataFrame(map_buses, geometry="line")
-    map_buses.plot(ax=ax, color=map_buses["color"], linewidths=0.25, zorder=2)
+    map_buses.plot(ax=ax, color=map_buses["color"], linewidths=0.25, zorder=3)
     map_buses = gpd.GeoDataFrame(map_buses, geometry="geom")
     map_buses.plot(
         ax=ax, color=map_buses["color"], markersize=0.8, marker="o", zorder=3
@@ -3295,8 +3302,29 @@ def plot_clusters(
         zorder=3,
     )
 
-    if save_path:
-        plt.savefig(save_path, dpi=800)
+    # Draw focus_region
+    focus_region = self.args["network_clustering"]["method"]["focus_region"]
+    try:
+        if focus_region:
+            if isinstance(focus_region, list):
+                con = create_engine(
+                    "postgresql+psycopg2://egon:data@127.0.0.1:59732/egon-data"
+                )
+                query = "SELECT gen, geometry FROM boundaries.vg250_krs"
+                focus_gdf = gpd.read_postgis(query, con, geom_col="geometry")
+                focus_gdf = focus_gdf[focus_gdf["gen"].isin(focus_region)]
+            else:
+                focus_gdf = gpd.read_file(focus_region)
+
+            focus_gdf.plot(
+                ax=ax,
+                zorder=1,
+            )
+
+        if save_path:
+            plt.savefig(save_path, dpi=800)
+    except:
+        print("focus reagion could not be read")
 
     return
 
