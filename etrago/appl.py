@@ -199,8 +199,9 @@ def run_etrago(args, json_path):
     Parameters
     ----------
     db : str
-        Name of Database session setting stored in *config.ini* of *.egoio*,
-        e.g. ``'oedb'``.
+        Name of Database session setting stored in *config.ini* within 
+        *.etrago_database/* in case of local database,
+        or  ``'test-oep'`` or ``'oedb'`` to load model from OEP.
     gridversion : None or str
         Name of the data version number of oedb: state ``'None'`` for
         model_draft (sand-box) or an explicit version number
