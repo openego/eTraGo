@@ -58,6 +58,7 @@ import pypsa
 if "READTHEDOCS" not in os.environ:
     import logging
 
+    from sqlalchemy import literal_column
     from sqlalchemy.orm.exc import NoResultFound
     import saio
 
@@ -124,7 +125,15 @@ class NetworkScenario(ScenarioBase):
         # network: pypsa.Network
         self.network = None
 
-        saio.register_schema("grid", engine)
+        if "toep.iks.cs.ovgu.de" in str(engine.url):
+            self.test_oep_active = True
+        else:
+            self.test_oep_active = False
+
+        if self.test_oep_active:
+            saio.register_schema("model_draft", engine)
+        else:
+            saio.register_schema("grid", engine)
 
         self.configure_timeindex()
 
@@ -142,7 +151,12 @@ class NetworkScenario(ScenarioBase):
         """Construct a DateTimeIndex with the queried temporal resolution,
         start- and end_snapshot."""
 
-        from saio.grid import egon_etrago_temp_resolution
+        if self.test_oep_active:
+            from saio.model_draft import (
+                edut_00_073 as egon_etrago_temp_resolution,
+            )
+        else:
+            from saio.grid import egon_etrago_temp_resolution
 
         try:
             if self.version:
@@ -196,16 +210,30 @@ class NetworkScenario(ScenarioBase):
         pd.DataFrame
             Component data.
         """
-        from saio.grid import (  # noqa: F401
-            egon_etrago_bus,
-            egon_etrago_generator,
-            egon_etrago_line,
-            egon_etrago_link,
-            egon_etrago_load,
-            egon_etrago_storage,
-            egon_etrago_store,
-            egon_etrago_transformer,
-        )
+
+        if self.test_oep_active:
+            from saio.model_draft import (  # noqa: F401
+                edut_00_056 as egon_etrago_bus,
+                edut_00_060 as egon_etrago_generator,
+                edut_00_063 as egon_etrago_line,
+                edut_00_065 as egon_etrago_link,
+                edut_00_067 as egon_etrago_load,
+                edut_00_069 as egon_etrago_storage,
+                edut_00_071 as egon_etrago_store,
+                edut_00_074 as egon_etrago_transformer,
+            )
+
+        else:
+            from saio.grid import (  # noqa: F401
+                egon_etrago_bus,
+                egon_etrago_generator,
+                egon_etrago_line,
+                egon_etrago_link,
+                egon_etrago_load,
+                egon_etrago_storage,
+                egon_etrago_store,
+                egon_etrago_transformer,
+            )
 
         index = f"{name.lower()}_id"
 
@@ -226,6 +254,9 @@ class NetworkScenario(ScenarioBase):
         df_saio = saio.as_pandas(query, crs=4326, geometry=None).set_index(
             index
         )
+
+        # Drop internal id column from test oep
+        df_saio.drop("id", axis="columns", inplace=True, errors="ignore")
 
         # Copy data into new dataframe which a´has column names with type 'str'
         # When using saio, the data type of column names is 'quoted_name',
@@ -260,16 +291,31 @@ class NetworkScenario(ScenarioBase):
         pd.DataFrame
             Component data.
         """
-        from saio.grid import (  # noqa: F401
-            egon_etrago_bus_timeseries,
-            egon_etrago_generator_timeseries,
-            egon_etrago_line_timeseries,
-            egon_etrago_link_timeseries,
-            egon_etrago_load_timeseries,
-            egon_etrago_storage_timeseries,
-            egon_etrago_store_timeseries,
-            egon_etrago_transformer_timeseries,
-        )
+
+        if self.test_oep_active:
+            from saio.model_draft import (  # noqa: F401
+                edut_00_057 as egon_etrago_bus_timeseries,
+                edut_00_061 as egon_etrago_generator_timeseries,
+                edut_00_064 as egon_etrago_line_timeseries,
+                edut_00_066 as egon_etrago_link_timeseries,
+                edut_00_068 as egon_etrago_load_timeseries,
+                edut_00_070 as egon_etrago_storage_timeseries,
+                edut_00_072 as egon_etrago_store_timeseries,
+                edut_00_075 as egon_etrago_transformer_timeseries,
+            )
+
+        else:
+
+            from saio.grid import (  # noqa: F401
+                egon_etrago_bus_timeseries,
+                egon_etrago_generator_timeseries,
+                egon_etrago_line_timeseries,
+                egon_etrago_link_timeseries,
+                egon_etrago_load_timeseries,
+                egon_etrago_storage_timeseries,
+                egon_etrago_store_timeseries,
+                egon_etrago_transformer_timeseries,
+            )
 
         # Select index column
         if name == "Transformer":
@@ -283,7 +329,7 @@ class NetworkScenario(ScenarioBase):
             vars()[f"egon_etrago_{name.lower()}_timeseries"]
         ).limit(1)
 
-        key_columns = ["scn_name", index_col, "temp_id"]
+        key_columns = ["scn_name", index_col, "temp_id", "id"]
 
         if self.version:
             key_columns.append(["version"])
@@ -294,17 +340,15 @@ class NetworkScenario(ScenarioBase):
 
         # Query and import time series data
         for col in columns:
+            tbl = vars()[f"egon_etrago_{name.lower()}_timeseries"]
+
             query = self.session.query(
-                getattr(
-                    vars()[f"egon_etrago_{name.lower()}_timeseries"], index_col
-                ),
-                getattr(vars()[f"egon_etrago_{name.lower()}_timeseries"], col)[
-                    self.start_snapshot : self.end_snapshot
-                ],
-            ).filter(
-                vars()[f"egon_etrago_{name.lower()}_timeseries"].scn_name
-                == self.scn_name
-            )
+                getattr(tbl, index_col),
+                literal_column(
+                    f"{col}[{self.start_snapshot}:{self.end_snapshot}]"
+                ).label(col),
+            ).filter(tbl.scn_name == self.scn_name)
+
             if self.version:
                 query = query.filter(
                     vars()[f"egon_etrago_{name.lower()}_timeseries"].version
@@ -321,9 +365,9 @@ class NetworkScenario(ScenarioBase):
             if not df_all.isnull().all().all():
 
                 # Drop empty series
-                df_all = df_all[~df_all.anon_1.isnull()]
+                df_all = df_all[~df_all[col].isnull()]
 
-                df = df_all.anon_1.apply(pd.Series).transpose()
+                df = df_all[col].apply(pd.Series).transpose()
 
                 df.index = self.timeindex
 
@@ -988,18 +1032,19 @@ def add_ch4_h2_correspondence(self):
     It contains the mapping from H2 buses to their corresponding CH4 buses.
 
     """
-
-    sql = """
-    SELECT "bus_H2", "bus_CH4", scn_name FROM grid.egon_etrago_ch4_h2;
-    """
-
-    table = pd.read_sql(sql, self.engine)
-
-    self.ch4_h2_mapping = pd.Series(
-        table.bus_H2.values, index=table.bus_CH4.values.astype(str)
-    )
-    self.ch4_h2_mapping.index.name = "CH4_bus"
-    self.ch4_h2_mapping = self.ch4_h2_mapping.astype(str)
+    h2_buses = self.network.buses[self.network.buses.carrier == "H2_grid"]
+    self.ch4_h2_mapping = pd.Series()
+    for h2_bus in h2_buses.index:
+        x = h2_buses.loc[h2_bus, "x"]
+        y = h2_buses.loc[h2_bus, "y"]
+        self.ch4_h2_mapping.loc[
+            self.network.buses[
+                (self.network.buses.carrier == "CH4")
+                & (self.network.buses.x == x)
+                & (self.network.buses.y == y)
+            ].index[0]
+        ] = h2_bus
+        self.ch4_h2_mapping.index.name = "CH4_bus"
 
 
 if __name__ == "__main__":
