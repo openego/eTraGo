@@ -333,6 +333,7 @@ def get_h2_clusters(etrago, busmap_ch4):
 
     return busmap
 
+
 def sector_coupled_clustering_strategy(etrago):
     """
     Defines clustering strategies for sectors without a grid per scenario.
@@ -348,44 +349,21 @@ def sector_coupled_clustering_strategy(etrago):
         Dictionary containing cluster strategies for each sector.
 
     """
-    
+
     if "eGon2035" in etrago.args["scn_name"]:
         strategy = {
             "central_heat": {
-                "base": [
-                    "CH4",
-                    "AC"
-                ],
-                "strategy": "simultaneous"
+                "base": ["CH4", "AC"],
+                "strategy": "simultaneous",
             },
-            "rural_heat": {
-                "base": [
-                    "AC"
-                ],
-                "strategy": "consecutive"
-            },
-            "H2_grid": {
-                "base": [
-                    "CH4"
-                ],
-                "strategy": "consecutive"
-            },
-            "H2_saltcavern": {
-                "base": [
-                    "H2_grid"
-                ],
-                "strategy": "consecutive"
-            },
-            "Li_ion": {
-                "base": [
-                    "AC"
-                ],
-                "strategy": "consecutive"
-            }
+            "rural_heat": {"base": ["AC"], "strategy": "consecutive"},
+            "H2_grid": {"base": ["CH4"], "strategy": "consecutive"},
+            "H2_saltcavern": {"base": ["H2_grid"], "strategy": "consecutive"},
+            "Li_ion": {"base": ["AC"], "strategy": "consecutive"},
         }
-    
+
     elif "eGon100RE" in etrago.args["scn_name"]:
-        strategy = {  
+        strategy = {
             "central_heat": {
                 "base": ["CH4", "AC"],
                 "strategy": "simultaneous",
@@ -407,96 +385,31 @@ def sector_coupled_clustering_strategy(etrago):
                 "strategy": "consecutive",
             },
         }
-        
+
     elif "powerd" in etrago.args["scn_name"]:
         strategy = {
-            "central_heat": {
-                "base": [
-                    "CH4"
-                ],
-                "strategy": "consecutive"
-            },
-            "rural_heat": {
-                "base": [
-                    "CH4",
-                    "AC"
-                ],
-                "strategy": "simultaneous"
-            },
-            "H2": {
-                "base": [
-                    "CH4"
-                ],
-                "strategy": "consecutive"
-            },
-            "H2_saltcavern": {
-                "base": [
-                    "H2_grid"
-                ],
-                "strategy": "consecutive"
-            },
-            "Li_ion": {
-                "base": [
-                    "AC"
-                ],
-                "strategy": "consecutive"
-            }
+            "central_heat": {"base": ["CH4"], "strategy": "consecutive"},
+            "rural_heat": {"base": ["CH4", "AC"], "strategy": "simultaneous"},
+            "H2": {"base": ["CH4"], "strategy": "consecutive"},
+            "H2_saltcavern": {"base": ["H2_grid"], "strategy": "consecutive"},
+            "Li_ion": {"base": ["AC"], "strategy": "consecutive"},
         }
     elif "status2019" in etrago.args["scn_name"]:
         strategy = {
-            "central_heat": {
-                "base": [
-                    "CH4"
-                ],
-                "strategy": "consecutive"
-            },
-            "rural_heat": {
-                "base": [
-                    "CH4",
-                    "AC"
-                ],
-                "strategy": "simultaneous"
-            },
-            "H2": {
-                "base": [
-                    "CH4"
-                ],
-                "strategy": "consecutive"
-            }
+            "central_heat": {"base": ["CH4"], "strategy": "consecutive"},
+            "rural_heat": {"base": ["CH4", "AC"], "strategy": "simultaneous"},
+            "H2": {"base": ["CH4"], "strategy": "consecutive"},
         }
     else:
         strategy = {
             "central_heat": {
-                "base": [
-                    "CH4",
-                    "AC"
-                ],
-                "strategy": "simultaneous"
+                "base": ["CH4", "AC"],
+                "strategy": "simultaneous",
             },
-            "rural_heat": {
-                "base": [
-                    "AC"
-                ],
-                "strategy": "consecutive"
-            },
-            "H2_grid": {
-                "base": [
-                    "CH4"
-                ],
-                "strategy": "consecutive"
-            },
-            "H2_saltcavern": {
-                "base": [
-                    "H2_grid"
-                ],
-                "strategy": "consecutive"
-            },
-            "Li_ion": {
-                "base": [
-                    "AC"
-                ],
-                "strategy": "consecutive"
-            }
+            "rural_heat": {"base": ["AC"], "strategy": "consecutive"},
+            "H2_grid": {"base": ["CH4"], "strategy": "consecutive"},
+            "H2_saltcavern": {"base": ["H2_grid"], "strategy": "consecutive"},
+            "Li_ion": {"base": ["AC"], "strategy": "consecutive"},
         }
         logger.warning(
             f"""
@@ -504,9 +417,11 @@ def sector_coupled_clustering_strategy(etrago):
             {etrago.args['scn_name']}
             Using default values instead - please check if they are correct:
             {strategy}
-            """)
+            """
+        )
     return strategy
-    
+
+
 def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
     """
     Performs the postprocessing for the gas grid clustering based on the
@@ -609,7 +524,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
             raise ValueError(msg)
         for key, value in busmap_sector_coupling.items():
             busmap.loc[key] = value
-   
+
     busmap = busmap.astype(str)
     busmap.index = busmap.index.astype(str)
 
