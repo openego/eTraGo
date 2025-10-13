@@ -578,7 +578,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
     busmap_values = new_gas_buses + missing_idx
     busmap = pd.Series(busmap_values, index=busmap_idx)
 
-    for name, data in sector_coupled_clustering_strategy(etrago):
+    for name, data in sector_coupled_clustering_strategy(etrago).items():
         strategy = data["strategy"]
         if strategy == "consecutive":
             busmap_sector_coupling = consecutive_sector_coupling(
