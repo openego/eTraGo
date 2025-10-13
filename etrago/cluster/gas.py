@@ -413,7 +413,7 @@ def sector_coupled_clustering_strategy(etrago):
         }
         logger.warning(
             f"""
-            No strategy defined for sector coupled clustering in scenario 
+            No strategy defined for sector coupled clustering in scenario
             {etrago.args['scn_name']}
             Using default values instead - please check if they are correct:
             {strategy}
