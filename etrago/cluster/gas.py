@@ -39,14 +39,14 @@ if "READTHEDOCS" not in os.environ:
 
     from etrago.cluster.spatial import (
         drop_nan_values,
+        focus_weighting,
         group_links,
         kmedoids_dijkstra_clustering,
         strategies_buses,
         strategies_generators,
-        strategies_lines,
         strategies_one_ports,
     )
-    from etrago.tools.utilities import find_buses_area, set_control_strategies
+    from etrago.tools.utilities import set_control_strategies
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ def preprocessing(etrago, carrier, apply_on="grid_model"):
     Raises
     ------
     ValueError
-        If "n_clusters_gas" or "n_clusters_h2" is less than or equal to the
+        If "n_clusters_ch4" or "n_clusters_h2" is less than or equal to the
         number of neighboring country gas buses.
     """
 
@@ -111,11 +111,11 @@ def preprocessing(etrago, carrier, apply_on="grid_model"):
     network_gas.buses["country"] = buses_gas.country
 
     # Cluster buses
-    settings = etrago.args["network_clustering"]
+    settings = etrago.args["network_clustering"]["gas_grids"]
 
     if apply_on == "grid_model":
         if carrier == "CH4":
-            total_clusters = settings["n_clusters_gas"]
+            total_clusters = settings["n_clusters_ch4"]
         else:
             total_clusters = settings["n_clusters_h2"]
     else:
@@ -142,9 +142,9 @@ def preprocessing(etrago, carrier, apply_on="grid_model"):
         )
     ]
 
-    # select buses dependent on whether they should be clustered in (only DE
-    # or DE+foreign DE except specified area)
-    if not settings["cluster_foreign_gas"]:
+    # select buses dependent on whether they should be clustered in
+    # (only DE or DE+foreign)
+    if not settings["cluster_foreign_ch4"]:
         network_gas.buses = network_gas.buses.loc[
             gas_filter & (network_gas.buses["country"].values == "DE")
         ]
@@ -163,12 +163,6 @@ def preprocessing(etrago, carrier, apply_on="grid_model"):
     else:
         network_gas.buses = network_gas.buses.loc[gas_filter]
         n_clusters = total_clusters
-
-    # Exclude buses in the area that should not be clustered
-    busmap_area = find_buses_area(etrago, "CH4")
-    network_gas.buses = network_gas.buses[
-        ~network_gas.buses.index.isin(busmap_area)
-    ]
 
     def weighting_for_scenario(ch4_buses, save=None):
         """
@@ -247,24 +241,23 @@ def preprocessing(etrago, carrier, apply_on="grid_model"):
 
     # State whether to create a bus weighting and save it, create or not save
     # it, or use a bus weighting from a csv file
-    if settings["gas_weight_tocsv"] is not None:
+    if settings["ch4_weight_tocsv"] is not None:
         weight_gas = weighting_for_scenario(
             network_gas.buses,
-            settings["gas_weight_tocsv"],
+            settings["ch4_weight_tocsv"],
         )
-    elif settings["gas_weight_fromcsv"] is not None:
+    elif settings["ch4_weight_fromcsv"] is not None:
         # create DataFrame with uniform weightings for all ch4_buses
         weight_gas = pd.DataFrame([1] * len(buses_gas), index=buses_gas.index)
         loaded_weights = pd.read_csv(
-            settings["gas_weight_fromcsv"], index_col=0
+            settings["ch4_weight_fromcsv"], index_col=0
         )
         # load weights into previously created DataFrame
         loaded_weights.index = loaded_weights.index.astype(str)
         weight_gas.loc[loaded_weights.index] = loaded_weights
     else:
         weight_gas = weighting_for_scenario(network_gas.buses, save=False)
-
-    return network_gas, weight_gas.squeeze(axis=1), n_clusters, busmap_area
+    return network_gas, weight_gas.squeeze(axis=1), n_clusters
 
 
 def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
@@ -292,7 +285,7 @@ def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
     None
         None is returned because k-means clustering makes no use of medoids
     """
-    settings = etrago.args["network_clustering"]
+    settings = etrago.args["network_clustering"]["method"]
 
     busmap = busmap_by_kmeans(
         network_ch4,
@@ -326,16 +319,13 @@ def get_h2_clusters(etrago, busmap_ch4):
         to its corresponding cluster ID.
     """
     # Mapping of H2 buses to new CH4 cluster IDs
-    map_ch4_h2 = etrago.ch4_h2_mapping[
-        etrago.ch4_h2_mapping.index.isin(busmap_ch4.index)
-    ]
     busmap_h2 = pd.Series(
-        busmap_ch4.loc[map_ch4_h2.index].values,
-        index=map_ch4_h2.values,
+        busmap_ch4.loc[etrago.ch4_h2_mapping.index].values,
+        index=etrago.ch4_h2_mapping.values,
     )
 
     # Create unique H2 cluster IDs
-    n_gas = etrago.args["network_clustering"]["n_clusters_gas"]
+    n_gas = etrago.args["network_clustering"]["gas_grids"]["n_clusters_ch4"]
     busmap_h2 = (busmap_h2.astype(int) + n_gas).astype(str)
 
     busmap_h2 = busmap_h2.squeeze()
@@ -345,13 +335,7 @@ def get_h2_clusters(etrago, busmap_ch4):
     return busmap
 
 
-def gas_postprocessing(
-    etrago,
-    busmap,
-    medoid_idx=None,
-    busmap_area=pd.Series(),
-    apply_on="grid_model",
-):
+def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
     """
     Performs the postprocessing for the gas grid clustering based on the
     provided busmap
@@ -374,17 +358,17 @@ def gas_postprocessing(
     busmap : pd.Series
         A Pandas Series mapping each bus to its corresponding cluster ID.
     """
-    settings = etrago.args["network_clustering"]
+    settings = etrago.args["network_clustering"]["gas_grids"]
     scn = etrago.args["scn_name"]
 
     if apply_on == "grid_model":
-        if settings["k_gas_busmap"] is False:
-            if settings["method_gas"] == "kmeans":
+        if settings["k_ch4_busmap"] is False:
+            if etrago.args["network_clustering"]["method"] == "kmeans":
                 busmap.index.name = "bus_id"
                 busmap.name = "cluster"
                 busmap.to_csv(
                     "kmeans_gasgrid_busmap_"
-                    + str(settings["n_clusters_gas"])
+                    + str(settings["n_clusters_ch4"])
                     + "_result.csv"
                 )
 
@@ -401,7 +385,7 @@ def gas_postprocessing(
                 export.index.name = "bus_id"
                 export.to_csv(
                     "kmedoids-dijkstra_gasgrid_busmap_"
-                    + str(settings["n_clusters_gas"])
+                    + str(settings["n_clusters_ch4"])
                     + "_result.csv"
                 )
         network = etrago.network
@@ -410,10 +394,6 @@ def gas_postprocessing(
 
     if ("H2_grid" in network.buses.carrier.unique()) & (scn in ["eGon2035"]):
         busmap = get_h2_clusters(etrago, busmap)
-
-    if len(busmap_area) > 0:
-        for bus_area in busmap_area.values:
-            busmap[bus_area] = bus_area
 
     # Add all other buses to busmap
     missing_idx = list(
@@ -426,10 +406,35 @@ def gas_postprocessing(
     busmap_values = new_gas_buses + missing_idx
     busmap = pd.Series(busmap_values, index=busmap_idx)
 
-    if etrago.args["sector_coupled_clustering"]["active"]:
-        for name, data in etrago.args["sector_coupled_clustering"][
-            "carrier_data"
-        ].items():
+    if etrago.args["network_clustering"]["gas_grids"][
+        "sector_coupled_clustering"
+    ]:
+        parameters = {
+            "carrier_data": {  # select carriers affected by sector coupling
+                "central_heat": {
+                    "base": ["CH4", "AC"],
+                    "strategy": "simultaneous",  # clustering strategy
+                },
+                "rural_heat": {
+                    "base": ["CH4", "AC"],
+                    "strategy": "simultaneous",  # clustering strategy
+                },
+                "H2": {
+                    "base": ["CH4"],
+                    "strategy": "consecutive",  # clustering strategy
+                },
+                "H2_saltcavern": {
+                    "base": ["H2_grid"],
+                    "strategy": "consecutive",  # clustering strategy
+                },
+                "Li_ion": {
+                    "base": ["AC"],
+                    "strategy": "consecutive",  # clustering strategy
+                },
+            },
+        }
+
+        for name, data in parameters["carrier_data"].items():
             strategy = data["strategy"]
             if strategy == "consecutive":
                 busmap_sector_coupling = consecutive_sector_coupling(
@@ -535,7 +540,11 @@ def gas_postprocessing(
     network_gasgrid_c.determine_network_topology()
 
     # Adjust x and y coordinates of 'CH4' and 'H2_grid' medoids
-    if settings["method_gas"] == "kmedoids-dijkstra" and len(medoid_idx) > 0:
+    if (
+        etrago.args["network_clustering"]["method"]["algorithm"]
+        == "kmedoids-dijkstra"
+        and len(medoid_idx) > 0
+    ):
         for cluster in medoid_idx:
             network_gasgrid_c.buses.loc[busmap[cluster], "x"] = (
                 network.buses.loc[cluster, "x"]
@@ -1026,24 +1035,58 @@ def run_spatial_clustering_gas(self):
     if ("CH4" in self.network.buses.carrier.values) | (
         "H2_grid" in self.network.buses.carrier.values
     ):
-        settings = self.args["network_clustering"]
+        settings = self.args["network_clustering"]["gas_grids"]
 
         if settings["active"]:
-            method = settings["method_gas"]
+            method = self.args["network_clustering"]["method"]["algorithm"]
             logger.info(f"Start {method} clustering GAS")
 
-            ch4_network, weight_ch4, n_clusters_ch4, busmap_area = (
-                preprocessing(self, "CH4")
+            ch4_network, weight_ch4, n_clusters_ch4 = preprocessing(
+                self, "CH4"
             )
             if "H2_grid" in self.network.links.carrier.unique():
                 h2_network, weight_h2, n_clusters_h2 = preprocessing(
                     self, "H2_grid"
                 )
 
+            focus_region = self.args["network_clustering"]["method"][
+                "focus_region"
+            ]
+            if focus_region:
+
+                func = "sigmoid-20"
+                cluster_within = self.args["network_clustering"]["gas_grids"][
+                    "cluster_ch4_within_focus"
+                ]
+                weight_ch4 = focus_weighting(
+                    self,
+                    ch4_network,
+                    weight_ch4,
+                    focus_region,
+                    func,
+                    cluster_within,
+                    save=self.args["network_clustering"]["gas_grids"][
+                        "ch4_weight_tocsv"
+                    ],
+                )
+
+                if "H2_grid" in self.network.links.carrier.unique():
+                    cluster_within = self.args["network_clustering"][
+                        "gas_grids"
+                    ]["cluster_h2_within_focus"]
+                    weight_h2 = focus_weighting(
+                        self,
+                        h2_network,
+                        weight_h2,
+                        focus_region,
+                        func,
+                        cluster_within,
+                    )
+
             if method == "kmeans":
-                if settings["k_gas_busmap"]:
+                if settings["k_ch4_busmap"]:
                     busmap = pd.read_csv(
-                        settings["k_gas_busmap"],
+                        settings["k_ch4_busmap"],
                         index_col="bus_id",
                         dtype=pd.StringDtype(),
                     ).squeeze()
@@ -1058,9 +1101,9 @@ def run_spatial_clustering_gas(self):
                         )
 
             elif method == "kmedoids-dijkstra":
-                if settings["k_gas_busmap"]:
+                if settings["k_ch4_busmap"]:
                     busmap = pd.read_csv(
-                        settings["k_gas_busmap"],
+                        settings["k_ch4_busmap"],
                         index_col="bus_id",
                         dtype=pd.StringDtype(),
                     )
@@ -1080,14 +1123,15 @@ def run_spatial_clustering_gas(self):
                         n_clusters_ch4,
                     )
                     if "H2_grid" in self.network.links.carrier.unique():
-                        busmap_h2, medoid_idx_h2 = (
-                            kmedoids_dijkstra_clustering(
-                                self,
-                                h2_network.buses,
-                                h2_network.links,
-                                weight_h2,
-                                n_clusters_h2,
-                            )
+                        (
+                            busmap_h2,
+                            medoid_idx_h2,
+                        ) = kmedoids_dijkstra_clustering(
+                            self,
+                            h2_network.buses,
+                            h2_network.links,
+                            weight_h2,
+                            n_clusters_h2,
                         )
 
             else:
@@ -1105,9 +1149,7 @@ def run_spatial_clustering_gas(self):
                 busmap = busmap_ch4
                 medoid_idx = medoid_idx_ch4
 
-            self.network, busmap = gas_postprocessing(
-                self, busmap, medoid_idx, busmap_area
-            )
+            self.network, busmap = gas_postprocessing(self, busmap, medoid_idx)
 
             self.update_busmap(busmap)
 

@@ -35,8 +35,10 @@ if "READTHEDOCS" not in os.environ:
         flatten_multiindex,
         get_clustering_from_busmap,
     )
+    from shapely.geometry import Point
     from sklearn.cluster import KMeans
     from threadpoolctl import threadpool_limits
+    import geopandas as gpd
     import networkx as nx
     import numpy as np
     import pandas as pd
@@ -47,7 +49,6 @@ if "READTHEDOCS" not in os.environ:
         buses_of_vlvl,
         connected_grid_lines,
         connected_transformer,
-        select_elec_network,
     )
 
     logger = logging.getLogger(__name__)
@@ -120,11 +121,11 @@ def strategies_buses():
 def strategies_lines():
     return {
         "geom": nan_links,
-        "cables": np.sum,
-        "topo": "first",
         "country": "first",
-        "total_cables": np.sum,
         "scn_name": "first",
+        "cables": "sum",
+        "topo": nan_links,
+        "total_cables": "sum",
     }
 
 
@@ -139,7 +140,7 @@ def strategies_one_ports():
             "p_min_pu": "min",
             "p_nom_extendable": ext_storage,
             "p_nom_max": sum_with_inf,
-            "scn_name": "first"
+            "scn_name": "first",
         },
         "Store": {
             "marginal_cost": "mean",
@@ -151,6 +152,7 @@ def strategies_one_ports():
             "e_initial": "sum",
             "e_min_pu": "mean",
             "e_max_pu": "mean",
+            "scn_name": "first",
         },
     }
 
@@ -166,6 +168,7 @@ def strategies_generators():
         "capital_cost": "mean",
         "e_nom_max": sum_with_inf,
         "up_time_before": "mean",
+        "scn_name": "first",
     }
 
 
@@ -186,8 +189,8 @@ def strategies_links():
         "efficiency": "mean",
         "p_nom_min": "sum",
         "p_set": "mean",
-        "p_min_pu": "min",
-        "p_max_pu": "max",
+        "p_min_pu": "mean",
+        "p_max_pu": "mean",
         "marginal_cost": "mean",
         "terrain_factor": _make_consense_links,
         "p_nom_opt": "mean",
@@ -393,7 +396,7 @@ def shortest_path(paths, graph):
     return df
 
 
-def busmap_by_shortest_path(network, fromlvl, tolvl, cpu_cores=4):
+def busmap_by_shortest_path(etrago, fromlvl, tolvl, cpu_cores=4):
     """
     Creates a busmap for the EHV-Clustering between voltage levels based
     on dijkstra shortest path. The result is automatically written to the
@@ -423,19 +426,19 @@ def busmap_by_shortest_path(network, fromlvl, tolvl, cpu_cores=4):
     """
 
     # data preperation
-    s_buses = buses_grid_linked(network, fromlvl)
-    lines = connected_grid_lines(network, s_buses)
-    transformer = connected_transformer(network, s_buses)
-    mask = transformer.bus1.isin(buses_of_vlvl(network, tolvl))
+    s_buses = buses_grid_linked(etrago.network, fromlvl)
+    lines = connected_grid_lines(etrago.network, s_buses)
+    transformer = connected_transformer(etrago.network, s_buses)
+    mask = transformer.bus1.isin(buses_of_vlvl(etrago.network, tolvl))
 
-    dc = network.links[network.links.carrier == "DC"]
+    dc = etrago.network.links[etrago.network.links.carrier == "DC"]
     dc.index = "DC_" + dc.index
     lines_plus_dc = pd.concat([lines, dc])
-    lines_plus_dc = lines_plus_dc[network.lines.columns]
+    lines_plus_dc = lines_plus_dc[etrago.network.lines.columns]
     lines_plus_dc["carrier"] = "AC"
 
     # temporary end points, later replaced by bus1 pendant
-    t_buses = transformer[mask].bus0.unique()
+    t_buses = transformer[mask].bus0
 
     # create all possible pathways
     ppaths = list(product(s_buses, t_buses))
@@ -466,16 +469,18 @@ def busmap_by_shortest_path(network, fromlvl, tolvl, cpu_cores=4):
     df.target = df.target.map(
         dict(
             zip(
-                network.transformers.bus0,
-                network.transformers.bus1,
+                etrago.network.transformers.bus0,
+                etrago.network.transformers.bus1,
             )
         )
     )
 
     # append to busmap buses only connected to transformer
-    transformer = network.transformers
+    transformer = etrago.network.transformers
     idx = list(
-        set(buses_of_vlvl(network, fromlvl)).symmetric_difference(set(s_buses))
+        set(buses_of_vlvl(etrago.network, fromlvl)).symmetric_difference(
+            set(s_buses)
+        )
     )
     mask = transformer.bus0.isin(idx)
 
@@ -488,7 +493,7 @@ def busmap_by_shortest_path(network, fromlvl, tolvl, cpu_cores=4):
     df = pd.concat([df, toappend], ignore_index=True, axis=0)
 
     # append all other buses
-    buses = network.buses[network.buses.carrier == "AC"]
+    buses = etrago.network.buses[etrago.network.buses.carrier == "AC"]
     mask = buses.index.isin(df.source)
 
     assert (buses[~mask].v_nom.astype(int).isin(tolvl)).all()
@@ -523,40 +528,24 @@ def busmap_ehv_clustering(etrago):
     busmap : dict
         Maps old bus_ids to new bus_ids.
     """
+
     if etrago.args["network_clustering_ehv"]["busmap"] is False:
-        cpu_cores = etrago.args["network_clustering"]["CPU_cores"]
+        cpu_cores = etrago.args["network_clustering_ehv"]["CPU_cores"]
         if cpu_cores == "max":
             cpu_cores = mp.cpu_count()
         else:
             cpu_cores = int(cpu_cores)
 
-        if etrago.args["interest_area"] is False:
-            busmap = busmap_by_shortest_path(
-                etrago.network,
-                fromlvl=[110],
-                tolvl=[220, 380, 400, 450],
-                cpu_cores=cpu_cores,
-            )
-            pd.DataFrame(busmap.items(), columns=["bus0", "bus1"]).to_csv(
-                "ehv_elecgrid_busmap_result.csv",
-                index=False,
-            )
-        else:
-            network, _, area = select_elec_network(
-                etrago, apply_on="grid_model-ehv"
-            )
-            busmap = busmap_by_shortest_path(
-                network,
-                fromlvl=[110],
-                tolvl=[220, 380, 400, 450],
-                cpu_cores=cpu_cores,
-            )
-            for bus in area.buses.index:
-                busmap[bus] = bus
-            pd.DataFrame(busmap.items(), columns=["bus0", "bus1"]).to_csv(
-                "ehv_elecgrid_busmap_result.csv",
-                index=False,
-            )
+        busmap = busmap_by_shortest_path(
+            etrago,
+            fromlvl=[110],
+            tolvl=[220, 380, 400, 450],
+            cpu_cores=cpu_cores,
+        )
+        pd.DataFrame(busmap.items(), columns=["bus0", "bus1"]).to_csv(
+            "ehv_elecgrid_busmap_result.csv",
+            index=False,
+        )
     else:
         busmap = pd.read_csv(etrago.args["network_clustering_ehv"]["busmap"])
         busmap = pd.Series(
@@ -601,9 +590,11 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
     network = etrago.network
     kmean_settings = etrago.args["network_clustering"]
 
-    with threadpool_limits(limits=kmean_settings["CPU_cores"], user_api=None):
+    with threadpool_limits(
+        limits=kmean_settings["method"]["CPU_cores"], user_api=None
+    ):
         # remove stubs
-        if kmean_settings["remove_stubs"]:
+        if kmean_settings["method"]["remove_stubs"]:
             network.determine_network_topology()
             busmap = busmap_by_stubs(network)
             network.generators["weight"] = network.generators["p_nom"]
@@ -612,7 +603,7 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
 
             # reset coordinates to the new reduced guys, rather than taking an
             # average (copied from pypsa.networkclustering)
-            if kmean_settings["use_reduced_coordinates"]:
+            if kmean_settings["method"]["use_reduced_coordinates"]:
                 # TODO : FIX THIS HACK THAT HAS UNEXPECTED SIDE-EFFECTS,
                 # i.e. network is changed in place!!
                 network.buses.loc[busmap.index, ["x", "y"]] = (
@@ -626,7 +617,9 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
                 one_port_strategies=strategies_one_ports(),
                 generator_strategies=strategies_generators(),
                 aggregate_one_ports=aggregate_one_ports,
-                line_length_factor=kmean_settings["line_length_factor"],
+                line_length_factor=kmean_settings["method"][
+                    "line_length_factor"
+                ],
             )
             etrago.network = clustering.network
 
@@ -637,10 +630,10 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
             selected_network,
             bus_weightings=pd.Series(weight),
             n_clusters=n_clusters,
-            n_init=kmean_settings["n_init"],
-            max_iter=kmean_settings["max_iter"],
-            tol=kmean_settings["tol"],
-            random_state=kmean_settings["random_state"],
+            n_init=kmean_settings["method"]["n_init"],
+            max_iter=kmean_settings["method"]["max_iter"],
+            tol=kmean_settings["method"]["tol"],
+            random_state=kmean_settings["method"]["random_state"],
         )
 
     return busmap
@@ -757,23 +750,14 @@ def kmedoids_dijkstra_clustering(
 
     settings = etrago.args["network_clustering"]
 
-    if n_clusters is False:
-        busmap = pd.Series(
-            range(len(buses)), index=buses.index, name="final_assignment"
-        )
-        busmap.index.name = "bus_id"
-        busmap = busmap.apply(str)
-
-        medoid_idx = pd.Series(busmap.index, index=busmap.values, name=0)
-
-        return busmap, medoid_idx
-
     # n_jobs was deprecated for the function fit(). scikit-learn recommends
     # to use threadpool_limits:
     # https://scikit-learn.org/stable/computing/parallelism.html
-    with threadpool_limits(limits=settings["CPU_cores"], user_api=None):
+    with threadpool_limits(
+        limits=settings["method"]["CPU_cores"], user_api=None
+    ):
         # remove stubs
-        if settings["remove_stubs"]:
+        if settings["method"]["remove_stubs"]:
             logger.info(
                 """options remove_stubs and use_reduced_coordinates not
                 reasonable for k-medoids Dijkstra Clustering"""
@@ -788,10 +772,10 @@ def kmedoids_dijkstra_clustering(
         kmeans = KMeans(
             init="k-means++",
             n_clusters=n_clusters,
-            n_init=settings["n_init"],
-            max_iter=settings["max_iter"],
-            tol=settings["tol"],
-            random_state=settings["random_state"],
+            n_init=settings["method"]["n_init"],
+            max_iter=settings["method"]["max_iter"],
+            tol=settings["method"]["tol"],
+            random_state=settings["method"]["random_state"],
         )
         kmeans.fit(points)
 
@@ -818,7 +802,7 @@ def kmedoids_dijkstra_clustering(
                 buses,
                 connections,
                 medoid_idx,
-                etrago.args["network_clustering"]["CPU_cores"],
+                etrago.args["network_clustering"]["method"]["CPU_cores"],
             )
         elif len(busmap) < n_clusters:
             logger.warning(
@@ -832,6 +816,104 @@ def kmedoids_dijkstra_clustering(
         busmap.index.name = "bus_id"
 
     return busmap, medoid_idx
+
+
+def focus_weighting(
+    etrago, network, weight, focus_region, func, cluster_within, save=None
+):
+
+    # prepare focus region gdf
+    if isinstance(focus_region, list):
+        con = etrago.engine
+        query = "SELECT gen, geometry FROM boundaries.vg250_krs"
+        focus_gdf = gpd.read_postgis(query, con, geom_col="geometry")
+        focus_gdf = focus_gdf[focus_gdf["gen"].isin(focus_region)]
+    else:
+        focus_gdf = gpd.read_file(focus_region)
+
+    focus_gdf = focus_gdf.to_crs(epsg=25832)
+    focus_polygon = focus_gdf.geometry.unary_union
+
+    # prepare buses gdf
+    buses_df = network.buses[["x", "y"]].copy()
+    buses_df["geometry"] = buses_df.apply(
+        lambda row: Point(row["x"], row["y"]), axis=1
+    )
+    buses_gdf = gpd.GeoDataFrame(buses_df, geometry="geometry", crs=4326)
+    buses_gdf = buses_gdf.to_crs(epsg=25832)
+
+    # calc distance from buses to focus region
+
+    ## geographical
+    buses_gdf["distance_to_focus"] = buses_gdf.geometry.distance(focus_polygon)
+    distgeo = buses_gdf["distance_to_focus"]
+
+    ## electrical (paths with dijkstra)
+    # define centroid as base bus for focus region
+    centroid = focus_polygon.centroid
+    buses_gdf["dist"] = buses_gdf.geometry.distance(centroid)
+    central = [buses_gdf.loc[buses_gdf["dist"].idxmin()].name]
+    paths = list(product(network.buses.index, central))
+
+    if "AC" in network.buses.carrier.unique():
+        edges = [
+            (row.bus0, row.bus1, row.length, ix)
+            for ix, row in network.lines.iterrows()
+        ]
+    elif "CH4" in network.buses.carrier.unique():
+        edges = [
+            (row.bus0, row.bus1, row.length, ix)
+            for ix, row in network.links.iterrows()
+        ]
+
+    graph = graph_from_edges(edges)
+    dist = nx.single_source_dijkstra_path_length(graph, central[0])
+    dist = pd.Series(dist)
+    # set distances to 0 for buses within focus rerion
+    mask = buses_gdf.geometry.within(focus_polygon)
+    indizes = buses_gdf[mask].index
+    dist.loc[indizes] = 0
+
+    # to m
+    dist = dist * 1000
+    # do not allow 0
+    dist[dist == 0] = 1
+
+    # 1/dist
+    if func == "1-dist":
+        factor = 1 / dist
+
+    # Gaußsche Abklingfunktion mit 20 km
+    elif func == "gauss-20":
+        sigma = 20000  # z. B. 20 km
+        factor = np.exp(-(dist**2) / (2 * sigma**2))
+
+    # Gaußsche Abklingfunktion mit 100 km
+    elif func == "gauss-100":
+        sigma = 100000  # z. B. 100 km
+        factor = np.exp(-(dist**2) / (2 * sigma**2))
+
+    # Sigmoid-Abklingfunktion mit 20 km
+    elif func == "sigmoid-20":
+        sigma = 20000
+        factor = 1 / (1 + (dist / sigma) ** 2)
+
+    # Sigmoid-Abklingfunktion mit 100 km
+    elif func == "sigmoid-100":
+        sigma = 100000
+        factor = 1 / (1 + (dist / sigma) ** 2)
+
+    # apply to normal weighting (based on generation capacities and loads)
+    weight = weight * factor
+    weight = weight.apply(np.ceil)
+
+    if cluster_within == False:
+        weight.loc[indizes] = 100000
+
+    if save:
+        weight.to_csv(save)
+
+    return weight
 
 
 def drop_nan_values(network):

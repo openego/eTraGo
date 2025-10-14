@@ -28,6 +28,7 @@
     "model_formulation": "kirchhoff",
     "scn_name": "eGon2035",
     "scn_extension": null,
+    "scn_decommissioning": null,
     "lpfile": false,
     "csv_export": "results",
     "extendable": {
@@ -60,8 +61,6 @@
     },
     "generator_noise": 789456,
     "extra_functionality": {},
-    "delete_dispensable_ac_buses": true,
-    "interest_area": false,
     "network_clustering_ehv": {
         "active": false,
         "busmap": false
@@ -71,7 +70,6 @@
         "method": "kmedoids-dijkstra",
         "n_clusters_AC": 30,
         "cluster_foreign_AC": false,
-        "n_cluster_interest_area": false,
         "method_gas": "kmedoids-dijkstra",
         "n_clusters_gas": 15,
         "n_clusters_h2": 15,

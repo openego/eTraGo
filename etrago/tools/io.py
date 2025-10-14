@@ -78,7 +78,7 @@ class ScenarioBase:
     """
 
     def __init__(self, engine, session, version=None):
-        global carr_ormclass
+        global carr_ormclass  # noqa: F824
 
         saio.register_schema("grid", engine)
         self.session = session
@@ -328,20 +328,9 @@ class NetworkScenario(ScenarioBase):
             df_all.index = df_all.index.astype(str)
 
             if not df_all.isnull().all().all():
-                # Fill empty lists with default values from pypsa
-                if col in network.component_attrs[pypsa_name].index:
-                    df_all.loc[df_all.anon_1.isnull(), "anon_1"] = df_all.loc[
-                        df_all.anon_1.isnull(), "anon_1"
-                    ].apply(
-                        lambda x: [
-                            float(
-                                network.component_attrs[pypsa_name].default[
-                                    col
-                                ]
-                            )
-                        ]
-                        * len(network.snapshots)
-                    )
+
+                # Drop empty series
+                df_all = df_all[~df_all.anon_1.isnull()]
 
                 df = df_all.anon_1.apply(pd.Series).transpose()
 

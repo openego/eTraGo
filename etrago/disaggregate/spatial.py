@@ -828,7 +828,10 @@ def update_constraints(network, externals):
 
 def run_disaggregation(self):
     log.debug("Running disaggregation.")
-    if self.args["network_clustering"]["active"]:
+    if (
+        self.args["network_clustering"]["electricity_grid"]["active"]
+        or self.args["network_clustering"]["gas_grids"]["active"]
+    ):
         disagg = self.args.get("spatial_disaggregation")
         skip = () if self.args["pf_post_lopf"]["active"] else ("q",)
         t = time.time()

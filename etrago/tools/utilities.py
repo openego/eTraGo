@@ -1184,16 +1184,9 @@ def group_parallel_lines(network):
     lines_2["bus0"] = bus_max
     lines_2["bus1"] = bus_min
     lines_2.reset_index(inplace=True)
-
     lines_2["geom"] = lines_2.apply(
-        lambda x: (
-            x.geom.wkt
-            if isinstance(x.geom, geoalchemy2.elements.WKBElement)
-            else None
-        ),
-        axis=1,
+        lambda x: None if x.geom is None else x.geom.wkt, axis=1
     )
-
     network.lines = (
         lines_2.groupby(["bus0", "bus1"])
         .apply(agg_parallel_lines)
@@ -2710,7 +2703,7 @@ def drop_sectors(self, drop_carriers):
 
     """
 
-    if self.scenario.scn_name == "eGon2035":
+    if self.args["scn_name"] == "eGon2035":
         if "CH4" in drop_carriers:
             # create gas generators from links
             # in order to not lose them when dropping non-electric carriers
@@ -2828,7 +2821,7 @@ def adjust_CH4_gen_carriers(self):
 
     if "eGon2035" in self.args["scn_name"]:
         # Define marginal cost
-        marginal_cost_def = {"CH4": 40.9765, "biogas": 25.6}  # Standard_ CH4 = 40.9765
+        marginal_cost_def = {"CH4": 40.9765, "biogas": 25.6}
 
         engine = db.connection(section=self.args["db"])
         try:
@@ -2993,6 +2986,17 @@ def manual_fixes_datamodel(etrago):
         ),
         "p_nom_extendable",
     ] = False
+    etrago.network.links.loc[
+        etrago.network.links.carrier.isin(
+            [
+                "DC",
+                "power_to_H2",
+                "H2_to_CH4",
+                "CH4_to_H2",
+            ]
+        ),
+        "p_nom_extendable",
+    ] = True
 
     # Set efficiences of CHP
     etrago.network.links.loc[
@@ -3086,8 +3090,9 @@ def manual_fixes_datamodel(etrago):
         etrago.network.mremove(
             "Load",
             etrago.network.loads[
-                etrago.network.loads.carrier=="H2_hgv_load"].index
-            )
+                etrago.network.loads.carrier == "H2_hgv_load"
+            ].index,
+        )
 
         # Fix starting capacity of foreign DC-lines
         etrago.network.links.loc[
@@ -3190,7 +3195,7 @@ def manual_fixes_datamodel(etrago):
             etrago.network.remove("Bus", i)
             etrago.network.mremove("Link", link.index)
 
-        # Drop CH4_for_industry bus and link and add the load to the 
+        # Drop CH4_for_industry bus and link and add the load to the
         # corresponding CH4 bus
         ch4_ind_buses = etrago.network.buses.loc[
             etrago.network.buses.carrier == "CH4_for_industry"
@@ -3198,10 +3203,7 @@ def manual_fixes_datamodel(etrago):
         for i, row in ch4_ind_buses.iterrows():
             link = etrago.network.links[
                 (etrago.network.links.bus1 == i)
-                & (
-                    etrago.network.links.carrier
-                    == "CH4_for_industry"
-                )
+                & (etrago.network.links.carrier == "CH4_for_industry")
             ].copy()
             new_bus = link.bus0.unique()[0]
             for comp in etrago.network.iterate_components():
@@ -3212,6 +3214,37 @@ def manual_fixes_datamodel(etrago):
                     comp.df.loc[comp.df.bus1 == i, "bus1"] = new_bus
             etrago.network.remove("Bus", i)
             etrago.network.mremove("Link", link.index)
+
+        # Drop very small generators
+        etrago.network.mremove(
+            "Generator",
+            etrago.network.generators[
+                (etrago.network.generators.p_nom_extendable is False)
+                & (etrago.network.generators.p_nom < 10)
+            ].index,
+        )
+
+        # Set ramps to nan
+        etrago.network.links.ramp_limit_up = np.nan
+        etrago.network.links.ramp_limit_down = np.nan
+        etrago.network.generators.ramp_limit_up = np.nan
+        etrago.network.generators.ramp_limit_down = np.nan
+
+        # Fix cyclic conditions of stores
+        etrago.network.stores.e_cyclic_per_period = False
+        etrago.network.stores.loc[
+            etrago.network.stores.carrier == "battery_storage", "e_cyclic"
+        ] = False
+
+        # Avoid nurical problems with large values in gas stores
+        # etrago.network.stores.e_nom_max = np.inf
+        # etrago.network.stores.loc[
+        #     etrago.network.stores.carrier=="CH4", "capital_cost"] = 0.0
+        # etrago.network.stores.loc[
+        #     etrago.network.stores.carrier=="CH4", "e_nom_min"] = 0.0
+        # etrago.network.stores.loc[
+        #     etrago.network.stores.carrier=="CH4", "e_nom_extendable"] = True
+
     # Add static p-set to other AC load in foreign countries
     static_ac_loads = etrago.network.loads[
         (etrago.network.loads.carrier == "AC")
@@ -3223,7 +3256,7 @@ def manual_fixes_datamodel(etrago):
                 etrago.network.loads[
                     (etrago.network.loads.bus == row.bus)
                     & (etrago.network.loads.p_set == 0)
-                ].index
+                ].index[0]
             ] += row.p_set
             etrago.network.remove("Load", i)
 
@@ -3246,231 +3279,16 @@ def manual_fixes_datamodel(etrago):
         o2_buses = etrago.network.buses[etrago.network.buses.carrier == "O2"]
         etrago.network.buses.loc[o2_buses.index, "type"] = 1
 
+    etrago.network.links.loc[
+        etrago.network.links.carrier.isin(
+            ["DC", "CH4", "H2_grid", "H2_saltcavern"]
+        ),
+        "p_min_pu",
+    ] = -1.0
 
-def select_elec_network(etrago, apply_on="grid_model"):
-    """
-    Creates networks to be used on the clustering based on settings specified
-    in the args.
-
-    Parameters
-    ----------
-    etrago : Etrago
-        An instance of the Etrago class
-    apply_on: str
-        gives information about the objective of the output network. If
-        "grid_model" is provided, the value assigned in the args for
-        ["network_clustering"]["cluster_foreign_AC""] will define if the
-        foreign buses will be included in the network. if "market_model" is
-        provided, foreign buses will be always included.
-
-    Returns
-    -------
-    Tuple containing:
-        elec_network : pypsa.Network
-            Contains the electric network
-        n_clusters : int
-            number of clusters used in the clustering process.
-        area_network : pypsa.Network
-            Contains the electric network in the area of interest defined in
-            network_clustering - interest_area.
-    """
-    settings = etrago.args["network_clustering"]
-
-    if apply_on in ["grid_model", "grid_model-ehv"]:
-        # Find buses in the area that should not be clustered
-        buses_area = find_buses_area(etrago, "AC")
-
-        elec_network_buses = etrago.network.buses[
-            (~etrago.network.buses.index.isin(buses_area))
-            & (etrago.network.buses.carrier == "AC")
-        ].index
-        if apply_on == "grid_model-ehv":
-            n_clusters = pd.NA
-        # Exclude foreign buses when set to don't include them in clustering
-        elif settings["cluster_foreign_AC"]:
-            n_clusters = settings["n_clusters_AC"]
-        else:
-            foreign_buses = etrago.network.buses[
-                (etrago.network.buses.country != "DE")
-                & (etrago.network.buses.carrier == "AC")
-            ]
-
-            num_neighboring_country = len(
-                foreign_buses[
-                    foreign_buses.index.isin(etrago.network.loads.bus)
-                ]
-            )
-
-            elec_network_buses = elec_network_buses[
-                ~elec_network_buses.isin(foreign_buses.index)
-            ]
-            if settings["n_clusters_AC"] is False:
-                n_clusters = False
-            else:
-                n_clusters = (
-                    settings["n_clusters_AC"] - num_neighboring_country
-                )
-                assert (
-                    n_clusters > 1
-                ), f"""'n_clusters_AC' must be greater than the number of
-                foreign countries({num_neighboring_country})"""
-
-        elec_network = network_based_on_buses(
-            etrago.network, elec_network_buses
-        )
-        area_network = network_based_on_buses(etrago.network, buses_area)
-
-    elif apply_on == "market_model":
-        elec_network_buses = etrago.network_tsa.buses[
-            etrago.network_tsa.buses.carrier == "AC"
-        ].index
-        elec_network = network_based_on_buses(
-            etrago.network_tsa, elec_network_buses
-        )
-        area_network = pypsa.Network()
-
-        n_clusters = pd.NA
-
-    else:
-        logger.warning(
-            """Parameter apply_on must be either 'grid_model' or 'market_model'
-            """
-        )
-
-    return elec_network, n_clusters, area_network
-
-
-def network_based_on_buses(network, buses):
-    """
-    Extract all the elements in a network related to the supplied list of
-    buses and return it like a new network.
-
-    Parameters
-    ----------
-    network : pypsa.Network
-        Original network that contains the buses of interest and other buses.
-    buses : Pandas.Series
-        Series that contains the name of all the buses that the new network
-        will contain.
-
-    Returns
-    -------
-    elec_network : pypsa.Network
-        network containing only electrical elements attached to the supplied
-        list of buses.
-
-    """
-    elec_network = network.copy()
-    elec_network.buses = elec_network.buses[
-        elec_network.buses.index.isin(buses)
-    ]
-    # Dealing with links
-    elec_network.links = elec_network.links[
-        (
-            (elec_network.links.carrier == "AC")
-            | (elec_network.links.carrier == "DC")
-        )
-        & (elec_network.links.bus0.isin(elec_network.buses.index))
-        & (elec_network.links.bus1.isin(elec_network.buses.index))
-    ]
-
-    # Dealing with generators
-    elec_network.generators = elec_network.generators[
-        elec_network.generators.bus.isin(elec_network.buses.index)
-    ]
-
-    for attr in elec_network.generators_t:
-        elec_network.generators_t[attr] = elec_network.generators_t[attr].loc[
-            :,
-            elec_network.generators_t[attr].columns.isin(
-                elec_network.generators.index
-            ),
-        ]
-
-    # Dealing with loads
-    elec_network.loads = elec_network.loads[
-        elec_network.loads.bus.isin(elec_network.buses.index)
-    ]
-
-    for attr in elec_network.loads_t:
-        elec_network.loads_t[attr] = elec_network.loads_t[attr].loc[
-            :,
-            elec_network.loads_t[attr].columns.isin(elec_network.loads.index),
-        ]
-
-    # Dealing with storage_units
-    elec_network.storage_units = elec_network.storage_units[
-        elec_network.storage_units.bus.isin(elec_network.buses.index)
-    ]
-
-    for attr in elec_network.storage_units_t:
-        elec_network.storage_units_t[attr] = elec_network.storage_units_t[
-            attr
-        ].loc[
-            :,
-            elec_network.storage_units_t[attr].columns.isin(
-                elec_network.storage_units.index
-            ),
-        ]
-
-    # Dealing with stores
-    elec_network.stores = elec_network.stores[
-        elec_network.stores.bus.isin(elec_network.buses.index)
-    ]
-
-    for attr in elec_network.stores_t:
-        elec_network.stores_t[attr] = elec_network.stores_t[attr].loc[
-            :,
-            elec_network.stores_t[attr].columns.isin(
-                elec_network.stores.index
-            ),
-        ]
-    return elec_network
-
-
-def find_buses_area(etrago, carrier):
-    """
-    Find buses of a specified carrier in a defined area. Usually used to
-    findout the buses that sould not be clustered.
-    """
-    settings = etrago.args
-
-    if settings["interest_area"]:
-        if isinstance(settings["interest_area"], list):
-            con = etrago.engine
-            query = "SELECT gen, geometry FROM boundaries.vg250_krs"
-
-            de_areas = gpd.read_postgis(query, con, geom_col="geometry")
-            de_areas = de_areas[
-                de_areas["gen"].isin(settings["interest_area"])
-            ]
-        elif isinstance(settings["interest_area"], str):
-            de_areas = gpd.read_file(settings["interest_area"])
-        else:
-            raise Exception(
-                "not supported format supplied to 'interest_area' argument"
-            )
-
-        try:
-            buses_area = gpd.GeoDataFrame(
-                etrago.network.buses, geometry="geom", crs=4326
-            )
-        except:
-            buses_area = etrago.network.buses[["x", "y", "carrier"]]
-            buses_area["geom"] = buses_area.apply(
-                lambda x: Point(x["x"], x["y"]), axis=1
-            )
-            buses_area = gpd.GeoDataFrame(
-                buses_area, geometry="geom", crs=4326
-            )
-
-        buses_area = gpd.clip(buses_area, de_areas)
-        buses_area = buses_area[buses_area.carrier == carrier]
-
-    else:
-        buses_area = pd.DataFrame()
-
-    return buses_area.index
+    etrago.network.links.loc[
+        etrago.network.links.carrier.isin(["H2_to_CH4"]), "p_min_pu"
+    ] = 0.0
 
 
 def export_to_shapefile(pypsa_network, shape_files_path=None, srid=4326):
@@ -3620,7 +3438,7 @@ def export_to_shapefile(pypsa_network, shape_files_path=None, srid=4326):
     return components_dict
 
 
-def adjust_PtH2_model(self, apply_on='pre_market_model'):
+def adjust_PtH2_model(self, apply_on="pre_market_model"):
     """
     Adjust the modelling of electrolyzer with waste-heat and
     O2-utilisation. The method creates a multiple-link-model
@@ -3635,26 +3453,23 @@ def adjust_PtH2_model(self, apply_on='pre_market_model'):
     ----------
     etrago : :class:`Etrago
         Overall container of Etrago
-    
+
     apply_on: str
 
-    Returns 
+    Returns
     -------
     network : PyPSA network
 
     """
-    
+
     if apply_on == "grid_model":
         network = self.network
     elif apply_on == "market_model":
         network = self.market_model
     elif apply_on == "pre_market_model":
         network = self.pre_market_model
-        
 
-    PtH2_links = network.links[
-        network.links.carrier == "power_to_H2"
-    ].index
+    PtH2_links = network.links[network.links.carrier == "power_to_H2"].index
     PtH2_AC_buses = network.buses.loc[
         network.links.loc[PtH2_links, "bus0"]
     ].index.unique()
@@ -3678,8 +3493,7 @@ def adjust_PtH2_model(self, apply_on='pre_market_model'):
             & (network.links.bus0 == bus)
         ].index
         power_to_o2_links = network.links[
-            (network.links.carrier == "PtH2_O2")
-            & (network.links.bus0 == bus)
+            (network.links.carrier == "PtH2_O2") & (network.links.bus0 == bus)
         ].index
 
         link_data = []
@@ -3725,9 +3539,7 @@ def adjust_PtH2_model(self, apply_on='pre_market_model'):
                 standing_loss=1,
             )
 
-            network.stores.loc[store_name, "scn_name"] = self.args[
-                "scn_name"
-            ]
+            network.stores.loc[store_name, "scn_name"] = self.args["scn_name"]
             network.buses.loc[str(new_bus_id), "scn_name"] = self.args[
                 "scn_name"
             ]
@@ -3735,29 +3547,38 @@ def adjust_PtH2_model(self, apply_on='pre_market_model'):
 
             # set coordinates for new bus for the clustering method
             bus0_index = network.links.loc[power_to_h2_links, "bus0"]
-            network.buses.loc[str(new_bus_id), "x"] = (
-                network.buses.loc[bus0_index, "x"].values[0]
-            )
-            network.buses.loc[str(new_bus_id), "y"] = (
-                network.buses.loc[bus0_index, "y"].values[0]
-            )
+            network.buses.loc[str(new_bus_id), "x"] = network.buses.loc[
+                bus0_index, "x"
+            ].values[0]
+            network.buses.loc[str(new_bus_id), "y"] = network.buses.loc[
+                bus0_index, "y"
+            ].values[0]
 
             # Connect multiple link with new heat/o2-bus
-            network.links.loc[power_to_h2_links, f"bus{idx}"] = str(
-                new_bus_id
-            )
-            network.links.loc[power_to_h2_links, f"efficiency{idx}"] = (
-                efficiency
-            )
+            if self.args["method"]["formulation"] == "linopy":
+                network.links.loc[power_to_h2_links, f"bus{idx}"] = str(
+                    new_bus_id
+                )
+                network.links.loc[power_to_h2_links, f"efficiency{idx}"] = (
+                    efficiency
+                )
+            else:
+                network.madd(
+                    "Generator",
+                    names=power_to_h2_links + f"_{carrier}",
+                    carrier=f"PtH2_{carrier}",
+                    p_nom_extendable=True,
+                    bus=str(new_bus_id),
+                )
 
             # Adjust originals waste_heat- and oxygen-links with new bus0
             for link in links:
                 network.links.loc[link, "bus0"] = str(new_bus_id)
-    
-                
+
     return network
 
-def adjust_chp_model(self, apply_on='pre_market_model'):
+
+def adjust_chp_model(self, apply_on="pre_market_model"):
     """
     Adjust the modelling of chp plants in foreign countries for eGon100RE
 
@@ -3785,47 +3606,71 @@ def adjust_chp_model(self, apply_on='pre_market_model'):
 
     chp_links = network.links[
         (network.links.carrier == "central_gas_CHP")
-        &(network.links.bus1.isin(network.buses[
-            network.buses.country!="DE"].index))
+        & (
+            network.links.bus1.isin(
+                network.buses[network.buses.country != "DE"].index
+            )
+        )
     ].index
 
-    for i in chp_links:
-        # find central_heat bus
-        country = network.buses.loc[network.links.loc[i, "bus1"],
-                                    "country"]
-        central_heat_bus = network.buses[
-            (network.buses.carrier=="central_heat")
-            &(network.buses.country==country)].index[0]
+    if self.args["method"]["formulation"] == "pyomo":
+        for i in chp_links:
+            print(i)
+            # find central_heat bus
+            country = network.buses.loc[
+                network.links.loc[i, "bus1"], "country"
+            ]
+            central_heat_bus = network.buses[
+                (network.buses.carrier == "central_heat")
+                & (network.buses.country == country)
+            ].index[0]
+            network.add(
+                "Generator",
+                name=i + "_heat",
+                carrier="central_gas_CHP_heat",
+                p_nom=network.links.loc[i, "p_nom"],
+                bus=central_heat_bus,
+            )
+    else:
+        for i in chp_links:
+            print(i)
+            # find central_heat bus
+            country = network.buses.loc[
+                network.links.loc[i, "bus1"], "country"
+            ]
+            central_heat_bus = network.buses[
+                (network.buses.carrier == "central_heat")
+                & (network.buses.country == country)
+            ].index[0]
 
-        network.links.loc[i, "bus2"] = central_heat_bus
-        network.links.loc[i, "efficiency2"] = efficiency_heat
+            network.links.loc[i, "bus2"] = central_heat_bus
+            network.links.loc[i, "efficiency2"] = efficiency_heat
 
     return network
 
 
-
 def levelize_abroad_inland_parameters(self):
     """
-    The method levelize the techno-economic parameters of inland and 
-    abroad components of the same carrier. Thus, the favoring of one 
-    component is avoided just based on the parameters. The differences in the 
+    The method levelize the techno-economic parameters of inland and
+    abroad components of the same carrier. Thus, the favoring of one
+    component is avoided just based on the parameters. The differences in the
     parameters of the input dataset are caused by a updated source used for the
-    pypsa_eur network and different assumed interest_rates. 
-    All necessary parameters of the foreign components are 
+    pypsa_eur network and different assumed interest_rates.
+    All necessary parameters of the foreign components are
     adjusted to the values of the inland components.
-      
+
     Parameters
     ----------
     etrago : :class:`Etrago
          Overall container of Etrago
-     
-      
-    Returns 
+
+
+    Returns
     -------
     None
     """
-    
-    #define carrier and regarding parameters for adjustment
+
+    # define carrier and regarding parameters for adjustment
     carriers_to_adjust = {
         "links": {
             "power_to_H2": ["efficiency", "capital_cost", "marginal_cost"],
@@ -3834,28 +3679,36 @@ def levelize_abroad_inland_parameters(self):
             "H2_to_CH4": ["capital_cost", "marginal_cost"],
             "OCGT": ["efficiency", "marginal_cost"],
             "central_resistive_heater": ["efficiency", "marginal_cost"],
-                },
+        },
         "stores": {
             "central_heat_store": ["capital_cost", "marginal_cost"],
             "H2_overground": ["capital_cost", "marginal_cost"],
             "H2_underground": ["capital_cost", "marginal_cost"],
-            "rural_heat_store": ["capital_cost", "marginal_cost"]
-            },
+            "rural_heat_store": ["capital_cost", "marginal_cost"],
+        },
         "storage_units": {
-            "battery": ["capital_cost", "marginal_cost", "efficiency_dispatch", "efficiency_store"]
-            },
+            "battery": [
+                "capital_cost",
+                "marginal_cost",
+                "efficiency_dispatch",
+                "efficiency_store",
+            ]
+        },
         "generators": {
             "run_of_river": ["efficiency", "marginal_cost"],
             "rural_solar_thermal": ["marginal_cost"],
             "solar": ["marginal_cost"],
             "solar_rooftop": ["marginal_cost"],
             "wind_offshore": ["marginal_cost"],
-            "wind_onshore": ["marginal_cost"],            
-            }
-        }                                   
-    
-    german_buses = self.network.buses[self.network.buses.country == 'DE'].index
-    
+            "wind_onshore": ["marginal_cost"],
+            "rural_oil_boiler": ["marginal_cost"],
+            "oil": ["marginal_cost"],
+            "rural_biomass_boiler": ["marginal_cost"],
+        },
+    }
+
+    german_buses = self.network.buses[self.network.buses.country == "DE"].index
+
     def filter_german_components(df, component, german_buses):
         if component == "links":
             return df[df.bus0.isin(german_buses) & df.bus1.isin(german_buses)]
@@ -3866,37 +3719,57 @@ def levelize_abroad_inland_parameters(self):
 
         component_table = getattr(self.network, component_type)
 
-        german_components = filter_german_components(component_table, component_type, german_buses)
-        foreign_components = component_table[~component_table.index.isin(german_components.index)]
+        german_components = filter_german_components(
+            component_table, component_type, german_buses
+        )
+        foreign_components = component_table[
+            ~component_table.index.isin(german_components.index)
+        ]
 
         for carrier, parameters in carriers.items():
-            #test if carrier exists in both german and abroad components
+            # test if carrier exists in both german and abroad components
             carrier_in_germany = carrier in german_components.carrier.values
             carrier_in_foreign = carrier in foreign_components.carrier.values
-    
+
             if not carrier_in_germany:
-                logger.warning(f"⚠️ Carrier '{carrier}' does NOT exist in the German components ({component_type}).")
-            
+                logger.warning(
+                    f"⚠️ Carrier '{carrier}' does NOT exist in "
+                    f"the German components ({component_type})."
+                )
+
             if not carrier_in_foreign:
-                logger.warning(f"⚠️ Carrier '{carrier}' does NOT exist in the foreign components ({component_type}).")
-            
+                logger.warning(
+                    f"⚠️ Carrier '{carrier}' does NOT exist in "
+                    f"the foreign components ({component_type})."
+                )
+
             if not carrier_in_germany or not carrier_in_foreign:
-                logger.warning(f"⚠️ Skipping carrier '{carrier}' for {component_type}.")
-                continue 
-    
-            german_carrier_components = german_components[german_components.carrier == carrier]
+                logger.warning(
+                    f"⚠️ Skipping carrier '{carrier}' for {component_type}."
+                )
+                continue
+
+            german_carrier_components = german_components[
+                german_components.carrier == carrier
+            ]
 
             for parameter in parameters:
                 if parameter in german_carrier_components.columns:
                     component_table.loc[
-                            (component_table.index.isin(foreign_components.index)) & (component_table.carrier == carrier), 
-                            parameter
-                        ] = german_carrier_components[parameter].mean()
+                        (component_table.index.isin(foreign_components.index))
+                        & (component_table.carrier == carrier),
+                        parameter,
+                    ] = german_carrier_components[parameter].mean()
                 else:
-                    logger.warning(f"⚠️ {parameter} doesn't exist for Carrier '{carrier}' in {component_type}.")
-                    
-        logger.info(f"✅ All required parameters for inland and abroad {component_type} are levelized.")
+                    logger.warning(
+                        f"⚠️ {parameter} doesn't exist for "
+                        f"Carrier '{carrier}' in {component_type}."
+                    )
 
+        logger.info(
+            "✅ All required parameters for inland and abroad "
+            f"{component_type} are levelized."
+        )
 
 def find_interest_buses(self):
     """

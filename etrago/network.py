@@ -36,6 +36,7 @@ from etrago import __version__
 from etrago.analyze.calc_results import (
     ac_export,
     ac_export_per_country,
+    calc_atlas_results,
     calc_etrago_results,
     dc_export,
     dc_export_per_country,
@@ -87,11 +88,12 @@ from etrago.tools.io import (
 from etrago.tools.utilities import (
     add_missing_components,
     adjust_CH4_gen_carriers,
+    adjust_chp_model,
+    adjust_PtH2_model,
     buses_by_country,
     check_args,
     convert_capital_costs,
     crossborder_capacity,
-    delete_dispensable_ac_buses,
     delete_irrelevant_oneports,
     drop_sectors,
     export_to_csv,
@@ -100,6 +102,7 @@ from etrago.tools.utilities import (
     geolocation_buses,
     get_args_setting,
     get_clustering_data,
+    levelize_abroad_inland_parameters,
     load_shedding,
     manual_fixes_datamodel,
     set_branch_capacity,
@@ -110,9 +113,6 @@ from etrago.tools.utilities import (
     set_random_noise,
     set_trafo_costs,
     update_busmap,
-    adjust_chp_model,
-    adjust_PtH2_model,
-    levelize_abroad_inland_parameters,
     find_interest_buses,
     find_links_connected_to_interest_buses,
     add_extendable_solar_generators_to_interest_area,
@@ -254,12 +254,6 @@ class Etrago:
 
             self.get_clustering_data(csv_folder_name)
 
-            conn = db.connection(section=self.args["db"])
-            self.engine = conn
-
-            session = sessionmaker(bind=conn)
-            self.session = session()
-
         else:
             logger.error("Set args or csv_folder_name")
 
@@ -326,6 +320,8 @@ class Etrago:
 
     calc_results = calc_etrago_results
 
+    calc_atlas_results = calc_atlas_results
+
     calc_ac_export = ac_export
 
     calc_ac_export_per_country = ac_export_per_country
@@ -380,8 +376,6 @@ class Etrago:
 
     hydrogen_stores = hydrogen_stores
 
-    delete_dispensable_ac_buses = delete_dispensable_ac_buses
-
     delete_irrelevant_oneports = delete_irrelevant_oneports
 
     get_clustering_data = get_clustering_data
@@ -399,7 +393,7 @@ class Etrago:
     adjust_PtH2_model = adjust_PtH2_model
 
     adjust_chp_model = adjust_chp_model
-    
+
     levelize_abroad_inland_parameters = levelize_abroad_inland_parameters
 
     find_interest_buses = find_interest_buses
@@ -513,13 +507,17 @@ class Etrago:
 
         self.convert_capital_costs()
 
-        self.delete_dispensable_ac_buses()
-
         self.delete_irrelevant_oneports()
 
         set_control_strategies(self.network)
-        
-        self.levelize_abroad_inland_parameters()
+
+        if self.args["scn_name"] in [
+            "eGon100RE",
+            "powerd2025",
+            "powerd2030",
+            "powerd2035",
+        ]:
+            self.levelize_abroad_inland_parameters()
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
