@@ -4937,23 +4937,20 @@ def add_waste_CHP_ingolstadt(self):
 
 def adjust_capital_costs(self):
     """
-    Add a waste-fueled CHP unit (power + heat) located in the interest area.
+    Update the capital cost parameters for selected technologies in the network.
 
-    The function:
-    - Creates a new ``waste`` fuel bus with coordinates in Ingolstadt.
-    - Adds a fixed-capacity ``waste`` generator (fuel supply proxy) on that bus.
-    - Adds two extendable links:
-        * ``central_waste_CHP``       -> electric output to the AC bus
-        * ``central_waste_CHP_heat``  -> thermal output to the central_heat bus
+    The function overwrites the ``capital_cost`` values for:
+    - Links: power-to-gas and gas-to-power conversion technologies
+      (e.g. H₂ electrolysis, methanation, reforming)
+    - Storage units: battery storage systems
+    - Stores: central and rural heat storages
 
     Parameters
     ----------
     self : :class:`Etrago`
         Model instance providing:
         - ``network`` : pypsa.Network
-            Network with ``buses``, ``generators``, and ``links`` components.
-        - ``find_interest_buses`` : callable
-            Helper to resolve AC and central_heat buses in the interest area.
+            Must contain ``links``, ``storage_units``, and ``stores`` components.
 
     Returns
     -------
