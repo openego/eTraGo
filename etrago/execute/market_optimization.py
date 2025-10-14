@@ -319,7 +319,7 @@ def build_market_model(self, unit_commitment=False):
     """
 
     # use existing preprocessing to get only the electricity system
-    net, _, _, busmap_foreign, _, _ = preprocessing(
+    net, weight, n_clusters, busmap_foreign = preprocessing(
         self, apply_on="market_model"
     )
 

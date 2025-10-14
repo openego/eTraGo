@@ -48,6 +48,7 @@ __copyright__ = (
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, mariusves, pieterhexen, ClaraBuettner"
 
+from importlib import import_module
 import os
 
 import numpy as np
@@ -111,14 +112,12 @@ class NetworkScenario(ScenarioBase):
         start_snapshot=1,
         end_snapshot=20,
         temp_id=1,
-        scenario_extension=False,
         **kwargs,
     ):
         self.scn_name = scn_name
         self.start_snapshot = start_snapshot
         self.end_snapshot = end_snapshot
         self.temp_id = temp_id
-        self.scenario_extension = scenario_extension
 
         super().__init__(engine, session, **kwargs)
 
@@ -207,14 +206,6 @@ class NetworkScenario(ScenarioBase):
             egon_etrago_store,
             egon_etrago_transformer,
         )
-
-        if self.scenario_extension:
-            from saio.grid import (  # noqa: F401, F811
-                egon_etrago_extension_bus as egon_etrago_bus,
-                egon_etrago_extension_line as egon_etrago_line,
-                egon_etrago_extension_link as egon_etrago_link,
-                egon_etrago_extension_transformer as egon_etrago_transformer,
-            )
 
         index = f"{name.lower()}_id"
 
@@ -805,20 +796,30 @@ def extension(self, **kwargs):
 
     """
     if self.args["scn_extension"] is not None:
+        if self.args["gridversion"] is None:
+            ormcls_prefix = "EgoGridPfHvExtension"
+        else:
+            ormcls_prefix = "EgoPfHvExtension"
+
         for i in range(len(self.args["scn_extension"])):
             scn_extension = self.args["scn_extension"][i]
             # Adding overlay-network to existing network
             scenario = NetworkScenario(
-                self.engine,
                 self.session,
                 version=self.args["gridversion"],
+                prefix=ormcls_prefix,
+                method=kwargs.get("method", "lopf"),
                 start_snapshot=self.args["start_snapshot"],
                 end_snapshot=self.args["end_snapshot"],
-                scn_name=scn_extension,
-                scenario_extension=True,
+                scn_name="extension_" + scn_extension,
             )
 
             self.network = scenario.build_network(self.network)
+
+            # Allow lossless links to conduct bidirectional
+            self.network.links.loc[
+                self.network.links.efficiency == 1.0, "p_min_pu"
+            ] = -1
 
 
 def decommissioning(self, **kwargs):
@@ -846,65 +847,40 @@ def decommissioning(self, **kwargs):
     Network container including decommissioning
 
     """
-    if self.args["scn_extension"] is not None:
-        for i in range(len(self.args["scn_extension"])):
-            scn_decom = self.args["scn_extension"][i]
-
-            df_decommisionning = pd.read_sql(
-                f"""
-                SELECT * FROM
-                grid.egon_etrago_extension_line
-                WHERE scn_name = 'decomissioining_{scn_decom}'
-                """,
-                self.session.bind,
+    if self.args["scn_decommissioning"] is not None:
+        if self.args["gridversion"] is None:
+            ormclass = getattr(
+                import_module("egoio.db_tables.model_draft"),
+                "EgoGridPfHvExtensionLine",
+            )
+        else:
+            ormclass = getattr(
+                import_module("egoio.db_tables.grid"), "EgoPfHvExtensionLine"
             )
 
-            self.network.mremove(
-                "Line",
-                df_decommisionning.line_id.astype(str).values,
-            )
+        query = self.session.query(ormclass).filter(
+            ormclass.scn_name
+            == "decommissioning_" + self.args["scn_decommissioning"]
+        )
 
-            # buses only between removed lines
-            candidates = pd.concat(
-                [df_decommisionning.bus0, df_decommisionning.bus1]
-            )
-            candidates.drop_duplicates(inplace=True, keep="first")
-            candidates = candidates.astype(str)
+        df_decommisionning = pd.read_sql(
+            query.statement, self.session.bind, index_col="line_id"
+        )
+        df_decommisionning.index = df_decommisionning.index.astype(str)
 
-            # Drop buses that are connecting other lines
-            candidates = candidates[~candidates.isin(self.network.lines.bus0)]
-            candidates = candidates[~candidates.isin(self.network.lines.bus1)]
+        for idx, row in self.network.lines.iterrows():
+            if (row["s_nom_min"] != 0) & (
+                    row["scn_name"]
+                    == "extension_" + self.args["scn_decommissioning"]
+            ):
+                self.network.lines.s_nom_min[
+                    self.network.lines.index == idx
+                    ] = self.network.lines.s_nom_min
 
-            # Drop buses that are connection other DC-lines
-            candidates = candidates[~candidates.isin(self.dc_lines().bus0)]
-            candidates = candidates[~candidates.isin(self.dc_lines().bus1)]
-
-            drop_buses = self.network.buses[
-                (self.network.buses.index.isin(candidates.values))
-                & (self.network.buses.country == "DE")
-            ]
-
-            drop_links = self.network.links[
-                (self.network.links.bus0.isin(drop_buses.index))
-                | (self.network.links.bus1.isin(drop_buses.index))
-            ].index
-
-            drop_trafos = self.network.transformers[
-                (self.network.transformers.bus0.isin(drop_buses.index))
-                | (self.network.transformers.bus1.isin(drop_buses.index))
-            ].index
-
-            drop_su = self.network.storage_units[
-                self.network.storage_units.bus.isin(candidates.values)
-            ].index
-
-            self.network.mremove("StorageUnit", drop_su)
-
-            self.network.mremove("Transformer", drop_trafos)
-
-            self.network.mremove("Link", drop_links)
-
-            self.network.mremove("Bus", drop_buses.index)
+        # Drop decommissioning-lines from existing network
+        self.network.lines = self.network.lines[
+            ~self.network.lines.index.isin(df_decommisionning.index)
+        ]
 
 
 def distance(x0, x1, y0, y1):
