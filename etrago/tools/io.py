@@ -870,12 +870,12 @@ def decommissioning(self, **kwargs):
 
         for idx, row in self.network.lines.iterrows():
             if (row["s_nom_min"] != 0) & (
-                    row["scn_name"]
-                    == "extension_" + self.args["scn_decommissioning"]
+                row["scn_name"]
+                == "extension_" + self.args["scn_decommissioning"]
             ):
                 self.network.lines.s_nom_min[
                     self.network.lines.index == idx
-                    ] = self.network.lines.s_nom_min
+                ] = self.network.lines.s_nom_min
 
         # Drop decommissioning-lines from existing network
         self.network.lines = self.network.lines[
