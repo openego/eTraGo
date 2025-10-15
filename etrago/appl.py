@@ -141,31 +141,6 @@ args = {
         "tol": 1e-6,  # affects clustering algorithm, only change when neccesary
         "CPU_cores": 4,  # number of cores used during clustering, "max" for all cores available.
     },
-    "sector_coupled_clustering": {
-        "active": True,  # choose if clustering is activated
-        "carrier_data": {  # select carriers affected by sector coupling
-            "central_heat": {
-                "base": ["CH4", "AC"],
-                "strategy": "simultaneous",  # select strategy to cluster other sectors
-            },
-            "rural_heat": {
-                "base": ["CH4", "AC"],
-                "strategy": "simultaneous",  # select strategy to cluster other sectors
-            },
-            "H2": {
-                "base": ["CH4"],
-                "strategy": "consecutive",  # select strategy to cluster other sectors
-            },
-            "H2_saltcavern": {
-                "base": ["H2_grid"],
-                "strategy": "consecutive",  # select strategy to cluster other sectors
-            },
-            "Li_ion": {
-                "base": ["AC"],
-                "strategy": "consecutive",  # select strategy to cluster other sectors
-            },
-        },
-    },
     "spatial_disaggregation": None,  # None or 'uniform'
     # Temporal Complexity:
     "snapshot_clustering": {
@@ -557,52 +532,6 @@ def run_etrago(args, json_path):
             Number of cores used in clustering. Specify a concrete number or
             "max" to use all cores available.
             Default: 4.
-
-    sector_coupled_clustering : dict
-        Choose if you want to apply a clustering of sector coupled carriers,
-        such as central_heat, and specify settings.
-        The provided dictionary can have the following entries:
-
-        * "active" : bool
-            State if you want to apply clustering of sector coupled carriers,
-            such as central_heat.
-            Default: True.
-        * "carrier_data" : dict[str, dict]
-            Keys of the dictionary specify carriers affected by sector
-            coupling, e.g. "central_heat". The corresponding dictionaries
-            specify, how the carrier should be clustered. This dictionary must
-            contain the following entries:
-
-            * "base" : list(str)
-                The approach bases on already clustered buses (AC and CH4) and
-                builds clusters around the topology of those buses. With this
-                option, you can specify the carriers to use as base. See
-                `strategy` for more information.
-            * "strategy" :  str
-                Strategy to use in the clustering. Possible options are:
-
-                * "consecutive"
-                    This strategy clusters around the buses of the first
-                    carrier in the `'base'`` list. The links to other buses are
-                    preserved. All buses, that have no connection to the first
-                    carrier will then be clustered around the buses of the
-                    second carrier in the list.
-                * "simultaneous"
-                    This strategy looks for links connecting the buses of the
-                    carriers in the ``'base'`` list and aggregates buses in
-                    case they have the same set of links connected. For
-                    example, a heat bus connected to CH4 via gas boiler and to
-                    AC via heat pump will only form a cluster with other buses,
-                    if these have the same links to the same clusters of CH4
-                    and AC.
-
-            Per default, the following dictionary is set:
-            {
-                "central_heat": {
-                    "base": ["CH4", "AC"],
-                    "strategy": "simultaneous",
-                },
-            }
 
     disaggregation : None or str
         Specify None, in order to not perform a spatial disaggregation, or the

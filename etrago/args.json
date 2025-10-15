@@ -89,18 +89,6 @@
         "tol": 1e-6,
         "CPU_cores": 4
     },
-    "sector_coupled_clustering": {
-        "active": true,
-        "carrier_data": {
-            "central_heat": {
-                "base": [
-                    "CH4",
-                    "AC"
-                ],
-                "strategy": "simultaneous"
-            }
-    }
-    },
     "spatial_disaggregation": null,
     "snapshot_clustering": {
         "active": false,
