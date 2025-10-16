@@ -13,7 +13,7 @@ Research Projects and Publications
 *eTraGo* was initially developed within the research projects
 `open_eGo <https://openegoproject.wordpress.com>`_ and `eGon <https://ego-n.org/>`_.
 It is constantly further developed in different reserach projects, 
-e.g. `PoWerD <https://www.h2-powerd.de/>`_. 
+e.g. `PoWerD <https://www.h2-powerd.de/>`_ and `reGon <https://rego-n.org/>`_.
 
 Publications:
 
@@ -28,11 +28,10 @@ Publications:
 eTraGo as part of the eGo-Toolchain
 ===================================
 
-.. figure:: images/ego_tools.svg
+.. figure:: images/toolchain.png
    :align: center
    :scale: 75%
 
-   
 The tools illustrated in the graph above have been developed for cross-grid level optimization of the sector-coupled energy system in Germany as part of the aforementioned research projects. The following section describes the individual elements of this toolchain. 
 
 Open Energy Platform
@@ -47,14 +46,14 @@ For access to the coresponding data models, registration and login are necessary
 Data Model Creation
 -------------------
 
-The corresponding data model is created using the Python tool `eGon-data <https://github.com/openego/eGon-data>`, which represents a further development of the `data processing <https://github.com/openego/data_processing>` tool. The model covers the coupling of electricity grid models on different voltage levels with a gas grid model, demands and flexibilities from the mobility, heat and hydrogen sectors as well as the integration of other electrical flexibilities such as demand-side management and dynamic line rating. It is characterised by a high spatial resolution within Germany, while other countries are considered in an aggregated form. Several future scenarios have been developed, each covering one year in hourly resolution and differing in terms of generation, demand and availability of some technologies. 
+The corresponding data model is created using the Python tool `eGon-data <https://github.com/openego/eGon-data>`_, which represents a further development of the `data processing <https://github.com/openego/data_processing>` tool. The model covers the coupling of electricity grid models on different voltage levels with gas grid models (depending on the scenario considered) and captures sectoral demands and flexibilities from electricity, mobility, heat, and gas systems, including further electrical flexibilities such as demand-side management and dynamic line rating. It is characterised by a high spatial resolution within Germany, while other countries are considered in an aggregated form. Several future scenarios have been developed, each covering one year in hourly resolution and differing in terms of generation, demand and availability of some technologies. 
 
-The developed data model provides data consistent on different aggregation levels and serves as input for the tools `eTraGo <https://github.com/openego/eTraGo>`_, `eDisGo <https://github.com/openego/eDisGo>`_ and `ding0 <https://github.com/openego/ding0>`_. The outputs of *eGon-data* are published under open source and open data licenses.
+The developed data model provides data consistent on different aggregation levels and serves as input for the tools `eTraGo <https://github.com/openego/eTraGo>`_, `eDisGo <https://github.com/openego/eDisGo>`_ and `Ding0 <https://github.com/openego/ding0>`_. The outputs of *eGon-data* are published under open source and open data licenses.
 
 Distribution Grid Optimization
 ------------------------------
 
-`Ding0 <https://dingo.readthedocs.io/>`_ (**Di**\stribution **N**\etwork **G**\enerat**0**\r) is a tool to generate synthetic 
+`Ding0 <https://dingo.readthedocs.io/>`_ (**Di**\stribution **N**\etwork **G**\enerat **0**\r) is a tool to generate synthetic 
 medium and low voltage distribution grids based on open data.
 
 `eDisGo <https://dingo.readthedocs.io/>`_ (**e**\lectric **Dis**\tributon **G**\rid **o**\ptimization) provides a toolbox for optimization and analysis
@@ -69,7 +68,7 @@ Cross-Grid Level Optimization
 License
 =======
 
-© Copyright 2015-2024
+© Copyright 2015-2025
 Flensburg University of Applied Sciences,
 Europa-Universität Flensburg,
 Centre for Sustainable Energy Systems and
