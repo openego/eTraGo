@@ -7,10 +7,11 @@ References
    
 .. [Buettner20242] C. Buettner, U. P. Müller:
    *The impact of redispatch on grid and storage expansion planning in the German energy system*. 2024.
+   `<https://energy.acm.org/eir/the-impact-of-redispatch-on-grid-and-storage-expansion-planning-in-the-german-energy-system/>`_ 
    
 .. [Esterl2024] K. Esterl, C. A. Realpe Epia, U. P. Müller:
    *Avoiding False Inter-Zonal Meshing in the Clustering of a Large-Scale German Power Grid*. 2024.
-   PREPRINT. `<https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4527860>`_ 
+   `<https://www.sciencedirect.com/science/article/pii/S2211467X24002785>`_ 
    
 .. [Buettner2024] C. Buettner, K. Esterl, I. Cussmann, C. A. Realpe Epia, J. Amme, A. Nadal: 
    *Influence of flexibility options on the German transmission grid — A sector-coupled mid-term scenario*. 2024.
