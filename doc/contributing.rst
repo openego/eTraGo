@@ -4,37 +4,35 @@ Contributing
 ============
 
 
-The package *eTraGo* is a collaborative projects with several people
+*eTraGo* is a collaborative project with several people
 contributing to it. The following section gives an overview of
 applicable guidelines and rules to enable a prospering collaboration.
 Any external contributions are welcome as well, and they are greatly
 appreciated! Every little bit helps, and credit will always be given.
 
 
-Bug reports and feature requests
+Bug Reports and Feature Requests
 ================================
 
 The best way to report bugs, inform about intended developments, send
 feedback or propose a feature
 is to file an issue at
 https://github.com/openego/eTraGo/issues.
-
 Please tag your issue with one of the predefined labels as it helps
 others to keep track of unsolved bugs, open tasks and questions.
 
 To inform others about intended developments please include:
 
-* a describtion of the purpose and the value it adds
+* a description of the purpose and the value it adds
 * outline the required steps for implementation
 * list open questions
 
 When reporting a bug please include all information needed to reproduce
-the bug you found.
-This may include information on
+the bug you found. This may include information on:
 
-* Your operating system name and version.
-* Any details about your local setup that might be helpful in troubleshooting.
-* Detailed steps to reproduce the bug.
+* your operating system name and version
+* any details about your local setup that might be helpful in troubleshooting
+* detailed steps to reproduce the bug
 
 If you are proposing a feature:
 
@@ -42,12 +40,12 @@ If you are proposing a feature:
 * Keep the scope as narrow as possible, to make it easier to implement.
 
 
-Contribution guidelines
+Contribution Guidelines
 =======================
 
 
-Development
------------
+General Procedure
+--------------------
 
 Adding changes to the *eTraGo* repository should follow some guidelines:
 
@@ -62,7 +60,7 @@ Adding changes to the *eTraGo* repository should follow some guidelines:
 
     git checkout -b `<prefix>/#<issue-id>-very-brief-description`
 
-   where `issue-id` is the issue number on GitHub and `prefix` is one of
+   where `issue-id` is the issue number on *GitHub* and `prefix` is one of
 
     - features
     - fixes
@@ -72,13 +70,15 @@ Adding changes to the *eTraGo* repository should follow some guidelines:
    branch in your local repository, in which you can now make your
    changes. Be sure to check out our `style conventions`_ so that your
    code is in line with them.
+   
    If you don't have push rights to our `repository`_, you need to fork
    it via the "Fork" button in the upper right of the `repository`_
    page and work on the fork.
 
    .. _style conventions: `Code and Commit Style`_
 
-3. Make sure to update the documentation along with your code changes
+3. Make sure to update the documentation along with your code changes, 
+    therfore please checkout the documentation guidelines.
 
 4. When you're done making changes run all the checks and docs builder
    with `tox <https://tox.readthedocs.io/en/latest/install.html>`_ one
@@ -88,7 +88,7 @@ Adding changes to the *eTraGo* repository should follow some guidelines:
 
       tox
 
-5. Commit your changes and push your branch to GitHub::
+5. Commit your changes and push your branch to *GitHub*::
 
     git add -p
     git commit
@@ -105,8 +105,13 @@ Adding changes to the *eTraGo* repository should follow some guidelines:
   put them under version control, you have to add them explicitly by
   running :code:`git add FILE1 FILE2 ...` instead.
 
-6. Submit a pull request through the GitHub website.
+6. Submit a pull request through the *GitHub* website.
 
+Within the pull request, please refer to the corresponding issue and briefly 
+explain how the reviewers can, from your perspective, verify your changes.
+Please checkout the corresponding `doumentation`_ guidelines.
+
+.. _documentation: `Documentation`_
 
 Code and Commit Style
 ---------------------
@@ -184,14 +189,13 @@ can be merged. Please delete the branch after merging.
 
 When requesting reviews, please keep in mind it might be a significant effort
 to review the PR. Try to make it easier for them and keep the overall effort
-as low as possible. Therefore,
+as low as possible. 
 
-* asking for reviewing specific aspects helps reviewers a lot to focus on the
-  relevant parts
-* when multiple people are asked for a review it should be avoided that they
-  check/test the same things. Be even more specific what you expect from
-  someone in particular.
-
+* Asking for reviewing specific aspects helps reviewers a lot to focus on the
+  relevant parts.
+* When multiple people are requested for a review, try to avoid having them 
+   check or test the same aspects. Be as specific as possible about what you 
+   expect from each reviewer.
 
 
 Documentation
@@ -205,14 +209,14 @@ along with your code changes though.
 The changes of the documentation in a feature branch get visible once a
 pull request is opened.
 
-How to document Python scripts
+How to document Python Scripts
 ------------------------------
 
 Use docstrings to document your Python code. Note that PEP 8 also
 contains a `section <PEP8-docstrings_>`_ on docstrings and that there is
 a whole `PEP <PEP257_>`_ dedicated to docstring conventions. Try to
 adhere to both of them.
-Additionally every Python script needs to contain a header describing
+Additionally, every Python script needs to contain a header describing
 the general functionality and objective and including information on
 copyright, license and authors.
 
@@ -231,14 +235,14 @@ copyright, license and authors.
 
 
 
-You can build the documentation locally with (executed in the repos root
-directory)
+You can build the documentation locally by executing the following code
+in the repos root directory:
 
 .. code-block:: bash
 
    sphinx-build -E -a docs docs/_build/
 
-Eventually, you might need to install additional dependencies for building the
+Eventually, you need to install additional dependencies for building the
 documenmtation:
 
 .. code-block:: bash

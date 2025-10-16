@@ -10,15 +10,15 @@ Once the *eTraGo* application has been installed, optimization runs can be initi
   $ python3 appl.py
     
     
-The ``appl.py`` file presents the user interface and may be edited with the preferred Python editor. Within the ``appl.py`` module, the scenario settings, parameters and calculation methods are defined within a Python dictionary, referred to as ``args``. It is important to comprehend the parameters in order to execute the desired calculation. It should be noted that some parameters are mutually exclusive, and thus, their usage must be carefully considered. Further information can be found in the subsequent section (Section ref:`Functionalities_ref`), or in the documentation of all defined parameters from the ``args`` dictionary, accessible in the function :func:`etrago.appl.run_etrago<etrago.appl.run_etrago>`.
+The ``appl.py`` file presents the user interface and may be edited with the preferred Python editor. Within the ``appl.py`` module, the scenario settings, parameters and calculation methods are defined within a Python dictionary, referred to as ``args``. It is important to comprehend the parameters in order to execute the desired calculation. It should be noted that some parameters are mutually exclusive, and thus, their usage must be carefully considered. Further information can be found in the subsequent section (Section :ref:`Functionalities_ref`) or in the documentation of all defined parameters from the ``args`` dictionary, accessible in the function :func:`etrago.appl.run_etrago<etrago.appl.run_etrago>`.
 
 As an alternative approach, the ``args`` dictionary can be modified through the use of a JSON-file. The path to the JSON-file must be specified during the initialization of the ``Etrago object`` (of the class ``Etrago.network.Etrago``). Once a path is provided, the ``args`` dictionary in the ``appl.py`` is disregarded and substituted with the dictionary from the JSON-file.
 
 The ``appl.py`` contains the function :func:`etrago.appl.run_etrago<etrago.appl.run_etrago>` which uses the defined ``args`` dictionary to start the desired calculation.
 
-In order to enhance the efficacy of the optimization process using the selected solver, it may be beneficial to consider the utilisation of solver options (which form part of the ``args`` dictionary). For Gurobi, the some preferrable settings are outlined in Section ref:`Functionalities_ref`.
+In order to enhance the efficiency of the optimization process using the selected solver, it may be beneficial to consider the utilisation of solver options (which form part of the ``args`` dictionary). For *Gurobi*, the some preferrable settings are outlined in Section :ref:`Functionalities_ref`.
 
-For more specific or extensive changes you are kindly invited to write code and add new functionalities. Please see Section Section ref:`Contributing_ref`.
+For more specific or extensive changes you are kindly invited to write code and add new functionalities. Please see Section :ref:`Contributing_ref`.
 
 Once the calculation has finished, the ``Etrago object`` will contain all of the resulting data. Some principal results (e.g. annual system costs) are calculated by the function :meth:`etrago.calc_results<etrago.analyze.calc_results.calc_etrago_results>`. Additionally, several plotting functions are available (:meth:`etrago.analyze.plot<etrago.analyze.plot>`). To save the results, you can write them to csv files. You can specify this export within the ``args``.
 

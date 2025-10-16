@@ -14,7 +14,7 @@ Functionalities
 Data Model
 ==========
 
-The input data covers the coupling of electricity grid models on different voltage levels with a gas grid model, demands and flexibilities from the mobility, heat and hydrogen sectors as well as the integration of other electrical flexibilities such as demand-side management and dynamic line rating. It is characterised by a high spatial resolution within Germany, while other countries are considered in an aggregated form. Several future scenarios have been developed, each covering one year in hourly resolution and differing in terms of generation, demand and availability of some technologies. The data model is generated using the tool *eGon-data*. More details on the model can be found in the documentation of `eGon-data <https://egon-data.readthedocs.io/en/latest/>`_ or the following publications: [eGon_report]_ and [Buettner2024]_. The graphs below give some impressions [eGon_report]_:
+The model covers the coupling of electricity grid models on different voltage levels with gas grid models (depending on the scenario considered) and captures sectoral demands and flexibilities from electricity, mobility, heat, and gas systems, including further electrical flexibilities such as demand-side management and dynamic line rating. It is characterised by a high spatial resolution within Germany, while other countries are considered in an aggregated form. Several future scenarios have been developed, each covering one year in hourly resolution and differing in terms of generation, demand and availability of some technologies. The data model is generated using the tool *eGon-data*. More details on the model can be found in the documentation of `eGon-data <https://egon-data.readthedocs.io/en/latest/>`_ or the following publications: [eGon_report]_ and [Buettner2024]_. The graphs below give some impressions [eGon_report]_:
 
 .. figure:: images/input_data.png
    :align: center
@@ -28,7 +28,7 @@ The input data covers the coupling of electricity grid models on different volta
 * eGon100RE (still under development) characterised by a 100% renewable generation 
 * `status2019 <https://zenodo.org/records/13143969>`_ depicting the status in 2019
 
-You can see the modeling concepts of the scenarios in the figure below. The components marked green have exogenous capacity and endogenous dispatch whereas the components marked in red are optimised endogenously in capacity and dispatch.
+You can see the modeling concepts of the scenarios in the figure below. The components marked green have exogenous capacity and endogenous dispatch whereas the components marked in red are optimized endogenously in capacity and dispatch.
 
 .. figure:: images/modelling_concept.png
    :align: center
@@ -40,18 +40,17 @@ Scenario Variation
 
 Several features were developed to enhance the functionality of *eTraGo* and allow for adaptions within the scenarios introduced above.
 
-* In ‚extendable‘ you can adapt the type of components you want to be optimised in capacity and set upper limits for grid expansion inside Germany and of lines to foreign countries.
+* In ‚extendable‘ you can adapt the type of components you want to be optimized in capacity and set upper limits for grid expansion inside Germany and of lines to foreign countries.
 * With ‘foreign_lines‘ you can adapt the foreign lines to be modeled as DC-links (e.g. to avoid loop flows).
 * ‘branch_capacity_factor’ adds a factor to adapt all line capacities in order to consider (n-1) security. Because the average number of HV systems is much smaller than the one of eHV lines, you can choose factors for ‘HV’ and ‘eHV’ separately. 
 * The ‚extra_functionality‘-argument allows to consider extra constraints like limits for energy imort and export or minimal renewable shares in generation.
-* The ‘load_shedding’-argument is used for debugging complex grids in order to avoid infeasibilities. It introduces a very expensive generator at each bus to meet the demand. When optimising storage units and grid expansion without limiting constraints, the need for load shedding should not be existent. 
-
+* The ‘load_shedding’-argument is used for debugging complex grids in order to avoid infeasibilities. It introduces a very expensive generator at each bus to meet the demand. When optimizing storage units and grid expansion without limiting constraints, the need for load shedding should not be existent. 
 
 
 Complexity Reduction
 ====================
 
-The data model is characterised by a high spatial (about 8,000 electrical and 600 gas nodes) and temporal resolution (8,760 timesteps). To reduce the complexity of the resulting optimisation problem, several methods can be applied.
+The data model is characterised by a high spatial (about 8,000 electrical and 600 gas nodes) and temporal resolution (8,760 timesteps). To reduce the complexity of the resulting optimization problem, several methods can be applied.
 
 
 Reduction in Spatial Dimension:
@@ -68,6 +67,7 @@ The procedures of the two methods are depicted in the following figure [Esterl20
 .. figure:: images/complexity_spatial.png
    :align: center
    :width: 800
+
 
 
 In general, the clustering of the **sector-coupled system** is divided into two steps:
@@ -87,15 +87,14 @@ The **Snapshot Clustering on Typical Periods** implies a hierarchical clustering
 Calculation with PyPSA
 ======================
 
-All optimization methods within *eTraGo* base on the Linear Optimal Power Flow (LOPF) implemented in `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_.
-The objective is the minimization of system costs, considering marginal cost of energy generation and investments in grid infrastructure, storage units and different flexibility options. The different options are specific for each scenario.
+All optimization methods within *eTraGo* base on the Linear Optimal Power Flow (LOPF) implemented in `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_. The objective is the minimization of system costs, considering marginal costs of energy generation and investments in grid infrastructure, storage units and different flexibility options. The different options are specific for each scenario.
 
-Currently, two different optimization approaches are implemented considering different conficgurations of energy markets and optimization variables. The different options are described in the following sections. 
+Currently, two different optimization approaches are implemented considering different configurations of energy markets and optimization variables. The different options are described in the following sections. 
 
-Integrated optimization with nodal pricing
+Integrated Optimization with Nodal Pricing
 ------------------------------------------
 
-The objective is to minimize marginal cost of energy generation and investments in grid infrastructure, storage units and different flexibility options in one optmization problem. 
+The objective is to minimize marginal costs of energy generation and investments in grid infrastructure, storage units and different flexibility options in one optimization problem. Various constrains are added to model the physical and electrical behavior.
 The following objective function is applied: 
 
 .. math::
@@ -108,37 +107,31 @@ The following objective function is applied:
     \end{gather*}
 
 
-This implies a nodal pricing approach and optimal dispatch and redispatch. Redispatch and curtailment of renewable energy is possible, without any additional redispatch costs. 
-Investments and expanded capacities of grid infrastructure, storage units and different flexibility options are a key result. It has to be noted that expansion is employed continiously. The expanded capacities not always refelect existing technical appliences. This allows to keep a linear optimization problem that is feasible for the described complex model. 
+This implies a nodal pricing approach with optimal dispatch and redispatch. Redispatch and curtailment of renewable energy are possible without incurring additional redispatch costs. Investments and expanded capacities of grid infrastructure, storage units, and various flexibility options are key outcomes. It should be noted that expansion is applied continuously. The expanded capacities do not always reflect existing technical constraints, which allows the optimization problem to remain linear and feasible for the complex model described.
 
-Various constrains are added to model the physical and electrical behavior. 
+The integrated optimization produces highly cost-effective results, but it does not fully reflect the actual German energy market. A more detailed description of this modeling approach, as well as selected results, can be found in various studies and papers, e.g., [Mueller2019]_ and [Buettner2024]_.
 
-The integrated optimization results in highly cost-effective results, but does not reflect the acctual German energy market.
-A more detailed description of this modelling apporoach as well as some results can be found in differnent studies and papers, e.g. in: [Mueller2019]_, [Buettner2024]_.
-
-Consecutive market and grid optimization
+Consecutive Market and Grid Optimization
 ----------------------------------------
+This methodology aims to represent an energy market close to the current market design by separating the market model from the grid model. The optimization method consists of three consecutive steps.
 
-This methodology aims to represent an energy market that is close to the acctual current market design by separateing the market model from the grid model. The optimization method consists of three consecutive steps. 
-At first, seasonal storage behavior and market-based expansions of flexibility options are identified through a simplified yet annual calculation. The second step aims to come up with a realistic dispatch for each power plant and hour, taking into account non-linear Unit Commitment constraints and a short-term, rolling planning horizon. In both steps, the spatial resolution is defined by one node per current bidding zone.
-In the last optimization step, the grid topology (potentially in a resuced spatial resolution as described in XX) is considered. This allows to optimize grid expansion. The market-based dispatch is defined by the previous step, redispatch and curtailment is possible, but results into additional system costs. 
+First, seasonal storage behavior and market-based expansions of flexibility options are identified through a simplified yet annual calculation. The second step generates a realistic dispatch for each power plant and hour, taking into account non-linear Unit Commitment constraints and a short-term, rolling planning horizon. In both steps, the spatial resolution is defined as one node per current bidding zone.
+
+In the final optimization step, the grid topology (potentially in a reduced spatial resolution as described in [Buettner2024]_) is considered, allowing for optimization of grid expansion. The market-based dispatch is determined by the previous step; redispatch and curtailment are possible, but they result in additional system costs.
 
 A brief overview of the different optimization steps, their key characteristics and results is shown in the following figure. 
 A detailed description of the methodology is given in [Buettner20242]_, which also presents and analyses results.
 
-
-Grid and Storage / Store expansion
+Grid and Storage / Store Expansion
 ----------------------------------
 
-The grid expansion is realized by extending the capacities of existing lines and substations. These capacities are considered as part of the optimisation problem whereby the possible extension is unlimited. With respect to the different voltage levels and lengths, MVA-specific costs are considered in the optimisation. 
+The grid expansion is realized by extending the capacities of existing lines and substations. These capacities are considered as part of the optimization problem whereby the possible extension is unlimited. With respect to the different voltage levels and lengths, MVA-specific costs are considered in the optimization. 
 
-As shown in the figure above, several options to store energy are part of the modeling concept. Extendable batteries (modeled as storage units) are assigned to every node in the electrical grid. A minimum installed capacity is being considered to account for home batteries ([NEP]_). The expansion and operation is part of the optimisation. Furthermore, two types of hydrogen stores (modeled as stores) are available. Overground stores are optimised in operation and dispatch without limitations whereas underground stores depicting saltcaverns are limited by geographical conditions ([BGR]_). Additionally, heat stores part of the optimisation in terms of power and energy without upper limits. 
+As shown in the figure above, several options to store energy are part of the modeling concept. Extendable batteries (modeled as storage units) are assigned to every node in the electrical grid. A minimum installed capacity is being considered to account for home batteries ([NEP]_). The expansion and operation is part of the optimization. Furthermore, two types of hydrogen stores (modeled as stores) are available. Overground stores are optimized in operation and dispatch without limitations whereas underground stores depicting saltcaverns are limited by geographical conditions ([BGR]_). Additionally, heat stores part of the optimization in terms of power and energy without upper limits. 
 
-
-Non-linear power flow
+Non-Linear Power Flow
 ---------------------
 With the argument ‘pf_post_lopf’, after the LOPF a non-linear power flow simulation can be conducted.
-
 
 Solver Options
 --------------
@@ -184,14 +177,14 @@ To customize computation settings, ‘solver_options’ and ‘generator_noise�
 Disaggregation
 ==============
 
-By applying a 2-level-approach, a **temporal disaggregation** can be conducted. This means optimising dispatch using the fullcomplex time series in the second step after having optimised grid and storage expansion using the complexity-reduced time series in the first step. More information can be found in the master thesis by [Esterl2022]_.
+By applying a 2-level-approach, a **temporal disaggregation** can be conducted. This means optimizing dispatch using the fullcomplex time series in the second step after having optimized grid and storage expansion using the complexity-reduced time series in the first step. More information can be found in the master thesis by [Esterl2022]_.
 
 Afterterwards, a **spatial disaggregation** can be conducted distributing power plant and storage utilisation time series, the expansion of storage facilities and the use of flexibility options over the original number of nodes. The expansion of the transmission grid is not disaggregated and remains at the reduced spatial resolution. The methodology is explained in [eGon_report]_.
 
 Analysis
 ========
 
-*eTraGo* contains various functions for evaluating the optimisation results in the form of graphics, maps and tables. Functions to quantify results can be found in :meth:`etrago.analyze.calc_results<etrago.analyze.calc_results>` and functions to plot results can be found in :meth:`etrago.analyze.plot<etrago.analyze.plot>`.
+*eTraGo* contains various functions for evaluating the optimization results in the form of graphics, maps and tables. Functions to quantify results can be found in :meth:`etrago.analyze.calc_results<etrago.analyze.calc_results>` and functions to plot results can be found in :meth:`etrago.analyze.plot<etrago.analyze.plot>`.
 Some examplary graphs by [Buettner2024]_ are presented below:
 
 .. figure:: images/exemplary_results.png

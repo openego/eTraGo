@@ -7,7 +7,7 @@
 eTraGo - **e**\lectric **Tra**\nsmission **G**\rid **o**\ptimization
 ====================================================================
 
-*eTraGo* is a cross-sectoral grid planning tool focusing on the extra-high and high-voltage power grid level. In addition to the electricity sector, the gas (methane and hydrogen), heat and mobility sectors are considered. *eTraGo* optimizes grid and storage expansion as well as power plant deployment, taking into account various flexibility options. These include electrical flexibilities such as demand-side management or dynamic line rating, as well as flexibilities arising from sector coupling, such as heat stores, gas stores or shifting potentials from charging electric vehicles. *eTraGo* is an open-source Python package that is largely based on `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_.
+*eTraGo* is a cross-sectoral grid planning tool focusing on the extra-high and high-voltage power grid level. In addition to the electricity sector, the gas (methane and hydrogen), heat and mobility sectors are considered. *eTraGo* optimizes grid and storage expansion as well as power plant deployment, taking into account various flexibility options. These include electrical flexibilities such as demand-side management or dynamic line rating, as well as flexibilities arising from sector coupling, such as heat stores, gas stores or shifting potentials from charging electric vehicles. *eTraGo* is an open-source Python package primarily based on `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_.
 
 .. figure:: images/etrago_logo.png
    :align: right
