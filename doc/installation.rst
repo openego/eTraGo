@@ -15,9 +15,14 @@ Use the following command in order to install *eTraGo*.
 
   $ pip3 install eTraGo
 
+For any difficulties encountered during installation, please consult the :ref:`Troubleshooting` section.
 
-Using a Virtual Environment
-===========================
+
+Linux and Ubuntu with a Virtual Environment
+=====================================
+
+The package *eTraGo* is tested with Ubuntu 20.04 and 22.04 inside the virtual
+environments of `virtualenv <https://virtualenv.pypa.io/en/stable/>`_.
 
 Before installing *eTraGo*, create a virtual environment in your preferred location and activate it:
 
@@ -29,14 +34,6 @@ Before installing *eTraGo*, create a virtual environment in your preferred locat
 
 Inside your activated virtual environment you can 
 install *eTraGo* with the pip command, as previously explained.
-
-
-Linux and Ubuntu
-================
-
-The package *eTraGo* is tested with Ubuntu 20.04 and 22.04 inside the virtual
-environments of `virtualenv <https://virtualenv.pypa.io/en/stable/>`_.
-The installation is shown above.
 
 
 Windows or Mac OSX
@@ -113,29 +110,28 @@ Installation for Developers
 ===========================
 
 .. note::
-      Installation has been primarily tested on Linux-based operating systems (e.g., Ubuntu).
+   Installation has been primarily tested on Linux-based operating systems (e.g., Ubuntu).
 
 1. If you wish, create a virtual environment in your preferred location and activate it. 
-    If you are not using ``venv``, start with step 2.
+   If you are not using ``venv``, start with step 2.
 
-.. code-block:: bash
+   .. code-block:: bash
 
-   $ virtualenv --clear -p python3.10  etrago``
-   $ cd etrago/
-   $ source bin/activate
-   
+      $ virtualenv --clear -p python3.10 etrago
+      $ cd etrago/
+      $ source bin/activate
+
 2. Clone the source code from *GitHub*:
 
-.. code-block:: bash
+   .. code-block:: bash
 
-   $ git clone https://github.com/openego/eTraGo
+      $ git clone https://github.com/openego/eTraGo
 
-You can checkout to the dev branch and create new feature branches.
-For the correct work-flow, please mind the 
-`Dreissen Branching Model <https://nvie.com/posts/a-successful-git-branching-model/>`_
+   You can checkout to the dev branch and create new feature branches.
+   **For the correct work-flow, please mind the guidelines described within the the :ref:`Contributing_ref` section.**
 
 3. Use the following code to install *eTraGo* directly from the cloned repository:
 
-.. code-block:: bash
+   .. code-block:: bash
 
-   $ pip3 install -e /path/to/eTraGo/
+      $ pip3 install -e /path/to/eTraGo/

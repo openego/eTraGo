@@ -16,8 +16,9 @@ Bug Reports and Feature Requests
 
 The best way to report bugs, inform about intended developments, send
 feedback or propose a feature
-is to file an issue at
-https://github.com/openego/eTraGo/issues.
+is to file an issue at:
+https://github.com/openego/eTraGo/issues
+
 Please tag your issue with one of the predefined labels as it helps
 others to keep track of unsolved bugs, open tasks and questions.
 
@@ -43,46 +44,40 @@ If you are proposing a feature:
 Contribution Guidelines
 =======================
 
-
 General Procedure
 --------------------
 
 Adding changes to the *eTraGo* repository should follow some guidelines:
 
-1. Create an `issue`_ in our `repository`_ to describe the intended
-   developments briefly
+1. Create an `issue`_ in our `repository`_ to briefly describe the intended developments.
 
    .. _issue: https://github.com/openego/eTraGo/issues
    .. _repository: https://github.com/openego/eTraGo
 
-2. Create a branch for your issue related development from the
-   dev-branch following our branch naming convention::
+2. Create a branch for your issue-related development from the
+   *dev* branch following our branch naming convention::
 
-    git checkout -b `<prefix>/#<issue-id>-very-brief-description`
+      git checkout -b <prefix>/#<issue-id>-very-brief-description
 
-   where `issue-id` is the issue number on *GitHub* and `prefix` is one of
+   where ``issue-id`` is the issue number on *GitHub* and ``prefix`` is one of:
 
-    - features
-    - fixes
-    - refactorings
+   - **features**
+   - **fixes**
+   - **refactorings**
 
-   depending on which one is appropriate. This command creates a new
-   branch in your local repository, in which you can now make your
-   changes. Be sure to check out our `style conventions`_ so that your
-   code is in line with them.
-   
-   If you don't have push rights to our `repository`_, you need to fork
-   it via the "Fork" button in the upper right of the `repository`_
-   page and work on the fork.
+   depending on which one is appropriate.  
+   This command creates a new branch in your local repository, in which you can now make your changes.  
+   Be sure to check out our `style conventions`_ so that your code follows them.
+
+   If you don't have push rights to our `repository`_, you need to fork it via the "Fork" button in the upper right corner of the `repository`_ page and work on your fork.
 
    .. _style conventions: `Code and Commit Style`_
 
-3. Make sure to update the documentation along with your code changes, 
-    therfore please checkout the documentation guidelines.
+3. Make sure to update the documentation along with your code changes.  
+   Therefore, please check out the documentation guidelines.
 
-4. When you're done making changes run all the checks and docs builder
-   with `tox <https://tox.readthedocs.io/en/latest/install.html>`_ one
-   command:
+4. When you're done making changes, run all checks and build the docs using
+   `tox <https://tox.readthedocs.io/en/latest/install.html>`_ with one command:
 
    .. code-block:: bash
 
@@ -90,28 +85,19 @@ Adding changes to the *eTraGo* repository should follow some guidelines:
 
 5. Commit your changes and push your branch to *GitHub*::
 
-    git add -p
-    git commit
-    git push origin features/#<issue-id>-very-brief-description
+      git add -p
+      git commit
+      git push origin features/#<issue-id>-very-brief-description
 
-  Note that the :code:`-p` switch will make :code:`git add` iterate
-  through your changes and prompt for each one on whether you want to
-  include it in the upcoming commit. This is useful if you made multiple
-  changes which should conceptually be grouped into different commits,
-  like e.g. fixing the documentation of one function and changing the
-  implementation of an unrelated one in parallel, because it allows you
-  to still make separate commits for these changes. It has the drawback
-  of not picking up new files though, so if you added files and want to
-  put them under version control, you have to add them explicitly by
-  running :code:`git add FILE1 FILE2 ...` instead.
+   Note that the ``-p`` switch will make ``git add`` iterate through your changes and prompt for each one on whether you want to include it in the upcoming commit.  
+   This is useful if you made multiple changes which should conceptually be grouped into different commits (e.g., fixing the documentation of one function and changing the implementation of an unrelated one in parallel).  
+   It has the drawback of not picking up new files, so if you added files and want to put them under version control, you have to add them explicitly by running ``git add FILE1 FILE2 ...``.
 
 6. Submit a pull request through the *GitHub* website.
 
-Within the pull request, please refer to the corresponding issue and briefly 
-explain how the reviewers can, from your perspective, verify your changes.
-Please checkout the corresponding `doumentation`_ guidelines.
+   Within the pull request, please refer to the corresponding issue and briefly explain how the reviewers can, from your perspective, verify your changes.  
+   Please check out the corresponding `Documentation`_ guidelines.
 
-.. _documentation: `Documentation`_
 
 Code and Commit Style
 ---------------------
@@ -187,17 +173,13 @@ PRs always need to be reviewed (exception proves the rule!). Therefore, ask
 one of the other developers for reviewing your changes. Once approved, the PR
 can be merged. Please delete the branch after merging.
 
-When requesting reviews, please keep in mind it might be a significant effort
-to review the PR. Try to make it easier for them and keep the overall effort
-as low as possible. 
+When requesting reviews, please keep in mind it might be a significant effort to review the PR. 
+Try to make it as easy as possible for the reviewer(s) and keep the overall effort as low as possible. 
 
-* Asking for reviewing specific aspects helps reviewers a lot to focus on the
-  relevant parts.
-* When multiple people are requested for a review, try to avoid having them 
-   check or test the same aspects. Be as specific as possible about what you 
-   expect from each reviewer.
+* Asking for reviewing specific aspects helps reviewers a lot to focus on the relevant parts.
+* When multiple people are requested for a review, try to avoid having them check or test the same aspects. Be as specific as possible about what you expect from each reviewer.
 
-
+.. _Documentation:
 Documentation
 =============
 
@@ -233,8 +215,6 @@ copyright, license and authors.
    __url__ = "https://github.com/openego/eTraGo/blob/main/LICENSE"
    __author__ = "github_alias1, github_alias2"
 
-
-
 You can build the documentation locally by executing the following code
 in the repos root directory:
 
@@ -248,7 +228,6 @@ documenmtation:
 .. code-block:: bash
 
    pip install -r docs/requirements.txt
-
 
 .. _PEP8: https://www.python.org/dev/peps/pep-0008
 .. _PEP8-docstrings: https://www.python.org/dev/peps/pep-0008/#documentation-strings

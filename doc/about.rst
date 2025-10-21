@@ -30,7 +30,8 @@ eTraGo as part of the eGo-Toolchain
 
 .. figure:: images/toolchain.png
    :align: center
-   :scale: 75%
+   :width: 80%
+
 
 The tools illustrated in the graph above have been developed for cross-grid level optimization of the sector-coupled energy system in Germany as part of the aforementioned research projects. The following section describes the individual elements of this toolchain. 
 
