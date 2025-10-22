@@ -23,21 +23,22 @@ spatially for applications within the tool eTraGo."""
 
 import logging
 import os
+from pypsa import Network
+from pypsa.clustering.spatial import (
+    aggregatebuses,
+    aggregateoneport,
+    get_clustering_from_busmap,
+)
+from six import iteritems
+import numpy as np
+import pandas as pd
+import pypsa.io as io
 
 logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
 
-    from pypsa import Network
-    from pypsa.clustering.spatial import (
-        aggregatebuses,
-        aggregateoneport,
-        get_clustering_from_busmap,
-    )
-    from six import iteritems
-    import numpy as np
-    import pandas as pd
-    import pypsa.io as io
+
 
     from etrago.cluster.spatial import (
         busmap_ehv_clustering,
