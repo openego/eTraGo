@@ -25,13 +25,11 @@ from math import sqrt
 import logging
 import os
 
-from geoalchemy2.shape import to_shape  # noqa: F401
 from matplotlib import pyplot as plt
 from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
 from pyproj import Proj, transform
 from pypsa.plot import draw_map_cartopy
-from shapely.geometry import LineString, Point
 import geopandas as gpd
 import matplotlib
 import matplotlib.patches as mpatches
@@ -51,6 +49,8 @@ logger = logging.getLogger(__name__)
 if "READTHEDOCS" not in os.environ:
 
     from etrago.execute import import_gen_from_links
+    from geoalchemy2.shape import to_shape  # noqa: F401
+    from shapely.geometry import LineString, Point
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
