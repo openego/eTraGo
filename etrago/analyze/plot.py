@@ -28,11 +28,14 @@ import os
 from matplotlib import pyplot as plt
 from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
+from pyproj import Proj, transform
 from pypsa.plot import draw_map_cartopy
+import geopandas as gpd
 import matplotlib
 import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
+import tilemapbase
 
 cartopy_present = True
 try:
@@ -44,11 +47,9 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
+
     from geoalchemy2.shape import to_shape  # noqa: F401
-    from pyproj import Proj, transform
     from shapely.geometry import LineString, Point
-    import geopandas as gpd
-    import tilemapbase
 
     from etrago.execute import import_gen_from_links
 

@@ -26,3 +26,4 @@ Added features
 * A temporal disaggregation is available through a 2-level-approach including a dispatch optimization on the temporally fullcomplex model. To limit the RAM usage, you can optionally divide the optimisation problem into a chosen number of slices.
 * New plotting functions to visualize the optimization results from all the included energy sectors were implemented
 * Functions to analyze results were updated to consider new sectors
+

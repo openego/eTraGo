@@ -21,22 +21,21 @@
 """gas.py defines the methods to cluster gas grid networks
 spatially for applications within the tool eTraGo."""
 
+import logging
 import os
 
+from pypsa.clustering.spatial import (
+    aggregatebuses,
+    aggregateoneport,
+    busmap_by_kmeans,
+)
+from pypsa.components import Network
+from six import iteritems
+import numpy as np
+import pandas as pd
+import pypsa.io as io
+
 if "READTHEDOCS" not in os.environ:
-    import logging
-
-    from pypsa.clustering.spatial import (
-        aggregatebuses,
-        aggregateoneport,
-        busmap_by_kmeans,
-    )
-    from pypsa.components import Network
-    from six import iteritems
-    import numpy as np
-    import pandas as pd
-    import pypsa.io as io
-
     from etrago.cluster.spatial import (
         drop_nan_values,
         group_links,

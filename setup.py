@@ -7,19 +7,15 @@ from setuptools import find_packages, setup
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
     "Europa-Universität Flensburg, "
-    "Centre for Sustainable Energy Systems, "
-    "DLR-Institute for Networked Energy Systems"
+    "Center for Sustainable Energy Systems Flensburg, "
+    "DLR - Institute of Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = (
-    "ulfmueller, wolfbunke, BartelsJ, ClaraBuettner, gnn, "
-    "simnh, lukasol, s3pp, MGlauer, kimvk, MarlonSchlemminger, "
-    "mariusves",
-    "CarlosEpia",
-    "KathiEsterl",
-    "pieterhexen",
-    "fwitte",
-    "AmeliaNadal",
+    "Flensburg University of Applied Sciences, "
+    "Europa-Universität Flensburg, "
+    "Center for Sustainable Energy Systems Flensburg, "
+    "DLR - Institute of Networked Energy Systems"
 )
 
 
@@ -33,7 +29,10 @@ def read(*names, **kwargs):
 
 setup(
     name="eTraGo",
-    author="DLR VE, ZNES Flensburg",
+    author="Flensburg University of Applied Sciences, "
+    "Europa-Universität Flensburg, "
+    "Center for Sustainable Energy Systems Flensburg, "
+    "DLR - Institute of Networked Energy Systems",
     author_email="",
     description="electric transmission grid optimization",
     long_description="{}".format(

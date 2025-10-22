@@ -49,20 +49,21 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, mariusves, pieterhexen, ClaraBuettner"
 
 from importlib import import_module
+import logging
 import os
 
 import numpy as np
 import pandas as pd
 import pypsa
 
+logger = logging.getLogger(__name__)
+
 if "READTHEDOCS" not in os.environ:
-    import logging
 
     from sqlalchemy import literal_column
     from sqlalchemy.orm.exc import NoResultFound
     import saio
 
-    logger = logging.getLogger(__name__)
 
 carr_ormclass = "Source"
 

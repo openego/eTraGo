@@ -33,6 +33,8 @@ import os
 import zipfile
 
 from pyomo.environ import Constraint, PositiveReals, Var
+from shapely.geometry import LineString, Point
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pypsa
@@ -40,8 +42,6 @@ import saio
 import sqlalchemy.exc
 
 if "READTHEDOCS" not in os.environ:
-    from shapely.geometry import LineString, Point
-    import geopandas as gpd
 
     from etrago.tools import db
 
