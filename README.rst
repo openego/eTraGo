@@ -13,98 +13,72 @@
 
 .. end-header
 
+
 eTraGo
 ======
 
-Optimization of flexibility options for transmission grids based on PyPSA
+*eTraGo* (**e**\lectric **Tra**\nsmission **G**\rid **o**\ptimization) is a cross-sectoral grid planning tool focusing on the extra-high and high-voltage power grid level. In addition to the electricity sector, the gas (methane and hydrogen), heat and mobility sectors are considered. *eTraGo* optimizes grid and storage expansion as well as power plant deployment, taking into account various flexibility options. These include electrical flexibilities such as demand-side management or dynamic line rating, as well as flexibilities arising from sector coupling, such as heat stores, gas stores or shifting potentials from charging electric vehicles. *eTraGo* is an open-source Python package primarily based on `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_.
 
-A speciality in this context is that transmission grids are described by the
-380, 220 and 110 kV in Germany. Conventionally, the 110kV grid is part of the
-distribution grid. The integration of the transmission and 'upper' distribution
-grid is part of eTraGo.
+*eTraGo* has been developed as part of a comprehensive toolchain. 
+Explore related models and tools, detailed guidance on installation, an overview of the functionalities, and references to projects and studies where it has been used, all on `readthedocs <https://etrago.readthedocs.io>`_.
 
-The focus of optimization are flexibility options with a special focus on
-energy storages. Grid expansion measures are not part of this tool and will be
-instead part of 'eGo' https://github.com/openego/eGo
+Key Features
+------------
 
-eTraGo is documented on `readthedocs <https://etrago.readthedocs.io>`_.
-
-
-Input data
-==========
-The grid model data for eTraGo was created with the open source tool 
-`eGon-data <https://github.com/openego/eGon-data.>`_. The resulting data will 
-be pubished on the `OpenEnergyPlatform <https://openenergy-platform.org/.>`_.
-As long as the data is not published there, a local database is needed. 
-We published a backup of the required tables and instruction on how to use it 
-on zenodo:
-
-.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.8376714.svg
-   :target: https://doi.org/10.5281/zenodo.8376714
+* open, cross-sectoral grid planning tool on extra-high and high-voltage level
+* includes a variety of functionalities for scenario variations and reduction of complexity in spatial and temporal dimension
+* market optimization as well as linear-optimal power flow available
+* analyses and plots the results
 
 
 Installation
 ============
-eTraGo is designed as a Python package therefore it is mandatory to have
-`Python 3 <https://www.python.org/downloads/.>`_ installed. If you have a
-working Python3 environment, use pypi to install the latest eTraGo version.
-We highly recommend you to use a virtual environment. Use following pip
-command in order to install eTraGo..
+
+*eTraGo* is implemented as a Python package; therefore, Python 3 
+must be installed on your system. The current version of *eTraGo* is 
+compatible with Python 3.10 or higher.
+
+If you already have a working Python3 environment, use *pypi* to install the latest
+*eTraGo* version. We highly recommend using a virtual environment.
+Use the following command in order to install *eTraGo*.
 
 .. code-block:: bash
 
   $ pip3 install eTraGo
-
-Installation for Developers
-===========================
-
-Clone the source code from github:
-
-.. code-block::
-
-   $ git clone https://github.com/openego/eTraGo
-
-You can checkout to the dev branch and create new feature branches.
-For the correct work-flow, please mind the 
-`Dreissen Branching Model <https://nvie.com/posts/a-successful-git-branching-model/>`_
-
-Use the pip -e to install eTraGo directly from the cloned repository:
-
-.. code-block::
-
-   $ pip3 install -e /path/to/eTraGo/ 
-
-When you want to draw geographical features in the background of network plots,
-please install cartopy:
+  
+If you want to display geographical features in the background of network plots, please install *cartopy*:
 
 .. code-block::
 
    $ pip3 install cartopy
+  
+For a more detailed guide on the installation, please refer to the `readthedocs <https://etrago.readthedocs/installation.html>`_
 
-If you run into problems when using cartopy, try to install shapely without binaries:
+Input Data
+==========
 
-.. code-block::
+The grid model data for *eTraGo* was created using the open-source tool
+`eGon-data <https://github.com/openego/eGon-data>`_.
+The resulting data is currently available in a test environment of the
+`OpenEnergyPlatform <https://openenergy-platform.org/>`_.
+In the future, it will be published on the main
+`OpenEnergyPlatform <https://openenergy-platform.org/>`_.
 
-   $ pip3 install shapely --no-binary shapely
+As an alternative, a local database can be used.
+We have published the scenarios as backups of the required tables,
+along with instructions on how to use them, on Zenodo:
 
-Using a virtual environment
-===========================
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.8376714.svg
+   :target: https://doi.org/10.5281/zenodo.8376714
 
-Before installing eTraGo, 
-you create a virtual environment (where you like it) and activate it:
+   
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.13143968.svg
+   :target: https://doi.org/10.5281/zenodo.13143968
 
-.. code-block:: bash
-
-   $ virtualenv venv --clear -p python3.10
-   $ source venv/bin/activate
-   $ cd venv
-
-Inside your activated virtual environment you can 
-install eTraGo with the pip command, as previously explained.
 
 
 Copyleft
-=========================
+==========
 
 Code licensed under "GNU Affero General Public License Version 3 (AGPL-3.0)"
 It is a collaborative work with several copyright owners:

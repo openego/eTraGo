@@ -1,6 +1,10 @@
 etrago.cluster package
 =======================
 
+.. automodule:: etrago.cluster
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 etrago.cluster.electrical module
 -----------------------------------------

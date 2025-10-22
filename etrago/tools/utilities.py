@@ -33,14 +33,15 @@ import os
 import zipfile
 
 from pyomo.environ import Constraint, PositiveReals, Var
+from shapely.geometry import LineString, Point
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pypsa
+import saio
 import sqlalchemy.exc
 
 if "READTHEDOCS" not in os.environ:
-    from shapely.geometry import LineString, Point
-    import geopandas as gpd
 
     from etrago.tools import db
 
@@ -285,10 +286,16 @@ def buses_by_country(self, apply_on="grid_model"):
         "Russia": "RU",
     }
 
+    if "toep.iks.cs.ovgu.de" in str(self.engine.url):
+        saio.register_schema("model_draft", self.engine)
+        from saio.model_draft import edut_00_013 as vg250_lan
+    else:
+        saio.register_schema("boundaries", self.engine)
+        from saio.boundaries import vg250_lan
     # read Germany borders from egon-data
-    query = "SELECT * FROM boundaries.vg250_lan"
-    con = self.engine
-    germany_sh = gpd.read_postgis(query, con, geom_col="geometry")
+    query = self.session.query(vg250_lan)
+
+    germany_sh = saio.as_pandas(query, geometry="geometry")
 
     # read Europe borders. Original data downloaded from naturalearthdata.com/
     # under Public Domain license
@@ -2822,14 +2829,31 @@ def adjust_CH4_gen_carriers(self):
         marginal_cost_def = {"CH4": 40.9765, "biogas": 25.6}
 
         engine = db.connection(section=self.args["db"])
+
         try:
-            sql = f"""
-            SELECT gas_parameters
-            FROM scenario.egon_scenario_parameters
-            WHERE name = '{self.args["scn_name"].split("_")[0]}';"""
-            df = pd.read_sql(sql, engine)
+            if "toep.iks.cs.ovgu.de" in str(engine.url):
+                saio.register_schema("model_draft", engine)
+                from saio.model_draft import (
+                    edut_00_137 as egon_scenario_parameters,
+                )
+            else:
+                saio.register_schema("grid", engine)
+                from saio.grid import egon_scenario_parameters
+            df = saio.as_pandas(
+                self.session.query(egon_scenario_parameters).filter(
+                    egon_scenario_parameters.name
+                    == self.args["scn_name"].split("_")[0]
+                )
+            )
             marginal_cost = df["gas_parameters"][0]["marginal_cost"]
-        except sqlalchemy.exc.ProgrammingError:
+        except sqlalchemy.exc.NoSuchTableError as e:
+            logging.warning(
+                f"""
+                The database query failed for
+                'scenario.egon_scenario_parameters'.
+                Fallback values are being used. Error message: {e}
+                """
+            )
             marginal_cost = marginal_cost_def
 
         self.network.generators.loc[
