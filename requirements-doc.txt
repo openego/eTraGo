@@ -7,7 +7,7 @@ loguru
 matplotlib
 nbsphinx
 numpydoc
-pandas < < 2.2
+pandas < 2.2
 pyomo < 6.6
 pypsa == 0.26.2
 saio
