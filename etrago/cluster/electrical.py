@@ -23,6 +23,7 @@ spatially for applications within the tool eTraGo."""
 
 import logging
 import os
+
 from pypsa import Network
 from pypsa.clustering.spatial import (
     aggregatebuses,
