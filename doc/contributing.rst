@@ -75,6 +75,9 @@ Adding changes to the *eTraGo* repository should follow some guidelines:
 
 3. Make sure to update the documentation along with your code changes.  
    Therefore, please check out the documentation guidelines.
+   
+   When adding new package imports to a script, ensure that all internal *eTraGo* modules are imported during the *Read the Docs* build process. 
+   All external packages should be imported above the conditional :code:`if` statement.
 
 4. When you're done making changes, run all checks and build the docs using
    `tox <https://tox.readthedocs.io/en/latest/install.html>`_ with one command:

@@ -1,6 +1,11 @@
 etrago.execute package
 ===========================
 
+.. automodule:: etrago.execute
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 etrago.execute.grid_optimization module
 ---------------------------------------
 

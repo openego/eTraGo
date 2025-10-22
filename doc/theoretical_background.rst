@@ -7,6 +7,7 @@ Functionalities
    :align: center
    :width: 800
 
+|
 
 *eTraGo* is based on the open source tool `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_ and uses its definitions and units [PyPSA]_.
 
@@ -20,6 +21,7 @@ The model covers the coupling of electricity grid models on different voltage le
    :align: center
    :width: 800
 
+|
 
 *eTraGo* fetches the input data from the `Open Energy Platform <https://openenergy-platform.org/>`_. Alternatively, different scenarios of the data models are available through `zenodo <https://zenodo.org/>`_. The data needs to be downloaded and locally stored as a PostgreSQL database to be accessable for *eTraGo*. More explanations can be found in the `zenodo upload <https://zenodo.org/records/8376714>`_. The following scenarios are available:
 
@@ -50,7 +52,7 @@ Several features were developed to enhance the functionality of *eTraGo* and all
 Complexity Reduction
 ====================
 
-The data model is characterised by a high spatial (about 8,000 electrical and 600 gas nodes) and temporal resolution (8,760 timesteps). To reduce the complexity of the resulting optimization problem, several methods can be applied. Those methods are implemented within the package ``:mod:`etrago.cluster```.
+The data model is characterised by a high spatial (about 8,000 electrical and 600 gas nodes) and temporal resolution (8,760 timesteps). To reduce the complexity of the resulting optimization problem, several methods can be applied. Those methods are implemented within the package :mod:`etrago.cluster`.
 
 
 Reduction in Spatial Dimension:
@@ -68,7 +70,7 @@ The procedures of the two methods are depicted in the following figure [Esterl20
    :align: center
    :width: 800
 
-
+|
 
 In general, the clustering of the **sector-coupled system** is divided into two steps:
 First, the electrical and gas grid are clustered independently using one of the methods described above. Afterwards, nodes of the other sectors (hydrogen, heat, e-mobility and DSM nodes) are mapped according to their connection to electricity or gas buses and aggregated to one node per carrier.
@@ -87,7 +89,7 @@ The **Snapshot Clustering on Typical Periods** implies a hierarchical clustering
 Calculation with PyPSA
 ======================
 
-All optimization methods within *eTraGo* base on the Linear Optimal Power Flow (LOPF) implemented in `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_. The objective is the minimization of system costs, considering marginal costs of energy generation and investments in grid infrastructure, storage units and different flexibility options. The different options are specific for each scenario. You find the implementation within the package ``:mod:`etrago.exectue```.
+All optimization methods within *eTraGo* base on the Linear Optimal Power Flow (LOPF) implemented in `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_. The objective is the minimization of system costs, considering marginal costs of energy generation and investments in grid infrastructure, storage units and different flexibility options. The different options are specific for each scenario. You find the implementation within the package :mod:`etrago.execute`.
 
 Currently, two different optimization approaches are implemented considering different configurations of energy markets and optimization variables. The different options are described in the following sections. 
 
@@ -125,6 +127,8 @@ A detailed description of the methodology is given in [Buettner20242]_, which al
 .. figure:: images/consecutive_optimization_overview.png
    :align: center
    :width: 800
+   
+|
 
 Grid and Storage / Store Expansion
 ----------------------------------
@@ -185,12 +189,12 @@ By applying a 2-level-approach, a **temporal disaggregation** can be conducted. 
 
 Afterterwards, a **spatial disaggregation** can be conducted distributing power plant and storage utilisation time series, the expansion of storage facilities and the use of flexibility options over the original number of nodes. The expansion of the transmission grid is not disaggregated and remains at the reduced spatial resolution. The methodology is explained in [eGon_report]_.
 
-The corresponding methods are implemented as part of the package ``:mod:`etrago.disaggregate```
+The corresponding methods are implemented as part of the package :mod:`etrago.disaggregate`
 
 Analysis
 ========
 
-*eTraGo* contains various functions for evaluating the optimization results in the form of graphics, maps and tables. Functions to quantify results can be found in :meth:`etrago.analyze.calc_results` and functions to plot results can be found in :meth:`etrago.analyze.plot`.
+*eTraGo* contains various functions for evaluating the optimization results in the form of graphics, maps and tables. Functions to quantify results can be found in :meth:`etrago.analyze.calc_results` and functions to plot results can be found in :mod:`etrago.analyze.plot`.
 Some examplary graphs by [Buettner2024]_ are presented below:
 
 .. figure:: images/exemplary_results.png
