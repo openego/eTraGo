@@ -38,8 +38,6 @@ logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
 
-
-
     from etrago.cluster.spatial import (
         busmap_ehv_clustering,
         drop_nan_values,
