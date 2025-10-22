@@ -62,7 +62,7 @@ setup(
         "scikit-learn",
         "setuptools >= 54.2.0",
         "shapely",
-        "sqlalchemy < 2",
+        "sqlalchemy < 1.4",
         "tables",
         "tilemapbase == 0.4.5",
         "tsam",

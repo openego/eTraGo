@@ -333,6 +333,94 @@ def get_h2_clusters(etrago, busmap_ch4):
     return busmap
 
 
+def sector_coupled_clustering_strategy(etrago):
+    """
+    Defines clustering strategies for sectors without a grid per scenario.
+
+    Parameters
+    ----------
+    etrago : Etrago
+        An instance of the Etrago class
+
+    Returns
+    -------
+    strategy : dict
+        Dictionary containing cluster strategies for each sector.
+
+    """
+
+    if "eGon2035" in etrago.args["scn_name"]:
+        strategy = {
+            "central_heat": {
+                "base": ["CH4", "AC"],
+                "strategy": "simultaneous",
+            },
+            "rural_heat": {"base": ["AC"], "strategy": "consecutive"},
+            "H2_grid": {"base": ["CH4"], "strategy": "consecutive"},
+            "H2_saltcavern": {"base": ["H2_grid"], "strategy": "consecutive"},
+            "Li_ion": {"base": ["AC"], "strategy": "consecutive"},
+        }
+
+    elif "eGon100RE" in etrago.args["scn_name"]:
+        strategy = {
+            "central_heat": {
+                "base": ["CH4", "AC"],
+                "strategy": "simultaneous",
+            },
+            "rural_heat": {
+                "base": ["CH4", "AC"],
+                "strategy": "simultaneous",
+            },
+            "H2": {
+                "base": ["CH4"],
+                "strategy": "consecutive",
+            },
+            "H2_saltcavern": {
+                "base": ["H2_grid"],
+                "strategy": "consecutive",
+            },
+            "Li_ion": {
+                "base": ["AC"],
+                "strategy": "consecutive",
+            },
+        }
+
+    elif "powerd" in etrago.args["scn_name"]:
+        strategy = {
+            "central_heat": {"base": ["CH4"], "strategy": "consecutive"},
+            "rural_heat": {"base": ["CH4", "AC"], "strategy": "simultaneous"},
+            "H2": {"base": ["CH4"], "strategy": "consecutive"},
+            "H2_saltcavern": {"base": ["H2_grid"], "strategy": "consecutive"},
+            "Li_ion": {"base": ["AC"], "strategy": "consecutive"},
+        }
+    elif "status2019" in etrago.args["scn_name"]:
+        strategy = {
+            "central_heat": {"base": ["CH4"], "strategy": "consecutive"},
+            "rural_heat": {"base": ["CH4", "AC"], "strategy": "simultaneous"},
+            "H2": {"base": ["CH4"], "strategy": "consecutive"},
+        }
+    else:
+        strategy = {
+            "central_heat": {
+                "base": ["CH4", "AC"],
+                "strategy": "simultaneous",
+            },
+            "rural_heat": {"base": ["AC"], "strategy": "consecutive"},
+            "H2_grid": {"base": ["CH4"], "strategy": "consecutive"},
+            "H2_saltcavern": {"base": ["H2_grid"], "strategy": "consecutive"},
+            "Li_ion": {"base": ["AC"], "strategy": "consecutive"},
+        }
+        logger.warning(
+            f"""
+            No strategy defined for sector coupled clustering in scenario
+            {etrago.args['scn_name']}
+            Using default values instead - please check if they are correct:
+            {strategy}
+            """
+        )
+    return strategy
+
+
 def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
     """
     Performs the postprocessing for the gas grid clustering based on the
@@ -404,40 +492,38 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
     busmap_values = new_gas_buses + missing_idx
     busmap = pd.Series(busmap_values, index=busmap_idx)
 
-    if etrago.args["sector_coupled_clustering"]["active"]:
-        for name, data in etrago.args["sector_coupled_clustering"][
-            "carrier_data"
-        ].items():
-            strategy = data["strategy"]
-            if strategy == "consecutive":
-                busmap_sector_coupling = consecutive_sector_coupling(
-                    network,
-                    busmap,
-                    data["base"],
-                    name,
-                )
-            elif strategy == "simultaneous":
-                if len(data["base"]) < 2:
-                    msg = (
-                        "To apply simultaneous clustering for the "
-                        + name
-                        + " buses, at least 2 base buses must be selected."
-                    )
-                    raise ValueError(msg)
-                busmap_sector_coupling = simultaneous_sector_coupling(
-                    network,
-                    busmap,
-                    data["base"],
-                    name,
-                )
-            else:
+    for name, data in sector_coupled_clustering_strategy(etrago).items():
+        strategy = data["strategy"]
+        if strategy == "consecutive":
+            busmap_sector_coupling = consecutive_sector_coupling(
+                network,
+                busmap,
+                data["base"],
+                name,
+            )
+        elif strategy == "simultaneous":
+            if len(data["base"]) < 2:
                 msg = (
-                    "Strategy for sector coupled clustering must be either "
-                    "'consecutive' or 'coupled'."
+                    "To apply simultaneous clustering for the "
+                    + name
+                    + " buses, at least 2 base buses must be selected."
                 )
                 raise ValueError(msg)
-            for key, value in busmap_sector_coupling.items():
-                busmap.loc[key] = value
+            busmap_sector_coupling = simultaneous_sector_coupling(
+                network,
+                busmap,
+                data["base"],
+                name,
+            )
+        else:
+            msg = (
+                "Strategy for sector coupled clustering must be either "
+                "'consecutive' or 'coupled'."
+            )
+            raise ValueError(msg)
+        for key, value in busmap_sector_coupling.items():
+            busmap.loc[key] = value
+
     busmap = busmap.astype(str)
     busmap.index = busmap.index.astype(str)
 
