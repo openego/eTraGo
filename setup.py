@@ -29,7 +29,7 @@ def read(*names, **kwargs):
 
 setup(
     name="eTraGo",
-    author=  "Flensburg University of Applied Sciences, "
+    author="Flensburg University of Applied Sciences, "
     "Europa-Universität Flensburg, "
     "Center for Sustainable Energy Systems Flensburg, "
     "DLR - Institute of Networked Energy Systems",
