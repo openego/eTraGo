@@ -177,7 +177,6 @@ if 'READTHEDOCS' in os.environ:
     MOCK_MODULES = [
         'ding0',
         'ding0.results',
-        'shapely',
         'libgeos',
         'geos',
         'libgeos_c',
