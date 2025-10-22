@@ -167,16 +167,28 @@ todo_include_todos = True
 
 
 if 'READTHEDOCS' in os.environ:
+    from unittest.mock import MagicMock
+
     class Mock(MagicMock):
         @classmethod
         def __getattr__(cls, name):
-                return MagicMock()
+            return MagicMock()
 
-    MOCK_MODULES = ['ding0', 'ding0.results', 'shapely']
+    MOCK_MODULES = [
+        'ding0',
+        'ding0.results',
+        'shapely',
+        'libgeos',
+        'geos',
+        'libgeos_c',
+        'geos_c',
+        'libgeos_c.so.1',
+        'libgeos_c.so',
+        'geoalchemy2',
+        'geoalchemy2.shape'
+    ]
+
     sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
-    
-    MOCK_MODULES = ['libgeos', 'geos', 'libgeos_c', 'geos_c','libgeos_c.so.1', 
-                'libgeos_c.so', 'shapely', 'geoalchemy2', 'geoalchemy2.shape ']
 
        
 
