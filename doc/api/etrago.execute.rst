@@ -2,7 +2,7 @@ etrago.execute package
 ===========================
 
 etrago.execute.grid_optimization module
-----------------------------------
+---------------------------------------
 
 .. automodule:: etrago.execute.grid_optimization
     :members:
@@ -10,7 +10,7 @@ etrago.execute.grid_optimization module
     :show-inheritance:
 
 etrago.execute.market_optimization module
------------------------------------
+-----------------------------------------
 
 .. automodule:: etrago.execute.market_optimization
     :members:
@@ -18,7 +18,7 @@ etrago.execute.market_optimization module
     :show-inheritance:
     
 etrago.execute.sclopf module
------------------------------------
+----------------------------
 
 .. automodule:: etrago.execute.sclopf
     :members:
