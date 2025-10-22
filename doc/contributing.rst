@@ -114,7 +114,7 @@ manually, but you can use `isort`_ to have imports sorted automatically.
 Unfortunately these tools don't catch everything, so here's a short list
 of things you have to keep track of manually:
 
-  - :code:`Black` can't automatically break up overly long strings, so
+  - :code:`black` can't automatically break up overly long strings, so
     make use of Python's automatic string concatenation feature by e.g.
     converting
 
@@ -131,11 +131,11 @@ of things you have to keep track of manually:
           " long string"
       )
 
-  - :code:`Black` also can't check whether you're using readable names
+  - :code:`black` also can't check whether you're using readable names
     for your variables. So please don't use abbreviations. Use `readable
     names`_.
 
-  - :code:`Black` also can't reformat your comments. So please keep in
+  - :code:`black` also can't reformat your comments. So please keep in
     mind that PEP 8 specifies a line length of 72 for free flowing text
     like comments and docstrings. This also extends to the documentation
     in reStructuredText files.
