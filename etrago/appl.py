@@ -84,7 +84,7 @@ args = {
         "BarHomogeneous": 1,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
-    "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
+    "scn_name": "eGon2035",  # scenario, e.g. eGon2035, eGon2035_lowflex or status2019
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     # Export options:
@@ -253,8 +253,8 @@ def run_etrago(args, json_path):
         for larger networks.
         Default: "kirchhoff".
     scn_name : str
-         Choose your scenario. Currently, there are two different
-         scenarios: "eGon2035", "eGon100RE". Default: "eGon2035".
+         Choose your scenario. For an overview of available scenarios, see the 
+         documentation on Read the Docs.
     scn_extension : None or list of str
 
         Choose extension-scenarios which will be added to the existing
@@ -268,7 +268,6 @@ def run_etrago(args, json_path):
         * 'nep2021_c2035' includes all new lines planned by the
           Netzentwicklungsplan 2021 in scenario 2035 C
         Default: None.
-
     lpfile : bool or str
         State if and where you want to save pyomo's lp file. Options:
         False or '/path/tofile.lp'. Default: False.

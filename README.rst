@@ -52,7 +52,7 @@ If you want to display geographical features in the background of network plots,
 
    $ pip3 install cartopy
   
-For a more detailed guide on the installation, please refer to the `readthedocs <https://etrago.readthedocs/installation.html>`_
+For a more detailed guide on the installation, please refer to the `readthedocs <https://etrago.readthedocs.io/en/latest/installation.html>`_.
 
 Input Data
 ==========
@@ -60,21 +60,16 @@ Input Data
 The grid model data for *eTraGo* was created using the open-source tool
 `eGon-data <https://github.com/openego/eGon-data>`_.
 The resulting data is currently available in a test environment of the
-`OpenEnergyPlatform <https://openenergy-platform.org/>`_.
+*OpenEnergyPlatform*.
 In the future, it will be published on the main
 `OpenEnergyPlatform <https://openenergy-platform.org/>`_.
 
 As an alternative, a local database can be used.
 We have published the scenarios as backups of the required tables,
-along with instructions on how to use them, on Zenodo:
-
-.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.8376714.svg
-   :target: https://doi.org/10.5281/zenodo.8376714
-
-   
-.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.13143968.svg
-   :target: https://doi.org/10.5281/zenodo.13143968
-
+along with instructions on how to use them, on Zenodo. 
+For more information on available scenarios and instructions on the usage of a local database, 
+please refer to the readthedocs sections `Installation <https://etrago.readthedocs.io/en/latest/installation.html>`_ 
+and `Functionalities <https://etrago.readthedocs.io/en/latest/theoretical_background.html>`_.
 
 
 Copyleft

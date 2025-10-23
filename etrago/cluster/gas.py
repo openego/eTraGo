@@ -1066,7 +1066,7 @@ def join_busmap_medoids(
     medoid_idx = pd.concat([medoid_idx1, medoid_idx2])
     busmap = busmap.apply(int).map(medoid_idx)
 
-    medoid_idx.index = medoid_idx.apply(int)
+    medoid_idx.index = medoid_idx.astype(int)
 
     return busmap, medoid_idx
 

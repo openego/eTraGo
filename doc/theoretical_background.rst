@@ -23,12 +23,34 @@ The model covers the coupling of electricity grid models on different voltage le
 
 |
 
-*eTraGo* fetches the input data from the `Open Energy Platform <https://openenergy-platform.org/>`_. Alternatively, different scenarios of the data models are available through `zenodo <https://zenodo.org/>`_. The data needs to be downloaded and locally stored as a PostgreSQL database to be accessable for *eTraGo*. More explanations can be found in the `zenodo upload <https://zenodo.org/records/8376714>`_. The following scenarios are available:
+*eTraGo* fetches the input data from the `Open Energy Platform <https://openenergy-platform.org/>`_. Alternatively, different scenarios of the data models are available through `zenodo <https://zenodo.org/>`_. The data needs to be downloaded and locally stored as a *PostgreSQL* database to be accessable for *eTraGo*. More explanations can be found in this `zenodo upload <https://zenodo.org/records/8376714>`_. The following scenarios are available:
 
-* `eGon2035 <https://zenodo.org/records/8376714>`_ basing on scenario C2035 of the network expansion plan ([NEP]_), version 2021
-* eGon2035_lowflex as scenario variant of eGon2035 with lower penetration of flexibilities 
-* eGon100RE (still under development) characterised by a 100% renewable generation 
-* `status2019 <https://zenodo.org/records/13143969>`_ depicting the status in 2019
+
+.. list-table::
+   :header-rows: 1
+   :widths: 15 45 15 25
+
+   * - **Scenario name**
+     - **Description**
+     - **Status**
+     - **Accessible at**
+   * - **status2019**
+     - Represents the system status in 2019
+     - computable
+     - `Zenodo <https://zenodo.org/records/13143969>`_
+   * - **eGon2035**
+     - Based on scenario C2035 from the Network Development Plan ([NEP]_), version 2021
+     - computable
+     - `Open Energy Platform <https://openenergy-platform.org/>`_ or `Zenodo <https://zenodo.org/records/8376714>`_
+   * - **eGon2035_lowflex**
+     - Variant of *eGon2035* with lower penetration of flexibilities
+     - computable
+     - `Open Energy Platform <https://openenergy-platform.org/>`_ or `Zenodo <https://zenodo.org/records/8376714>`_
+   * - **eGon100RE**
+     - Characterised by 100% renewable generation
+     - under development
+     - –
+
 
 You can see the modeling concepts of the scenarios in the figure below. The components marked green have exogenous capacity and endogenous dispatch whereas the components marked in red are optimized endogenously in capacity and dispatch.
 
