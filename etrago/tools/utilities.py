@@ -2543,9 +2543,10 @@ def check_args(etrago):
 
     df_scenario = saio.as_pandas(query, crs=4326, geometry=None)
 
-    assert (
-        len(df_scenario) > 0
-    ), f"Selected scenario {etrago.args['scn_name']} not available in selected database."
+    assert len(df_scenario) > 0, (
+        f"Selected scenario {etrago.args['scn_name']} "
+        "not available in selected database."
+    )
 
     if etrago.args["scn_extension"]:
         assert (
@@ -2567,9 +2568,10 @@ def check_args(etrago):
 
             df_scenario = saio.as_pandas(query, crs=4326, geometry=None)
 
-            assert (
-                len(df_scenario) > 0
-            ), f"Selected extension scenario {scenario_extension} not available in selected database."
+            assert len(df_scenario) > 0, (
+                f"Selected extension scenario {scenario_extension} not "
+                "available in selected database."
+            )
 
     assert (
         etrago.args["start_snapshot"] <= etrago.args["end_snapshot"]
