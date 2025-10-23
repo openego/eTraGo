@@ -2558,20 +2558,28 @@ def check_args(etrago):
                 "Extension scenarios are not available in selected database."
             )
         else:
-            saio.register_schema("grid", etrago.engine)
-            from saio.grid import egon_etrago_extension_bus
+            try:
+                saio.register_schema("grid", etrago.engine)
+                from saio.grid import egon_etrago_extension_bus
 
-        for scenario_extension in etrago.args["scn_extension"]:
-            query = etrago.session.query(egon_etrago_bus).filter(
-                egon_etrago_extension_bus.scn_name == scenario_extension
-            )
+                for scenario_extension in etrago.args["scn_extension"]:
+                    query = etrago.session.query(egon_etrago_bus).filter(
+                        egon_etrago_extension_bus.scn_name
+                        == scenario_extension
+                    )
 
-            df_scenario = saio.as_pandas(query, crs=4326, geometry=None)
+                    df_scenario = saio.as_pandas(
+                        query, crs=4326, geometry=None
+                    )
 
-            assert len(df_scenario) > 0, (
-                f"Selected extension scenario {scenario_extension} not "
-                "available in selected database."
-            )
+                    assert len(df_scenario) > 0, (
+                        f"Selected extension scenario {scenario_extension} not "
+                        "available in selected database."
+                    )
+            except sqlalchemy.exc.NoSuchTableError:
+                print(
+                    "Extension scenarios are not available in selected database."
+                )
 
     assert (
         etrago.args["start_snapshot"] <= etrago.args["end_snapshot"]
