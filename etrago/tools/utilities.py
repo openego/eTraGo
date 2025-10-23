@@ -2991,12 +2991,17 @@ def manual_fixes_datamodel(etrago):
     etrago.network.lines.lifetime = 40
 
     # Set cyclic state of charge of storage units and stores
-    etrago.network.storage_units.cyclic_state_of_charge = True
-    etrago.network.stores.loc[
-        (etrago.network.stores.carrier != "dsm")
-        & (etrago.network.stores.carrier != "battery_storage"),
-        "e_cyclic",
-    ] = True
+    if etrago.args["scn_name"] in [
+        "status2019",
+        "eGon2035",
+        "eGon2035_lowflex",
+    ]:
+        etrago.network.storage_units.cyclic_state_of_charge = True
+        etrago.network.stores.loc[
+            (etrago.network.stores.carrier != "dsm")
+            & (etrago.network.stores.carrier != "battery_storage"),
+            "e_cyclic",
+        ] = True
 
     # Set build years to 0 to avoid problems in the clustering
     etrago.network.lines.build_year = 0
