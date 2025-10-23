@@ -58,8 +58,8 @@ You can see the modeling concepts of the scenarios in the figure below. The comp
    :align: center
    :width: 800
 
-In addition, you can choose extension-scenarios which will be added to the existing network container (e.g. to add new planned lines). In case new components replace existing ones, these are dropped from the network. Data of the extension scenarios is located in extension-tables (e.g. grid.egon_etrago_extension_line)
-The following extension-scenarios are available:
+In addition, you can choose extension scenarios which will be added to the existing network container (e.g. to add new planned lines). In case new components replace existing ones, these are dropped from the network. Data of the extension scenarios is located in specific extension tables (e.g. ``grid.egon_etrago_extension_line``).
+The following extension scenarios are available:
 
 .. list-table::
    :header-rows: 1
