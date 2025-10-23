@@ -48,7 +48,6 @@ __copyright__ = (
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, mariusves, pieterhexen, ClaraBuettner"
 
-from importlib import import_module
 import logging
 import os
 
