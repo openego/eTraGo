@@ -2529,17 +2529,47 @@ def check_args(etrago):
 
     """
 
-    names = [
-        "eGon2035",
-        "eGon100RE",
-        "eGon2035_lowflex",
-        "eGon100RE_lowflex",
-        "status2019",
-    ]
+    if "toep.iks.cs.ovgu.de" in str(etrago.engine.url):
+        saio.register_schema("model_draft", etrago.engine)
+        from saio.model_draft import (
+            edut_00_056 as egon_etrago_bus,
+        )
+    else:
+        saio.register_schema("grid", etrago.engine)
+        from saio.grid import egon_etrago_bus
+    query = etrago.session.query(egon_etrago_bus).filter(
+        egon_etrago_bus.scn_name == etrago.args["scn_name"]
+    )
+
+    df_scenario = saio.as_pandas(query, crs=4326, geometry=None)
 
     assert (
-        etrago.args["scn_name"] in names
-    ), f"'scn_name' has to be in {names} but is {etrago.args['scn_name']}."
+        len(df_scenario) > 0
+    ), f"Selected scenario {etrago.args['scn_name']} not available in selected database."
+
+    if etrago.args["scn_extension"]:
+        assert (
+            type(etrago.args["scn_extension"]) is not str
+        ), "scn_extension should be defined as a list but is a string."
+
+        if "toep.iks.cs.ovgu.de" in str(etrago.engine.url):
+            print(
+                "Extension scenarios are not available in selected database."
+            )
+        else:
+            saio.register_schema("grid", etrago.engine)
+            from saio.grid import egon_etrago_extension_bus
+
+        for scenario_extension in etrago.args["scn_extension"]:
+            query = etrago.session.query(egon_etrago_bus).filter(
+                egon_etrago_extension_bus.scn_name == scenario_extension
+            )
+
+            df_scenario = saio.as_pandas(query, crs=4326, geometry=None)
+
+            assert (
+                len(df_scenario) > 0
+            ), f"Selected extension scenario {scenario_extension} not available in selected database."
 
     assert (
         etrago.args["start_snapshot"] <= etrago.args["end_snapshot"]
