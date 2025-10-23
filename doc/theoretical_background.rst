@@ -58,6 +58,26 @@ You can see the modeling concepts of the scenarios in the figure below. The comp
    :align: center
    :width: 800
 
+In addition, you can choose extension scenarios which will be added to the existing network container (e.g. to add new planned lines). In case new components replace existing ones, these are dropped from the network. Data of the extension scenarios is located in specific extension tables (e.g. ``grid.egon_etrago_extension_line``).
+The following extension scenarios are available:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 15 45 15 25
+
+   * - **Scenario name**
+     - **Description**
+     - **Status**
+     - **Accessible at**
+   * - **nep2021_confirmed**
+     - Includes all planed new lines confirmed by the Bundesnetzagentur included in the NEP version 2021
+     - computable
+     - `Zenodo <https://zenodo.org/records/8376714>`_
+   * - **nep2021_c2035**
+     - Includes all new lines planned by the Netzentwicklungsplan 2021 in scenario 2035 C
+     - computable
+     - `Zenodo <https://zenodo.org/records/8376714>`_
+
    
 Scenario Variation
 ==================
