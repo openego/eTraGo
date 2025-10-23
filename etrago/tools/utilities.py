@@ -2564,7 +2564,8 @@ def check_args(etrago):
 
             except sqlalchemy.exc.NoSuchTableError:
                 print(
-                    "Extension scenarios are not available in selected database."
+                    "Extension scenarios are not available in selected"
+                    " database."
                 )
                 raise
 
