@@ -84,7 +84,7 @@ args = {
         "BarHomogeneous": 1,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
-    "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
+    "scn_name": "eGon2035",  # scenario, e.g. eGon2035, eGon2035_lowflex or status2019
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
@@ -254,8 +254,8 @@ def run_etrago(args, json_path):
         for larger networks.
         Default: "kirchhoff".
     scn_name : str
-         Choose your scenario. Currently, there are two different
-         scenarios: "eGon2035", "eGon100RE". Default: "eGon2035".
+         Choose your scenario. For an overview of available scenarios, see the 
+         documentation on Read the Docs.
     scn_extension : None or str
         This option does currently not work!
 
