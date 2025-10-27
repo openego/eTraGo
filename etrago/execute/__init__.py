@@ -376,7 +376,8 @@ def iterate_lopf(
 
     else:
         run_lopf(etrago, extra_functionality, method)
-        etrago.export_to_csv(path)
+        if etrago.args["csv_export"]:
+            etrago.export_to_csv(path)
 
     if args["lpfile"]:
         network.model.write(lp_path)
