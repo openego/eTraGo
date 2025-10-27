@@ -3744,7 +3744,7 @@ class Constraints:
                 self.args["snapshot_clustering"]["storage_constraints"]
                 == "daily_bounds"
             ):
-                if self.args["method"]["pyomo"]:
+                if self.args["method"]["formulation"] == "pyomo":
                     snapshot_clustering_daily_bounds(self, network, snapshots)
                 else:
                     snapshot_clustering_daily_bounds_nmp(
@@ -3756,7 +3756,7 @@ class Constraints:
                 == "soc_constraints"
             ):
                 if self.args["snapshot_clustering"]["how"] == "hourly":
-                    if self.args["method"]["pyomo"]:
+                    if self.args["method"]["formulation"] == "pyomo":
                         snapshot_clustering_seasonal_storage_hourly(
                             self, network, snapshots
                         )
@@ -3765,7 +3765,7 @@ class Constraints:
                             self, network, snapshots
                         )
                 else:
-                    if self.args["method"]["pyomo"]:
+                    if self.args["method"]["formulation"] == "pyomo":
                         snapshot_clustering_seasonal_storage(
                             self, network, snapshots
                         )
@@ -3784,7 +3784,7 @@ class Constraints:
                         clustering -> changed to soc_constraints"""
                     )
 
-                    if self.args["method"]["pyomo"]:
+                    if self.args["method"]["formulation"] == "pyomo":
                         snapshot_clustering_seasonal_storage_hourly(
                             self, network, snapshots
                         )
@@ -3793,7 +3793,7 @@ class Constraints:
                             self, network, snapshots
                         )
 
-                if self.args["method"]["pyomo"]:
+                if self.args["method"]["formulation"] == "pyomo":
                     snapshot_clustering_seasonal_storage(
                         self, network, snapshots, simplified=True
                     )
