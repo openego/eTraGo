@@ -11,5 +11,5 @@ API
    api/etrago.disaggregate
    api/etrago.execute
    api/etrago.tools
-   api/appl.rst
-   api/network.rst
+   api/appl
+   api/network

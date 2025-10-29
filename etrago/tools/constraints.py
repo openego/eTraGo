@@ -33,6 +33,8 @@ from pypsa.optimization.compat import get_var, define_constraints, linexpr
 import numpy as np
 import pandas as pd
 import pyomo.environ as po
+import saio
+import sqlalchemy
 
 if "READTHEDOCS" not in os.environ:
     from etrago.tools import db
@@ -1927,13 +1929,31 @@ def read_max_gas_generation(self):
     }
     engine = db.connection(section=self.args["db"])
     try:
-        sql = f"""
-        SELECT gas_parameters
-        FROM scenario.egon_scenario_parameters
-        WHERE name = '{scn_name}';"""
-        df = pd.read_sql(sql, engine)
-        arg = df["max_gas_generation_overtheyear"]
-    except:
+        if "toep.iks.cs.ovgu.de" in str(engine.url):
+            saio.register_schema("model_draft", self.engine)
+            from saio.model_draft import (
+                edut_00_137 as egon_scenario_parameters
+                )
+        else:
+            saio.register_schema("grid", engine)
+            from saio.grid import (
+                egon_scenario_parameters
+                )
+        df = saio.as_pandas(
+            self.session.query(egon_scenario_parameters)
+            .filter(
+                egon_scenario_parameters.name ==
+                self.args["scn_name"].split("_")[0]
+            )
+        )
+        arg = df["gas_parameters"][0]["max_gas_generation_overtheyear"]
+    except sqlalchemy.exc.NoSuchTableError as e:
+        logging.warning(
+            f"""
+            The database query failed for
+            'scenario.egon_scenario_parameters'.
+            Fallback values are being used. Error message: {e}
+            """)
         arg = arg_def[scn_name]
 
     return arg
@@ -3647,14 +3667,16 @@ class Constraints:
                 else:
                     add_chp_constraints(network, snapshots)
 
-                if (self.args["scn_name"] != "status2019") & (
+                if (self.args["scn_name"] not in [
+                        "status2019", "status2023"]) & (
                     len(snapshots) > 1500
                 ):
                     add_ch4_constraints(self, network, snapshots)
                     add_biomass_constraint(self, network, snapshots)
 
             elif self.args["method"]["formulation"] == "linopy":
-                if (self.args["scn_name"] != "status2019") & (
+                if (self.args["scn_name"] not in [
+                        "status2019", "status2023"]) & (
                     len(snapshots) > 1500
                 ):
                     add_ch4_constraints_linopy(self, network, snapshots)
@@ -3668,7 +3690,8 @@ class Constraints:
                 add_chp_constraints_linopy(network, snapshots)
             else:
                 add_chp_constraints_nmp(network)
-                if self.args["scn_name"] != "status2019":
+                if self.args["scn_name"] not in [
+                        "status2019", "status2023"]:
                     add_ch4_constraints_nmp(self, network, snapshots)
 
         for constraint in self.args["extra_functionality"].keys():

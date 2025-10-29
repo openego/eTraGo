@@ -1,6 +1,11 @@
 etrago.disaggregate package
 ===========================
 
+.. automodule:: etrago.disaggregate
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 etrago.disaggregate.spatial module
 ----------------------------------
 
