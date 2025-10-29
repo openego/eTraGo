@@ -28,7 +28,6 @@ the function run_etrago.
 import datetime
 import os
 import os.path
-
 import pandas as pd
 
 __copyright__ = (
@@ -113,7 +112,6 @@ args = {
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
-    "delete_dispensable_ac_buses": False,  # bool. Find and delete dispensable buses
     "network_clustering_ehv": {
         "active": False,  # choose if clustering of HV buses to EHV buses is activated
         "busmap": False,  # False or path to stored busmap
@@ -187,8 +185,9 @@ def run_etrago(args, json_path):
     Parameters
     ----------
     db : str
-        Name of Database session setting stored in *config.ini* of *.egoio*,
-        e.g. ``'oedb'``.
+        Name of Database session setting stored in *config.ini* within 
+        *.etrago_database/* in case of local database,
+        or  ``'test-oep'`` or ``'oedb'`` to load model from OEP.
     gridversion : None or str
         Name of the data version number of oedb: state ``'None'`` for
         model_draft (sand-box) or an explicit version number
@@ -266,41 +265,20 @@ def run_etrago(args, json_path):
         for larger networks.
         Default: "kirchhoff".
     scn_name : str
-         Choose your scenario. Currently, there are two different
-         scenarios: "eGon2035", "eGon100RE". Default: "eGon2035".
-    scn_extension : None or str
-        This option does currently not work!
+         Choose your scenario. For an overview of available scenarios, see the 
+         documentation on Read the Docs.
+    scn_extension : None or list of str
 
         Choose extension-scenarios which will be added to the existing
-        network container. Data of the extension scenarios are located in
-        extension-tables (e.g. model_draft.ego_grid_pf_hv_extension_bus)
-        with the prefix 'extension\_'.
-        There are three overlay networks:
+        network container. In case new lines replace existing ones, these are
+        dropped from the network. Data of the extension scenarios is located in
+        extension-tables (e.g. grid.egon_etrago_extension_line)
+        There are two overlay networks:
 
-        * 'nep2035_confirmed' includes all planed new lines confirmed by the
-          Bundesnetzagentur
-        * 'nep2035_b2' includes all new lines planned by the
-          Netzentwicklungsplan 2025 in scenario 2035 B2
-        * 'BE_NO_NEP 2035' includes planned lines to Belgium and Norway and
-          adds BE and NO as electrical neighbours
-
-        Default: None.
-    scn_decommissioning : NoneType or str
-        This option does currently not work!
-
-        Choose an extra scenario which includes lines you want to decommission
-        from the existing network. Data of the decommissioning scenarios are
-        located in extension-tables
-        (e.g. model_draft.ego_grid_pf_hv_extension_bus) with the prefix
-        'decommissioning\_'.
-        Currently, there are two decommissioning_scenarios which are linked to
-        extension-scenarios:
-
-        * 'nep2035_confirmed' includes all lines that will be replaced in
-          confirmed projects
-        * 'nep2035_b2' includes all lines that will be replaced in
-          NEP-scenario 2035 B2
-
+        * 'nep2021_confirmed' includes all planed new lines confirmed by the
+          Bundesnetzagentur included in the NEP version 2021
+        * 'nep2021_c2035' includes all new lines planned by the
+          Netzentwicklungsplan 2021 in scenario 2035 C
         Default: None.
     lpfile : bool or str
         State if and where you want to save pyomo's lp file. Options:
@@ -403,12 +381,6 @@ def run_etrago(args, json_path):
             Limit overall energy production country-wise for each generator
             by carrier. Set upper/lower limit in p.u.
 
-    delete_dispensable_ac_buses: bool
-        Choose if electrical buses that are only connecting two lines should be
-        removed. These buses have no other components attached to them. The
-        connected lines are merged. This reduces the spatial complexity without
-        losing any accuracy.
-        Default: True.
     network_clustering_ehv : dict
         Choose if you want to apply an extra high voltage clustering to the
         electrical network.
@@ -430,7 +402,7 @@ def run_etrago(args, json_path):
             Default: 4.
 
     network_clustering : dict
-        Choose if you want to apply a clustering of to the network buses and
+        Choose if you want to apply a clustering of the network buses and
         specify settings.
         The provided dictionary can have the following entries:
 
@@ -687,8 +659,6 @@ def run_etrago(args, json_path):
 
     # skip snapshots
     etrago.skip_snapshots()
-    
-    etrago.args["scn_name"] = "eGon2035"
 
     # start linear optimal powerflow calculations
     etrago.optimize()

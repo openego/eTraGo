@@ -33,14 +33,15 @@ import os
 import zipfile
 
 from pyomo.environ import Constraint, PositiveReals, Var
+from shapely.geometry import LineString, Point
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pypsa
+import saio
 import sqlalchemy.exc
 
 if "READTHEDOCS" not in os.environ:
-    from shapely.geometry import LineString, Point
-    import geopandas as gpd
 
     from etrago.tools import db
 
@@ -285,10 +286,16 @@ def buses_by_country(self, apply_on="grid_model"):
         "Russia": "RU",
     }
 
+    if "toep.iks.cs.ovgu.de" in str(self.engine.url):
+        saio.register_schema("model_draft", self.engine)
+        from saio.model_draft import edut_00_013 as vg250_lan
+    else:
+        saio.register_schema("boundaries", self.engine)
+        from saio.boundaries import vg250_lan
     # read Germany borders from egon-data
-    query = "SELECT * FROM boundaries.vg250_lan"
-    con = self.engine
-    germany_sh = gpd.read_postgis(query, con, geom_col="geometry")
+    query = self.session.query(vg250_lan)
+
+    germany_sh = saio.as_pandas(query, geometry="geometry")
 
     # read Europe borders. Original data downloaded from naturalearthdata.com/
     # under Public Domain license
@@ -2523,18 +2530,57 @@ def check_args(etrago):
 
     """
 
-    names = [
-        "eGon2035",
-        "eGon100RE",
-        "eGon2035_lowflex",
-        "eGon100RE_lowflex",
-        "status2019",
-    ]
+    if "toep.iks.cs.ovgu.de" in str(etrago.engine.url):
+        saio.register_schema("model_draft", etrago.engine)
+        from saio.model_draft import (
+            edut_00_056 as egon_etrago_bus,
+        )
+    else:
+        saio.register_schema("grid", etrago.engine)
+        from saio.grid import egon_etrago_bus
+    query = etrago.session.query(egon_etrago_bus).filter(
+        egon_etrago_bus.scn_name == etrago.args["scn_name"]
+    )
 
-    assert (
-        etrago.args["scn_name"] in names
-    ), f"'scn_name' has to be in {names} but is {etrago.args['scn_name']}."
+    df_scenario = saio.as_pandas(query, crs=4326, geometry=None)
 
+    assert len(df_scenario) > 0, (
+        f"Selected scenario {etrago.args['scn_name']} "
+        "not available in selected database."
+    )
+
+    if etrago.args["scn_extension"]:
+        assert (
+            type(etrago.args["scn_extension"]) is not str
+        ), "scn_extension should be defined as a list but is a string."
+
+        if "toep.iks.cs.ovgu.de" in str(etrago.engine.url):
+            print(
+                "Extension scenarios are not available in selected database."
+            )
+        else:
+            try:
+                saio.register_schema("grid", etrago.engine)
+                from saio.grid import egon_etrago_extension_bus
+
+            except sqlalchemy.exc.NoSuchTableError:
+                print(
+                    "Extension scenarios are not available in selected"
+                    " database."
+                )
+                raise
+
+            for scenario_extension in etrago.args["scn_extension"]:
+                query = etrago.session.query(egon_etrago_bus).filter(
+                    egon_etrago_extension_bus.scn_name == scenario_extension
+                )
+
+                df_scenario = saio.as_pandas(query, crs=4326, geometry=None)
+
+                assert len(df_scenario) > 0, (
+                    f"Selected extension scenario {scenario_extension} not "
+                    "available in selected database."
+                )
     assert (
         etrago.args["start_snapshot"] <= etrago.args["end_snapshot"]
     ), "start_snapshot after end_snapshot"
@@ -2823,14 +2869,31 @@ def adjust_CH4_gen_carriers(self):
         marginal_cost_def = {"CH4": 40.9765, "biogas": 25.6}
 
         engine = db.connection(section=self.args["db"])
+
         try:
-            sql = f"""
-            SELECT gas_parameters
-            FROM scenario.egon_scenario_parameters
-            WHERE name = '{self.args["scn_name"].split("_")[0]}';"""
-            df = pd.read_sql(sql, engine)
+            if "toep.iks.cs.ovgu.de" in str(engine.url):
+                saio.register_schema("model_draft", engine)
+                from saio.model_draft import (
+                    edut_00_137 as egon_scenario_parameters,
+                )
+            else:
+                saio.register_schema("grid", engine)
+                from saio.grid import egon_scenario_parameters
+            df = saio.as_pandas(
+                self.session.query(egon_scenario_parameters).filter(
+                    egon_scenario_parameters.name
+                    == self.args["scn_name"].split("_")[0]
+                )
+            )
             marginal_cost = df["gas_parameters"][0]["marginal_cost"]
-        except sqlalchemy.exc.ProgrammingError:
+        except sqlalchemy.exc.NoSuchTableError as e:
+            logging.warning(
+                f"""
+                The database query failed for
+                'scenario.egon_scenario_parameters'.
+                Fallback values are being used. Error message: {e}
+                """
+            )
             marginal_cost = marginal_cost_def
 
         self.network.generators.loc[
@@ -2966,6 +3029,19 @@ def manual_fixes_datamodel(etrago):
     etrago.network.storage_units.lifetime = 27.5
     etrago.network.transformers.lifetime = 40
     etrago.network.lines.lifetime = 40
+
+    # Set cyclic state of charge of storage units and stores
+    if etrago.args["scn_name"] in [
+        "status2019",
+        "eGon2035",
+        "eGon2035_lowflex",
+    ]:
+        etrago.network.storage_units.cyclic_state_of_charge = True
+        etrago.network.stores.loc[
+            (etrago.network.stores.carrier != "dsm")
+            & (etrago.network.stores.carrier != "battery_storage"),
+            "e_cyclic",
+        ] = True
 
     # Set build years to 0 to avoid problems in the clustering
     etrago.network.lines.build_year = 0
