@@ -797,6 +797,7 @@ def calc_dispatch_per_carrier(network, timesteps, dispatch_type="total"):
         dispatch per carrier
 
     """
+    network = network.copy()
     # up_time_before and down_time_before are irrelevant for this plot but
     # create problems when grouping, therefore they are set to 0.
     if ("up_time_before" in (network.generators.columns)) | (
@@ -826,7 +827,7 @@ def calc_dispatch_per_carrier(network, timesteps, dispatch_type="total"):
         network.mremove("Link", discard_gen_l)
         network.generators_t.p = network.generators_t.p * -1
 
-    import_gen_from_links(network)
+    import_gen_from_links(network, drop_small_capacities=False)
 
     ac_buses = network.buses[network.buses.carrier == "AC"].index
     network.generators = network.generators[
@@ -1130,7 +1131,7 @@ def nodal_production_balance(network, timesteps, scaling=0.00001):
 
     """
 
-    import_gen_from_links(network)
+    import_gen_from_links(network, drop_small_capacities=False)
 
     ac_buses = network.buses[network.buses.carrier == "AC"].index
     network.generators = network.generators[
