@@ -62,14 +62,22 @@ def market_optimization(self):
             solver_name=self.args["solver"],
             solver_options=self.args["solver_options"],
             pyomo=True,
-            extra_functionality=Constraints(self.args, False).functionality,
+            extra_functionality=Constraints(
+                self.args,
+                False,
+                apply_on="pre_market_model",
+                ).functionality,
             formulation=self.args["model_formulation"],
         )
     elif self.args["method"]["formulation"] == "linopy":
         status, condition = self.pre_market_model.optimize(
             solver_name=self.args["solver"],
             solver_options=self.args["solver_options"],
-            extra_functionality=Constraints(self.args, False).functionality,
+            extra_functionality=Constraints(
+                self.args,
+                False,
+                apply_on="pre_market_model",
+                ).functionality,
             linearized_unit_commitment=True,
         )
 
