@@ -567,16 +567,16 @@ def plot_stacked_gen(self, bus=None, resolution="GW", filename=None):
     #    TODO: column reordering based on available columns
 
     fig, ax = plt.subplots(1, 1)
-
     fig.set_size_inches(24, 12)
     colors = [colors[col] for col in p_by_carrier.columns]
     if len(colors) == 1:
         colors = colors[0]
-    (p_by_carrier / reso_int).plot(
+
+    (p_by_carrier / reso_int).clip(lower=0.).plot(
         kind="area", ax=ax, linewidth=0, color=colors
     )
     (load / reso_int).plot(
-        ax=ax, legend="load", lw=2, color="darkgrey", style="--"
+        ax=ax, lw=2, color="darkgrey", style="--"
     )
     ax.legend(ncol=4, loc="upper left")
 
