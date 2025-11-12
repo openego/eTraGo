@@ -2461,6 +2461,11 @@ def plot_grid(
         )
         bus_legend = "Nodal production balance"
         bus_unit = "TWh"
+        if type(line_colors) != str:
+            link_colors=link_colors.loc[network.links.index]
+        if type(link_widths) != int:
+            link_widths=link_widths.loc[network.links.index]
+
     elif bus_colors == "storage_expansion":
         if not isinstance(scaling_store_expansion, dict):
             raise Exception(
@@ -2521,6 +2526,12 @@ def plot_grid(
         )
         bus_legend = "Dispatch"
         bus_unit = "TW"
+
+        if type(line_colors) != str:
+            link_colors=link_colors.loc[network.links.index]
+        if type(link_widths) != int:
+            link_widths=link_widths.loc[network.links.index]
+
     elif bus_colors == "flexibility_usage":
         bus_scaling = bus_sizes
         flex_links = network.links[
