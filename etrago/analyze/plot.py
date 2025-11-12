@@ -2160,7 +2160,7 @@ def plot_carrier(
 def plot_grid(
     self,
     line_colors,
-    bus_sizes=0.001,
+    bus_sizes=1e-5,
     bus_colors="grey",
     timesteps=range(2),
     osm=False,
