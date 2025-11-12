@@ -448,13 +448,13 @@ def plot_residual_load(self):
 
     Parameters
     ----------
-    
+
 
     Returns
     -------
     Plot
-    """    
-    
+    """
+
     renewables = self.network.generators[
         self.network.generators.carrier.isin(
             ["wind_onshore", "wind_offshore", "solar", "run_of_river", "wind"]
@@ -462,12 +462,14 @@ def plot_residual_load(self):
     ]
     renewables_t = self.network.generators.p_nom[
         renewables.index
-    ] * self.network.get_switchable_as_dense("Generator", "p_max_pu")[renewables.index].mul(
+    ] * self.network.get_switchable_as_dense("Generator", "p_max_pu")[
+        renewables.index
+    ].mul(
         self.network.snapshot_weightings["generators"], axis=0
     )
-    load = self.network.loads_t.p_set.mul(self.network.snapshot_weightings["generators"], axis=0).sum(
-        axis=1
-    )
+    load = self.network.loads_t.p_set.mul(
+        self.network.snapshot_weightings["generators"], axis=0
+    ).sum(axis=1)
     all_renew = renewables_t.sum(axis=1)
     residual_load = load - all_renew
     plot = residual_load.plot(
@@ -482,9 +484,9 @@ def plot_residual_load(self):
     sorted_residual_load = residual_load.sort_values(
         ascending=False
     ).reset_index(drop=True)
-    
+
     plt.figure()
-    
+
     plot1 = sorted_residual_load.plot(
         title="Sorted residual load",
         drawstyle="steps",
@@ -493,6 +495,7 @@ def plot_residual_load(self):
         legend=False,
     )
     plot1.set_ylabel("MW")
+
 
 def plot_stacked_gen(self, bus=None, resolution="GW", filename=None):
     """
@@ -510,7 +513,7 @@ def plot_stacked_gen(self, bus=None, resolution="GW", filename=None):
     Returns
     -------
     Plot
-    """    
+    """
     if resolution == "GW":
         reso_int = 1e3
     elif resolution == "MW":
@@ -551,17 +554,21 @@ def plot_stacked_gen(self, bus=None, resolution="GW", filename=None):
             p_by_carrier["imports"] = p_by_carrier["imports"].fillna(0)
     # sum for a single bus
     elif bus is not None:
-        filtered_gens = self.network.generators[self.network.generators["bus"] == bus]
+        filtered_gens = self.network.generators[
+            self.network.generators["bus"] == bus
+        ]
         p_by_carrier = (
-            self.network.generators_t.p.mul(self.network.snapshot_weightings, axis=0)
+            self.network.generators_t.p.mul(
+                self.network.snapshot_weightings, axis=0
+            )
             .groupby(filtered_gens.carrier, axis=1)
             .abs()
             .sum()
         )
         filtered_load = self.network.loads[self.network.loads["bus"] == bus]
-        load = self.network.loads_t.p.mul(self.network.snapshot_weightings, axis=0)[
-            filtered_load.index
-        ]
+        load = self.network.loads_t.p.mul(
+            self.network.snapshot_weightings, axis=0
+        )[filtered_load.index]
 
     colors = coloring()
     #    TODO: column reordering based on available columns
@@ -572,12 +579,10 @@ def plot_stacked_gen(self, bus=None, resolution="GW", filename=None):
     if len(colors) == 1:
         colors = colors[0]
 
-    (p_by_carrier / reso_int).clip(lower=0.).plot(
+    (p_by_carrier / reso_int).clip(lower=0.0).plot(
         kind="area", ax=ax, linewidth=0, color=colors
     )
-    (load / reso_int).plot(
-        ax=ax, lw=2, color="darkgrey", style="--"
-    )
+    (load / reso_int).plot(ax=ax, lw=2, color="darkgrey", style="--")
     ax.legend(ncol=4, loc="upper left")
 
     ax.set_ylabel(resolution)
@@ -590,6 +595,7 @@ def plot_stacked_gen(self, bus=None, resolution="GW", filename=None):
     else:
         plt.savefig(filename)
         plt.close()
+
 
 def plot_gen_diff(
     networkA,
@@ -732,12 +738,13 @@ def plot_curtailment(self, carrier="solar", filename=None):
     -------
     Plot
     """
-    
-    
+
     p_by_carrier = self.network.generators_t.p.groupby(
         self.network.generators.carrier, axis=1
     ).sum()
-    capacity = self.network.generators.groupby("carrier").sum().at[carrier, "p_nom"]
+    capacity = (
+        self.network.generators.groupby("carrier").sum().at[carrier, "p_nom"]
+    )
     p_available = self.network.generators_t.p_max_pu.multiply(
         self.network.generators["p_nom"]
     )
@@ -1624,7 +1631,8 @@ def demand_side_management(
             .clip(lower=0)
             .sum(axis=1)
             .resample(agg)
-            .mean().loc[snapshots]
+            .mean()
+            .loc[snapshots]
         )
         df["e"] = network.stores_t.e[s.index].sum(axis=1).loc[snapshots]
 
@@ -1690,7 +1698,8 @@ def bev_flexibility_potential(
     # Maximum loading of BEV charger in MW per BEV bus
     bev_links_t = (
         network.links_t.p_max_pu[bev_links.index]
-        .mul(bev_links.p_nom, axis=1).loc[snapshots]
+        .mul(bev_links.p_nom, axis=1)
+        .loc[snapshots]
     )
     bev_links_t.columns = bev_links_t.columns.map(bev_links.bus1)
 
@@ -2267,9 +2276,9 @@ def plot_grid(
     network.mremove(
         "Link",
         network.links[
-            (network.links.p_nom<1e-5)
-            &(network.links.carrier=="DC")].index
-        )
+            (network.links.p_nom < 1e-5) & (network.links.carrier == "DC")
+        ].index,
+    )
     # Set colors for plotting
     plotting_colors(network)
 
@@ -2329,7 +2338,7 @@ def plot_grid(
 
         dc_loading = (
             calc_dc_loading(network, timesteps) / network.links.p_nom_opt
-        ).loc[network.links[network.links.carrier=="DC"].index]
+        ).loc[network.links[network.links.carrier == "DC"].index]
 
         dc_loading.index = pd.MultiIndex.from_tuples(
             [("Link", name) for name in dc_loading.index],
@@ -2462,9 +2471,9 @@ def plot_grid(
         bus_legend = "Nodal production balance"
         bus_unit = "TWh"
         if type(line_colors) != str:
-            link_colors=link_colors.loc[network.links.index]
+            link_colors = link_colors.loc[network.links.index]
         if type(link_widths) != int:
-            link_widths=link_widths.loc[network.links.index]
+            link_widths = link_widths.loc[network.links.index]
 
     elif bus_colors == "storage_expansion":
         if not isinstance(scaling_store_expansion, dict):
@@ -2528,9 +2537,9 @@ def plot_grid(
         bus_unit = "TW"
 
         if type(line_colors) != str:
-            link_colors=link_colors.loc[network.links.index]
+            link_colors = link_colors.loc[network.links.index]
         if type(link_widths) != int:
-            link_widths=link_widths.loc[network.links.index]
+            link_widths = link_widths.loc[network.links.index]
 
     elif bus_colors == "flexibility_usage":
         bus_scaling = bus_sizes
