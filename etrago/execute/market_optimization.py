@@ -536,7 +536,6 @@ def build_shortterm_market_model(self, unit_commitment=False):
         .reset_index()
     )
     for link in grouped_links.index:
-        print(link)
         bus0 = grouped_links.loc[link, "bus0"]
         bus1 = grouped_links.loc[link, "bus1"]
         carrier = grouped_links.loc[link, "carrier"]
