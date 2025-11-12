@@ -2470,9 +2470,9 @@ def plot_grid(
         )
         bus_legend = "Nodal production balance"
         bus_unit = "TWh"
-        if type(line_colors) != str:
+        if not isinstance(link_colors, str):
             link_colors = link_colors.loc[network.links.index]
-        if type(link_widths) != int:
+        if not isinstance(link_widths, int):
             link_widths = link_widths.loc[network.links.index]
 
     elif bus_colors == "storage_expansion":
@@ -2536,9 +2536,9 @@ def plot_grid(
         bus_legend = "Dispatch"
         bus_unit = "TW"
 
-        if type(line_colors) != str:
+        if not isinstance(link_colors, str):
             link_colors = link_colors.loc[network.links.index]
-        if type(link_widths) != int:
+        if not isinstance(link_widths, int):
             link_widths = link_widths.loc[network.links.index]
 
     elif bus_colors == "flexibility_usage":
