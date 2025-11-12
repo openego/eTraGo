@@ -59,15 +59,15 @@ def snapshot_clustering(self):
     None.
 
     """
+    # Save network in full resolution if not copied before
+    if self.network_tsa.buses.empty:
+        self.network_tsa = self.network.copy()
 
     if self.args["snapshot_clustering"]["active"]:
-        # save second network for optional dispatch disaggregation
-        if self.args["temporal_disaggregation"]["active"]:
-            self.network_tsa = self.network.copy()
 
         if self.args["snapshot_clustering"]["method"] == "segmentation":
             self.network = run(
-                network=self.network.copy(),
+                self,
                 n_clusters=1,
                 segmented_to=self.args["snapshot_clustering"]["n_segments"],
                 extreme_periods=self.args["snapshot_clustering"][
@@ -806,17 +806,14 @@ def skip_snapshots(self):
     None.
 
     """
-
-    # save second network for optional dispatch disaggregation
-    if (
-        self.args["temporal_disaggregation"]["active"]
-        and not self.args["snapshot_clustering"]["active"]
-    ) or self.args["method"]["market_optimization"]:
+    # Save network in full resolution if not copied before
+    if self.network_tsa.buses.empty:
         self.network_tsa = self.network.copy()
 
     n_skip = self.args["skip_snapshots"]
 
     if n_skip:
+
         last_weight = (
             int(
                 (

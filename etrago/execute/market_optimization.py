@@ -317,6 +317,9 @@ def build_market_model(self, unit_commitment=False):
     None.
 
     """
+    # Save network in full resolution if not copied before
+    if self.network_tsa.buses.empty:
+        self.network_tsa = self.network.copy()
 
     # use existing preprocessing to get only the electricity system
     net, weight, n_clusters, busmap_foreign = preprocessing(
