@@ -2264,6 +2264,12 @@ def plot_grid(
             'pre_market_model', 'disaggregated_network'."""
         )
 
+    network.mremove(
+        "Link",
+        network.links[
+            (network.links.p_nom<1e-5)
+            &(network.links.carrier=="DC")].index
+        )
     # Set colors for plotting
     plotting_colors(network)
 
@@ -2323,7 +2329,8 @@ def plot_grid(
 
         dc_loading = (
             calc_dc_loading(network, timesteps) / network.links.p_nom_opt
-        )
+        ).loc[network.links[network.links.carrier=="DC"].index]
+
         dc_loading.index = pd.MultiIndex.from_tuples(
             [("Link", name) for name in dc_loading.index],
             names=["component", "name"],
