@@ -462,7 +462,7 @@ def plot_residual_load(self):
     ]
     renewables_t = self.network.generators.p_nom[
         renewables.index
-    ] * self.network.generators_t.p_max_pu[renewables.index].mul(
+    ] * self.network.get_switchable_as_dense("Generator", "p_max_pu")[renewables.index].mul(
         self.network.snapshot_weightings["generators"], axis=0
     )
     load = self.network.loads_t.p_set.mul(self.network.snapshot_weightings["generators"], axis=0).sum(
