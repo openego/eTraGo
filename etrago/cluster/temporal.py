@@ -77,7 +77,7 @@ def snapshot_clustering(self):
 
         elif self.args["snapshot_clustering"]["method"] == "typical_periods":
             self.network = run(
-                network=self.network.copy(),
+                self,
                 n_clusters=self.args["snapshot_clustering"]["n_clusters"],
                 how=self.args["snapshot_clustering"]["how"],
                 extreme_periods=self.args["snapshot_clustering"][
@@ -603,7 +603,7 @@ def segmentation_extreme_periods(
 
 
 def run(
-    network,
+    self,
     n_clusters=None,
     how="daily",
     segmented_to=False,
@@ -634,6 +634,7 @@ def run(
         Container for all network components.
 
     """
+    network=self.network.copy()
 
     if segmented_to is not False:
         segment_no = segmented_to
@@ -684,8 +685,8 @@ def run(
             "cluster_typical-periods=" + str(n_clusters) + howie + ".csv"
         )
 
-    network.cluster = df_cluster
-    network.cluster_ts = df_i_h
+    self.cluster_temporal = df_cluster
+    self.cluster_ts = df_i_h
 
     update_data_frames(
         network, cluster_weights, dates, hours, timeseries, segmentation

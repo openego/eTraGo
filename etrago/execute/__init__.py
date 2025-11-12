@@ -399,13 +399,25 @@ def lopf(self):
 
     self.conduct_dispatch_disaggregation = False
 
-    iterate_lopf(
-        self,
-        Constraints(
-            self.args, self.conduct_dispatch_disaggregation
-        ).functionality,
-        method=self.args["method"],
-    )
+    if (self.args["snapshot_clustering"]["active"] == True
+        & (self.args["snapshot_clustering"]["method"] == "typical_periods")):
+        iterate_lopf(
+            self,
+            Constraints(
+                self.args, self.conduct_dispatch_disaggregation,
+                cluster_temporal = self.cluster_temporal,
+                cluster_ts = self.cluster_ts
+            ).functionality,
+            method=self.args["method"],
+        )
+    else:
+        iterate_lopf(
+            self,
+            Constraints(
+                self.args, self.conduct_dispatch_disaggregation
+            ).functionality,
+            method=self.args["method"],
+        )
 
     y = time.time()
     z = (y - x) / 60
