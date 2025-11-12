@@ -44,12 +44,12 @@ __author__ = (
 if "READTHEDOCS" not in os.environ:
     # Sphinx does not run this code.
     # Do not import internal packages directly
-                
+
     from etrago import Etrago
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "test-oep",  # database session: test-oep or local database
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
@@ -84,10 +84,9 @@ args = {
         "BarHomogeneous": 1,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
-    "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
+    "scn_name": "eGon2035",  # scenario, e.g. eGon2035, eGon2035_lowflex or status2019
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
-    "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
     "csv_export": "results",  # save results as csv: False or /path/tofolder
@@ -113,7 +112,6 @@ args = {
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
-    "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
     "network_clustering_ehv": {
         "active": False,  # choose if clustering of HV buses to EHV buses is activated
         "busmap": False,  # False or path to stored busmap
@@ -142,31 +140,6 @@ args = {
         "tol": 1e-6,  # affects clustering algorithm, only change when neccesary
         "CPU_cores": 4,  # number of cores used during clustering, "max" for all cores available.
     },
-    "sector_coupled_clustering": {
-        "active": True,  # choose if clustering is activated
-        "carrier_data": {  # select carriers affected by sector coupling
-            "central_heat": {
-                "base": ["CH4", "AC"],
-                "strategy": "simultaneous",  # select strategy to cluster other sectors
-            },
-            "rural_heat": {
-                "base": ["CH4", "AC"],
-                "strategy": "simultaneous",  # select strategy to cluster other sectors
-            },
-            "H2": {
-                "base": ["CH4"],
-                "strategy": "consecutive",  # select strategy to cluster other sectors
-            },
-            "H2_saltcavern": {
-                "base": ["H2_grid"],
-                "strategy": "consecutive",  # select strategy to cluster other sectors
-            },
-            "Li_ion": {
-                "base": ["AC"],
-                "strategy": "consecutive",  # select strategy to cluster other sectors
-            },
-        },
-    },
     "spatial_disaggregation": None,  # None or 'uniform'
     # Temporal Complexity:
     "snapshot_clustering": {
@@ -187,7 +160,7 @@ args = {
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": True,  # meet the demand at value of loss load cost
     "foreign_lines": {
-        "carrier": "DC",  # 'DC' for modeling foreign lines as links
+        "carrier": "AC",  # 'DC' for modeling foreign lines as links
         "capacity": "osmTGmod",  # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
     },
     "comments": None,
@@ -200,8 +173,9 @@ def run_etrago(args, json_path):
     Parameters
     ----------
     db : str
-        Name of Database session setting stored in *config.ini* of *.egoio*,
-        e.g. ``'oedb'``.
+        Name of Database session setting stored in *config.ini* within 
+        *.etrago_database/* in case of local database,
+        or  ``'test-oep'`` or ``'oedb'`` to load model from OEP.
     gridversion : None or str
         Name of the data version number of oedb: state ``'None'`` for
         model_draft (sand-box) or an explicit version number
@@ -279,41 +253,20 @@ def run_etrago(args, json_path):
         for larger networks.
         Default: "kirchhoff".
     scn_name : str
-         Choose your scenario. Currently, there are two different
-         scenarios: "eGon2035", "eGon100RE". Default: "eGon2035".
-    scn_extension : None or str
-        This option does currently not work!
+         Choose your scenario. For an overview of available scenarios, see the 
+         documentation on Read the Docs.
+    scn_extension : None or list of str
 
         Choose extension-scenarios which will be added to the existing
-        network container. Data of the extension scenarios are located in
-        extension-tables (e.g. model_draft.ego_grid_pf_hv_extension_bus)
-        with the prefix 'extension\_'.
-        There are three overlay networks:
+        network container. In case new lines replace existing ones, these are
+        dropped from the network. Data of the extension scenarios is located in
+        extension-tables (e.g. grid.egon_etrago_extension_line)
+        There are two overlay networks:
 
-        * 'nep2035_confirmed' includes all planed new lines confirmed by the
-          Bundesnetzagentur
-        * 'nep2035_b2' includes all new lines planned by the
-          Netzentwicklungsplan 2025 in scenario 2035 B2
-        * 'BE_NO_NEP 2035' includes planned lines to Belgium and Norway and
-          adds BE and NO as electrical neighbours
-
-        Default: None.
-    scn_decommissioning : NoneType or str
-        This option does currently not work!
-
-        Choose an extra scenario which includes lines you want to decommission
-        from the existing network. Data of the decommissioning scenarios are
-        located in extension-tables
-        (e.g. model_draft.ego_grid_pf_hv_extension_bus) with the prefix
-        'decommissioning\_'.
-        Currently, there are two decommissioning_scenarios which are linked to
-        extension-scenarios:
-
-        * 'nep2035_confirmed' includes all lines that will be replaced in
-          confirmed projects
-        * 'nep2035_b2' includes all lines that will be replaced in
-          NEP-scenario 2035 B2
-
+        * 'nep2021_confirmed' includes all planed new lines confirmed by the
+          Bundesnetzagentur included in the NEP version 2021
+        * 'nep2021_c2035' includes all new lines planned by the
+          Netzentwicklungsplan 2021 in scenario 2035 C
         Default: None.
     lpfile : bool or str
         State if and where you want to save pyomo's lp file. Options:
@@ -416,12 +369,6 @@ def run_etrago(args, json_path):
             Limit overall energy production country-wise for each generator
             by carrier. Set upper/lower limit in p.u.
 
-    delete_dispensable_ac_buses: bool
-        Choose if electrical buses that are only connecting two lines should be
-        removed. These buses have no other components attached to them. The
-        connected lines are merged. This reduces the spatial complexity without
-        losing any accuracy.
-        Default: True.
     network_clustering_ehv : dict
         Choose if you want to apply an extra high voltage clustering to the
         electrical network.
@@ -564,52 +511,6 @@ def run_etrago(args, json_path):
             "max" to use all cores available.
             Default: 4.
 
-    sector_coupled_clustering : dict
-        Choose if you want to apply a clustering of sector coupled carriers,
-        such as central_heat, and specify settings.
-        The provided dictionary can have the following entries:
-
-        * "active" : bool
-            State if you want to apply clustering of sector coupled carriers,
-            such as central_heat.
-            Default: True.
-        * "carrier_data" : dict[str, dict]
-            Keys of the dictionary specify carriers affected by sector
-            coupling, e.g. "central_heat". The corresponding dictionaries
-            specify, how the carrier should be clustered. This dictionary must
-            contain the following entries:
-
-            * "base" : list(str)
-                The approach bases on already clustered buses (AC and CH4) and
-                builds clusters around the topology of those buses. With this
-                option, you can specify the carriers to use as base. See
-                `strategy` for more information.
-            * "strategy" :  str
-                Strategy to use in the clustering. Possible options are:
-
-                * "consecutive"
-                    This strategy clusters around the buses of the first
-                    carrier in the `'base'`` list. The links to other buses are
-                    preserved. All buses, that have no connection to the first
-                    carrier will then be clustered around the buses of the
-                    second carrier in the list.
-                * "simultaneous"
-                    This strategy looks for links connecting the buses of the
-                    carriers in the ``'base'`` list and aggregates buses in
-                    case they have the same set of links connected. For
-                    example, a heat bus connected to CH4 via gas boiler and to
-                    AC via heat pump will only form a cluster with other buses,
-                    if these have the same links to the same clusters of CH4
-                    and AC.
-
-            Per default, the following dictionary is set:
-            {
-                "central_heat": {
-                    "base": ["CH4", "AC"],
-                    "strategy": "simultaneous",
-                },
-            }
-
     disaggregation : None or str
         Specify None, in order to not perform a spatial disaggregation, or the
         method you want to use for the spatial disaggregation. Only possible
@@ -707,7 +608,7 @@ def run_etrago(args, json_path):
 
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
-    
+
     # ehv network clustering
     etrago.ehv_clustering()
 

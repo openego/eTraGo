@@ -97,7 +97,6 @@ from etrago.tools.utilities import (
     check_args,
     convert_capital_costs,
     crossborder_capacity,
-    delete_dispensable_ac_buses,
     delete_irrelevant_oneports,
     drop_sectors,
     export_to_csv,
@@ -371,8 +370,6 @@ class Etrago:
 
     hydrogen_stores = hydrogen_stores
 
-    delete_dispensable_ac_buses = delete_dispensable_ac_buses
-
     delete_irrelevant_oneports = delete_irrelevant_oneports
 
     get_clustering_data = get_clustering_data
@@ -474,13 +471,17 @@ class Etrago:
 
         self.convert_capital_costs()
 
-        self.delete_dispensable_ac_buses()
-
         self.delete_irrelevant_oneports()
 
         set_control_strategies(self.network)
 
-        self.levelize_abroad_inland_parameters()
+        if self.args["scn_name"] in [
+            "eGon100RE",
+            "powerd2025",
+            "powerd2030",
+            "powerd2035",
+        ]:
+            self.levelize_abroad_inland_parameters()
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)

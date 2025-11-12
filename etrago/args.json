@@ -28,7 +28,6 @@
     "model_formulation": "kirchhoff",
     "scn_name": "eGon2035",
     "scn_extension": null,
-    "scn_decommissioning": null,
     "lpfile": false,
     "csv_export": "results",
     "extendable": {
@@ -61,7 +60,6 @@
     },
     "generator_noise": 789456,
     "extra_functionality": {},
-    "delete_dispensable_ac_buses": true,
     "network_clustering_ehv": {
         "active": false,
         "busmap": false
@@ -89,18 +87,6 @@
         "max_iter": 100,
         "tol": 1e-6,
         "CPU_cores": 4
-    },
-    "sector_coupled_clustering": {
-        "active": true,
-        "carrier_data": {
-            "central_heat": {
-                "base": [
-                    "CH4",
-                    "AC"
-                ],
-                "strategy": "simultaneous"
-            }
-    }
     },
     "spatial_disaggregation": null,
     "snapshot_clustering": {

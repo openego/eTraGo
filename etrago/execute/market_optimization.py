@@ -433,13 +433,19 @@ def build_market_model(self, unit_commitment=False):
         "p_min_pu",
     ] = -1.0
 
-    self.pre_market_model = adjust_PtH2_model(self)
-    logger.info("PtH2-Model adjusted in pre_market_network")
+    if self.args["scn_name"] in [
+        "eGon100RE",
+        "powerd2025",
+        "powerd2030",
+        "powerd2035",
+    ]:
+        self.pre_market_model = adjust_PtH2_model(self)
+        logger.info("PtH2-Model adjusted in pre_market_network")
 
-    self.pre_market_model = adjust_chp_model(self)
-    logger.info(
-        "CHP model in foreign countries adjusted in pre_market_network"
-    )
+        self.pre_market_model = adjust_chp_model(self)
+        logger.info(
+            "CHP model in foreign countries adjusted in pre_market_network"
+        )
 
     # Set country tags for market model
     self.buses_by_country(apply_on="pre_market_model")
@@ -659,7 +665,7 @@ def gas_clustering_market_model(self):
         preprocessing as gas_preprocessing,
     )
 
-    if self.network.links[self.network.links.carrier=="H2_grid"].empty:
+    if self.network.links[self.network.links.carrier == "H2_grid"].empty:
         logger.warning("H2 grid not clustered for market in this scenario")
         return
 

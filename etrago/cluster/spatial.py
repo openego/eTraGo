@@ -20,12 +20,12 @@
 # File description for read-the-docs
 """spatial.py defines the methods to run spatial clustering on networks."""
 
+import logging
 import os
 
 if "READTHEDOCS" not in os.environ:
     from itertools import product
     from math import ceil
-    import logging
     import multiprocessing as mp
 
     from networkx import NetworkXNoPath
@@ -49,7 +49,7 @@ if "READTHEDOCS" not in os.environ:
         connected_transformer,
     )
 
-    logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -109,11 +109,22 @@ def sum_with_inf(x):
 
 
 def strategies_buses():
-    return {"geom": nan_links, "country": "first"}
+    return {
+        "geom": nan_links,
+        "country": "first",
+        "scn_name": "first",
+    }
 
 
 def strategies_lines():
-    return {"geom": nan_links, "country": "first"}
+    return {
+        "geom": nan_links,
+        "country": "first",
+        "scn_name": "first",
+        "cables": "sum",
+        "topo": nan_links,
+        "total_cables": "sum",
+    }
 
 
 def strategies_one_ports():
@@ -139,6 +150,7 @@ def strategies_one_ports():
             "e_initial": "sum",
             "e_min_pu": "mean",
             "e_max_pu": "mean",
+            "scn_name": "first",
         },
     }
 
@@ -154,6 +166,7 @@ def strategies_generators():
         "capital_cost": "mean",
         "e_nom_max": sum_with_inf,
         "up_time_before": "mean",
+        "scn_name": "first",
     }
 
 

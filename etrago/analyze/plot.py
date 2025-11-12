@@ -28,11 +28,14 @@ import os
 from matplotlib import pyplot as plt
 from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
+from pyproj import Proj, transform
 from pypsa.plot import draw_map_cartopy
+import geopandas as gpd
 import matplotlib
 import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
+import tilemapbase
 
 cartopy_present = True
 try:
@@ -44,11 +47,9 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
+
     from geoalchemy2.shape import to_shape  # noqa: F401
-    from pyproj import Proj, transform
     from shapely.geometry import LineString, Point
-    import geopandas as gpd
-    import tilemapbase
 
     from etrago.execute import import_gen_from_links
 
@@ -1297,6 +1298,7 @@ def calc_ac_loading(network, timesteps):
     loading_lines = (
         mul_weighting(network, network.lines_t.p0)
         .loc[network.snapshots[timesteps]]
+        .abs()
         .sum()
     )
 
@@ -1310,7 +1312,12 @@ def calc_ac_loading(network, timesteps):
             ** 2
         ).apply(sqrt)
 
-    return loading_lines / network.lines.s_nom_opt
+    return (
+        loading_lines
+        / network.snapshot_weightings.loc[
+            network.snapshots[timesteps], "objective"
+        ].sum()
+    )
 
 
 def calc_dc_loading(network, timesteps):
@@ -1344,13 +1351,17 @@ def calc_dc_loading(network, timesteps):
             .loc[network.snapshots[timesteps]]
             .abs()
             .sum()[dc_links.index]
-            / dc_links.p_nom_opt
         )
         .fillna(0)
         .values
     )
 
-    return dc_load
+    return (
+        dc_load
+        / network.snapshot_weightings.loc[
+            network.snapshots[timesteps], "objective"
+        ].sum()
+    )
 
 
 def plotting_colors(network):
@@ -2284,19 +2295,20 @@ def plot_grid(
     # Set line colors
     if line_colors == "line_loading":
         title = "Mean line loading"
-        rep_snapshots = network.snapshot_weightings["objective"][
-            network.snapshots[timesteps]
-        ].sum()
-        line_colors = calc_ac_loading(network, timesteps).abs() / rep_snapshots
-        link_colors = calc_dc_loading(network, timesteps).abs() / rep_snapshots
+        line_colors = (
+            calc_ac_loading(network, timesteps).abs() / network.lines.s_nom_opt
+        )
+        link_colors = (
+            calc_dc_loading(network, timesteps).abs() / network.links.p_nom_opt
+        )
         if ext_width is not False:
             link_widths = link_colors.apply(
-                lambda x: 10 + (x / ext_width) if x != 0 else 0
+                lambda x: 2 + (x / ext_width) if x != 0 else 0
             )
-            line_widths = 10 + (line_colors / ext_width)
+            line_widths = 2 + (line_colors / ext_width)
         else:
-            link_widths = link_colors.apply(lambda x: 10 if x != 0 else 0)
-            line_widths = 10
+            link_widths = link_colors.apply(lambda x: 2 if x != 0 else 0)
+            line_widths = 2
         label = "line loading in p.u."
         plot_background_grid(network, ax, geographical_boundaries, osm)
         # Only active flow direction is displayed!
@@ -2305,11 +2317,15 @@ def plot_grid(
             mul_weighting(network, network.lines_t.p0)
             .loc[network.snapshots[timesteps]]
             .sum()
-            / network.lines.s_nom
-            / rep_snapshots
+            / network.lines.s_nom_opt
+            / network.snapshot_weightings.loc[
+                network.snapshots[timesteps], "objective"
+            ].sum()
         ).values
 
-        dc_loading = calc_dc_loading(network, timesteps) / rep_snapshots
+        dc_loading = (
+            calc_dc_loading(network, timesteps) / network.links.p_nom_opt
+        )
         dc_loading.index = pd.MultiIndex.from_tuples(
             [("Link", name) for name in dc_loading.index],
             names=["component", "name"],
