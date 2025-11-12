@@ -1579,7 +1579,7 @@ def demand_side_management(
             'pre_market_model', 'disaggregated_network'."""
         )
 
-    df = pd.DataFrame(index=network.snapshots[snapshots])
+    df = pd.DataFrame(index=snapshots)
 
     link = network.links[
         (network.links.carrier == "dsm") & (network.links.bus0.isin(buses))
@@ -1595,7 +1595,7 @@ def demand_side_management(
         .sum(axis=1)
         .resample(agg)
         .mean()
-        .iloc[snapshots]
+        .loc[snapshots]
     )
     df["p_max"] = (
         network.links_t.p_max_pu[link.index]
@@ -1603,31 +1603,30 @@ def demand_side_management(
         .sum(axis=1)
         .resample(agg)
         .mean()
-        .iloc[snapshots]
+        .loc[snapshots]
     )
 
     df["e_min"] = (
         network.stores_t.e_min_pu[s.index]
         .mul(s.e_nom, axis=1)
         .sum(axis=1)
-        .iloc[snapshots]
+        .loc[snapshots]
     )
     df["e_max"] = (
         network.stores_t.e_max_pu[s.index]
         .mul(s.e_nom, axis=1)
         .sum(axis=1)
-        .iloc[snapshots]
+        .loc[snapshots]
     )
-
     if used:
         df["p"] = (
             network.links_t.p0[link.index]
             .clip(lower=0)
             .sum(axis=1)
             .resample(agg)
-            .mean()[snapshots]
+            .mean().loc[snapshots]
         )
-        df["e"] = network.stores_t.e[s.index].sum(axis=1).iloc[snapshots]
+        df["e"] = network.stores_t.e[s.index].sum(axis=1).loc[snapshots]
 
     return df
 
@@ -1678,10 +1677,10 @@ def bev_flexibility_potential(
         )
 
     # Initialize DataFrame
-    df = pd.DataFrame(index=network.snapshots[snapshots])
+    df = pd.DataFrame(index=snapshots)
 
     # Select BEV buses and links
-    bev_buses = network.buses[network.buses.carrier.str.contains("Li ion")]
+    bev_buses = network.buses[network.buses.carrier.isin(["Li ion", "Li_ion"])]
     bev_links = network.links[
         (network.links.bus1.isin(bev_buses.index.values))
         & (network.links.bus0.isin(buses))
@@ -1691,14 +1690,13 @@ def bev_flexibility_potential(
     # Maximum loading of BEV charger in MW per BEV bus
     bev_links_t = (
         network.links_t.p_max_pu[bev_links.index]
-        .mul(bev_links.p_nom, axis=1)
-        .iloc[snapshots]
+        .mul(bev_links.p_nom, axis=1).loc[snapshots]
     )
     bev_links_t.columns = bev_links_t.columns.map(bev_links.bus1)
 
     # BEV loads per bus
     bev_loads = network.loads[network.loads.bus.isin(bev_buses)]
-    bev_loads_t = network.loads_t.p_set[bev_loads.index].iloc[snapshots]
+    bev_loads_t = network.loads_t.p_set[bev_loads.index].loc[snapshots]
     bev_loads_t.columns = bev_loads_t.columns.map(bev_loads.bus)
 
     # Maximal positive shifting df is max. loading of charger minus fixed loads
@@ -1714,7 +1712,7 @@ def bev_flexibility_potential(
     df["e_max"] = (
         network.stores_t.e_max_pu[bev_stores.index]
         .mul(bev_stores.e_nom, axis=1)
-        .iloc[snapshots]
+        .loc[snapshots]
         .sum(axis=1)
         .resample(agg)
         .mean()
@@ -1722,14 +1720,14 @@ def bev_flexibility_potential(
     df["e_min"] = (
         network.stores_t.e_min_pu[bev_stores.index]
         .mul(bev_stores.e_nom, axis=1)
-        .iloc[snapshots]
+        .loc[snapshots]
         .sum(axis=1)
         .resample(agg)
         .mean()
     )
 
     if used:
-        bev_links_t_used = network.links_t.p0[bev_links.index].iloc[snapshots]
+        bev_links_t_used = network.links_t.p0[bev_links.index].loc[snapshots]
 
         bev_links_t_used.columns = bev_links_t_used.columns.map(bev_links.bus1)
 
@@ -1747,7 +1745,6 @@ def bev_flexibility_potential(
             .sum(axis=1)
             .resample(agg)
             .mean()
-            .iloc[snapshots]
         )
 
     return df
@@ -1798,7 +1795,7 @@ def heat_stores(
             'pre_market_model', 'disaggregated_network'."""
         )
 
-    df = pd.DataFrame(index=network.snapshots[snapshots])
+    df = pd.DataFrame(index=snapshots)
 
     heat_buses = network.links[
         network.links.bus0.isin(
@@ -1845,7 +1842,7 @@ def heat_stores(
             .resample(agg)
             .mean()[snapshots]
         )
-        df["e"] = network.stores_t.e[s.index].sum(axis=1).iloc[snapshots]
+        df["e"] = network.stores_t.e[s.index].sum(axis=1)[snapshots]
 
     return df
 
@@ -1895,7 +1892,7 @@ def hydrogen_stores(
             'pre_market_model', 'disaggregated_network'."""
         )
 
-    df = pd.DataFrame(index=network.snapshots[snapshots])
+    df = pd.DataFrame(index=snapshots)
 
     h2_buses = network.links[
         network.links.bus0.isin(
@@ -1918,8 +1915,8 @@ def hydrogen_stores(
     df["e_max"] = s.e_nom_opt.sum()
 
     if used:
-        df["p"] = network.stores_t.p[s.index].sum(axis=1).iloc[snapshots]
-        df["e"] = network.stores_t.e[s.index].sum(axis=1).iloc[snapshots]
+        df["p"] = network.stores_t.p[s.index].sum(axis=1).loc[snapshots]
+        df["e"] = network.stores_t.e[s.index].sum(axis=1).loc[snapshots]
 
     return df
 
@@ -1981,7 +1978,7 @@ def plot_flexibility_usage(
         buses = network.buses.index
 
     if len(snapshots) == 0:
-        snapshots = range(1, len(network.snapshots))
+        snapshots = network.snapshots
 
     if flexibility == "dsm":
         df = demand_side_management(
@@ -2014,7 +2011,7 @@ def plot_flexibility_usage(
         )
 
     elif flexibility == "battery":
-        df = pd.DataFrame(index=network.snapshots[snapshots])
+        df = pd.DataFrame(index=snapshots)
 
         su = network.storage_units[
             (network.storage_units.carrier == "battery")
@@ -2024,7 +2021,7 @@ def plot_flexibility_usage(
         df["p_min"] = su.p_nom_opt.sum() * (-1)
         df["p_max"] = su.p_nom_opt.sum()
         df["p"] = (
-            network.storage_units_t.p[su.index].sum(axis=1).iloc[snapshots]
+            network.storage_units_t.p[su.index].sum(axis=1).loc[snapshots]
         )
 
         df["e_min"] = 0
@@ -2032,7 +2029,7 @@ def plot_flexibility_usage(
         df["e"] = (
             network.storage_units_t.state_of_charge[su.index]
             .sum(axis=1)
-            .iloc[snapshots]
+            .loc[snapshots]
         )
 
     elif flexibility == "h2_store":
