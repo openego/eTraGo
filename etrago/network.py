@@ -44,16 +44,14 @@ from etrago.analyze.calc_results import (
     system_costs_germany,
 )
 from etrago.analyze.plot import (
-    plot_residual_load, 
-    plot_stacked_gen, 
-    plot_curtailment,
     bev_flexibility_potential,
     demand_side_management,
-    plot_flexibility_usage,
     heat_stores,
     hydrogen_stores,
     plot_carrier,
     plot_clusters,
+    plot_curtailment,
+    plot_flexibility_usage,
     plot_gas_generation,
     plot_gas_summary,
     plot_grid,
@@ -61,6 +59,8 @@ from etrago.analyze.plot import (
     plot_h2_summary,
     plot_heat_loads,
     plot_heat_summary,
+    plot_residual_load,
+    plot_stacked_gen,
     shifted_energy,
 )
 from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
@@ -335,11 +335,11 @@ class Etrago:
     buses_by_country = buses_by_country
 
     update_busmap = update_busmap
-    
+
     plot_residual_load = plot_residual_load
-    
+
     plot_stacked_gen = plot_stacked_gen
-    
+
     plot_curtailment = plot_curtailment
 
     plot_grid = plot_grid
