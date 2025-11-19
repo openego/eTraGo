@@ -1,5 +1,5 @@
 {
-    "db": "egon-data",
+    "db": "test-oep",
     "gridversion": null,
     "method": { 
         "type": "lopf",  
