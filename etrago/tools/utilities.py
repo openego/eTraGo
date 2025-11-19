@@ -2007,6 +2007,7 @@ def get_args_setting(self, jsonpath="scenario_setting.json"):
         else:
             logger.warning("JSON file not found: {jsonpath}. Skipping.")
 
+
 def merge_dicts(dict1, dict2):
     """
     Return a new dictionary by merging two dictionaries recursively.
