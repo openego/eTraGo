@@ -61,7 +61,8 @@ from etrago.analyze.plot import (
     plot_heat_summary,
     plot_residual_load,
     plot_stacked_gen,
-    shifted_energy,
+    plot_storage_soc_sorted,
+    plot_voltage,
 )
 from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
 from etrago.cluster.gas import run_spatial_clustering_gas
@@ -209,34 +210,36 @@ class Etrago:
             self.check_args()
 
         elif csv_folder_name is not None:
+            
             self.get_args_setting(csv_folder_name + "/args.json")
 
             self.network = Network(
                 csv_folder_name, name, ignore_standard_types
             )
 
-            if self.args["spatial_disaggregation"] is not None:
+            try:
                 self.disaggregated_network = Network(
                     csv_folder_name + "/disaggregated_network",
                     name,
                     ignore_standard_types,
                 )
+            except ValueError:
+                logger.info(
+                    """
+                    No disaggregated network available.
+                    """
+                )
 
-            if self.args["method"]["market_optimization"]:
-                try:
+            try:
                     self.market_model = Network(
                         csv_folder_name + "/market",
                         name,
                         ignore_standard_types,
                     )
-                except ValueError:
-                    logger.warning(
+            except ValueError:
+                    logger.info(
                         """
-                        Could not import a market_model but the selected
-                        method in the args indicated that it should be there.
-                        This happens when the exported network was not solved
-                        yet.Run 'etrago.optimize()' to build and solve the
-                        market model.
+                        No optimized market model available.
                         """
                     )
 
@@ -341,6 +344,8 @@ class Etrago:
     plot_stacked_gen = plot_stacked_gen
 
     plot_curtailment = plot_curtailment
+    
+    plot_voltage = plot_voltage
 
     plot_grid = plot_grid
 
@@ -377,8 +382,6 @@ class Etrago:
     adjust_CH4_gen_carriers = adjust_CH4_gen_carriers
 
     manual_fixes_datamodel = manual_fixes_datamodel
-
-    shifted_energy = shifted_energy
 
     post_contingency_analysis = post_contingency_analysis_lopf
 
