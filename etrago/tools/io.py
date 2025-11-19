@@ -133,7 +133,7 @@ class NetworkScenario(ScenarioBase):
             self.test_oep_active = False
 
         if self.test_oep_active:
-            saio.register_schema("model_draft", engine)
+            saio.register_schema("data", engine)
         else:
             saio.register_schema("grid", engine)
 
@@ -154,7 +154,7 @@ class NetworkScenario(ScenarioBase):
         start- and end_snapshot."""
 
         if self.test_oep_active:
-            from saio.model_draft import (
+            from saio.data import (
                 edut_00_073 as egon_etrago_temp_resolution,
             )
         else:
@@ -214,7 +214,7 @@ class NetworkScenario(ScenarioBase):
         """
 
         if self.test_oep_active:
-            from saio.model_draft import (  # noqa: F401
+            from saio.data import (  # noqa: F401
                 edut_00_056 as egon_etrago_bus,
                 edut_00_060 as egon_etrago_generator,
                 edut_00_063 as egon_etrago_line,
@@ -303,7 +303,7 @@ class NetworkScenario(ScenarioBase):
         """
 
         if self.test_oep_active:
-            from saio.model_draft import (  # noqa: F401
+            from saio.data import (  # noqa: F401
                 edut_00_057 as egon_etrago_bus_timeseries,
                 edut_00_061 as egon_etrago_generator_timeseries,
                 edut_00_064 as egon_etrago_line_timeseries,

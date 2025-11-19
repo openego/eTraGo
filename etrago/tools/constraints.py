@@ -3667,14 +3667,16 @@ class Constraints:
                 else:
                     add_chp_constraints(network, snapshots)
 
-                if (self.args["scn_name"] != "status2019") & (
+                if (self.args["scn_name"] not in [
+                        "status2019", "status2023"]) & (
                     len(snapshots) > 1500
                 ):
                     add_ch4_constraints(self, network, snapshots)
                     add_biomass_constraint(self, network, snapshots)
 
             elif self.args["method"]["formulation"] == "linopy":
-                if (self.args["scn_name"] != "status2019") & (
+                if (self.args["scn_name"] not in [
+                        "status2019", "status2023"]) & (
                     len(snapshots) > 1500
                 ):
                     add_ch4_constraints_linopy(self, network, snapshots)
@@ -3688,7 +3690,8 @@ class Constraints:
                 add_chp_constraints_linopy(network, snapshots)
             else:
                 add_chp_constraints_nmp(network)
-                if self.args["scn_name"] != "status2019":
+                if self.args["scn_name"] not in [
+                        "status2019", "status2023"]:
                     add_ch4_constraints_nmp(self, network, snapshots)
 
         for constraint in self.args["extra_functionality"].keys():
