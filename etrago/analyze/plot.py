@@ -141,7 +141,7 @@ def coloring():
         "H2_underground": "cyan",
         "H2": "cyan",
         "H2_for_industry": "paleturquoise",
-        'H2_hgv_load':"aquamarine",
+        "H2_hgv_load": "aquamarine",
         "dsm-cts": "dodgerblue",
         "dsm-ind-osm": "dodgerblue",
         "dsm-ind-sites": "dodgerblue",
@@ -302,6 +302,7 @@ def plotting_colors(network):
     # network.carriers.color['battery_storage'] = 'blue'
     # network.carriers.color[network.carriers.color == ''] = 'grey'
 
+
 def mul_weighting(network, timeseries):
     """Returns timeseries considering snapshot_weighting
 
@@ -347,9 +348,9 @@ def plot_stacked_gen(self, bus=None, resolution="GW", filename=None):
 
     # sum for all buses
     if bus is None:
-        p_by_carrier = (
-            self.network.generators_t.p.groupby(self.network.generators.carrier, axis=1).sum()
-        )
+        p_by_carrier = self.network.generators_t.p.groupby(
+            self.network.generators.carrier, axis=1
+        ).sum()
 
         load = self.network.loads_t.p.sum(axis=1)
         if hasattr(self.network, "foreign_trade"):
@@ -362,7 +363,9 @@ def plot_stacked_gen(self, bus=None, resolution="GW", filename=None):
             self.network.generators["bus"] == bus
         ]
         p_by_carrier = (
-            self.network.generators_t.p[filtered_gens.index].groupby(filtered_gens.carrier, axis=1).sum()
+            self.network.generators_t.p[filtered_gens.index]
+            .groupby(filtered_gens.carrier, axis=1)
+            .sum()
         )
         filtered_load = self.network.loads[self.network.loads["bus"] == bus]
         load = self.network.loads_t.p[filtered_load.index].sum(axis=1)
@@ -378,13 +381,15 @@ def plot_stacked_gen(self, bus=None, resolution="GW", filename=None):
     (p_by_carrier / reso_int).clip(lower=0.0).plot(
         kind="area", ax=ax, linewidth=0, color=colors
     )
-    (load / reso_int).plot(ax=ax, lw=2, color="black", style="--", label='Total Load')
+    (load / reso_int).plot(
+        ax=ax, lw=2, color="black", style="--", label="Total Load"
+    )
     ax.legend(ncol=4, loc="upper left")
-    
-    ymax = (load/reso_int).max()
-    ymax2 = (p_by_carrier/reso_int).max().max()
-    if ymax2>ymax:
-        ymax=ymax2
+
+    ymax = (load / reso_int).max()
+    ymax2 = (p_by_carrier / reso_int).max().max()
+    if ymax2 > ymax:
+        ymax = ymax2
     ax.set_ylim(0, ymax * 1.3)
 
     ax.set_ylabel(resolution)
@@ -398,7 +403,7 @@ def plot_stacked_gen(self, bus=None, resolution="GW", filename=None):
     else:
         plt.savefig(filename)
         plt.close()
-        
+
 
 def plot_curtailment(self, carrier="solar", filename=None):
     """
@@ -449,7 +454,11 @@ def plot_curtailment(self, carrier="solar", filename=None):
         ax=ax, linewidth=1.5, linestyle="--", color="orange"
     )
     p_df[[carrier + " available"]].plot(
-        kind="area", ax=ax, linewidth=2, color="orange", alpha=0.5,
+        kind="area",
+        ax=ax,
+        linewidth=2,
+        color="orange",
+        alpha=0.5,
     )
     p_df[[carrier + " dispatched", carrier + " curtailed"]].plot(
         ax=ax, linewidth=1.5, color=["blue", "red"]
@@ -463,7 +472,7 @@ def plot_curtailment(self, carrier="solar", filename=None):
         plt.show()
     else:
         plt.savefig(filename)
-        plt.close()        
+        plt.close()
 
 
 def plot_residual_load(self):
@@ -483,11 +492,12 @@ def plot_residual_load(self):
             ["wind_onshore", "wind_offshore", "solar", "run_of_river", "wind"]
         )
     ]
-    renewables_t = self.network.generators.p_nom[
-        renewables.index
-    ] * self.network.get_switchable_as_dense("Generator", "p_max_pu")[
-        renewables.index
-    ]
+    renewables_t = (
+        self.network.generators.p_nom[renewables.index]
+        * self.network.get_switchable_as_dense("Generator", "p_max_pu")[
+            renewables.index
+        ]
+    )
     load = self.network.loads_t.p_set.sum(axis=1)
     all_renew = renewables_t.sum(axis=1)
     residual_load = load - all_renew
@@ -514,7 +524,7 @@ def plot_residual_load(self):
         legend=False,
     )
     plot1.set_ylabel("MW")
-        
+
 
 def plot_voltage(self, boundaries=[]):
     """
@@ -536,41 +546,45 @@ def plot_voltage(self, boundaries=[]):
     -------
     Plot
     """
-    geographical_boundaries=[-2.5, 16, 46.8, 58]
+    geographical_boundaries = [-2.5, 16, 46.8, 58]
     if cartopy_present:
         fig, ax = plt.subplots(
             subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(5, 5)
         )
-        geomap=True
+        geomap = True
     else:
         fig, ax = plt.subplots(figsize=(5, 5))
-        geomap=False
+        geomap = False
 
     x = np.array(self.network.buses["x"])
     y = np.array(self.network.buses["y"])
-    alpha = np.array(self.network.buses_t.v_mag_pu.loc[self.network.snapshots[0]])
+    alpha = np.array(
+        self.network.buses_t.v_mag_pu.loc[self.network.snapshots[0]]
+    )
 
     cmap = plt.cm.jet
     if not boundaries:
-        hb=ax.hexbin(x, y, C=alpha, cmap=cmap, gridsize=100)
+        hb = ax.hexbin(x, y, C=alpha, cmap=cmap, gridsize=100)
         cb = fig.colorbar(hb, ax=ax)
     elif boundaries:
         v = np.linspace(boundaries[0], boundaries[1], 101)
         norm = matplotlib.colors.BoundaryNorm(v, cmap.N)
-        hb=ax.hexbin(x, y, C=alpha, cmap=cmap, gridsize=100, norm=norm)
+        hb = ax.hexbin(x, y, C=alpha, cmap=cmap, gridsize=100, norm=norm)
         cb = fig.colorbar(boundaries=v, ticks=v[0:101:10], norm=norm)
         cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
     cb.set_label("Voltage Magnitude per unit of v_nom")
 
     self.network.plot(
-        ax=ax, line_widths=pd.Series(0.5, self.network.lines.index), bus_sizes=0, 
-            geomap=geomap,
-            color_geomap=True,
-            boundaries=geographical_boundaries,
+        ax=ax,
+        line_widths=pd.Series(0.5, self.network.lines.index),
+        bus_sizes=0,
+        geomap=geomap,
+        color_geomap=True,
+        boundaries=geographical_boundaries,
     )
     plt.show()
-    
-    
+
+
 def plot_storage_soc_sorted(self, filename=None):
     """
     Plots the soc (state-pf-charge) of extendable storages
@@ -610,7 +624,10 @@ def plot_storage_soc_sorted(self, filename=None):
         and self.network.storage_units.p_nom_opt[shydr].sum() < 1
     ):
         (
-            (self.network.storage_units_t.p[sbatt].sum(axis=1)/ self.network.storage_units.p_nom_opt[sbatt].sum())
+            (
+                self.network.storage_units_t.p[sbatt].sum(axis=1)
+                / self.network.storage_units.p_nom_opt[sbatt].sum()
+            )
             .sort_values(ascending=False)
             .reset_index()
         )[0].plot(ax=ax, label="Battery storage", color="orangered")
@@ -619,18 +636,27 @@ def plot_storage_soc_sorted(self, filename=None):
         and self.network.storage_units.p_nom_opt[shydr].sum() > 1
     ):
         (
-            (self.network.storage_units_t.p[shydr].sum(axis=1)/ self.network.storage_units.p_nom_opt[shydr].sum())
+            (
+                self.network.storage_units_t.p[shydr].sum(axis=1)
+                / self.network.storage_units.p_nom_opt[shydr].sum()
+            )
             .sort_values(ascending=False)
             .reset_index()
         )[0].plot(ax=ax, label="Hydrogen storage", color="teal")
     else:
         (
-            (self.network.storage_units_t.p[sbatt].sum(axis=1)/ self.network.storage_units.p_nom_opt[sbatt].sum())
+            (
+                self.network.storage_units_t.p[sbatt].sum(axis=1)
+                / self.network.storage_units.p_nom_opt[sbatt].sum()
+            )
             .sort_values(ascending=False)
             .reset_index()
         )[0].plot(ax=ax, label="Battery storage", color="orangered")
         (
-            (self.network.storage_units_t.p[shydr].sum(axis=1)/ self.network.storage_units.p_nom_opt[shydr].sum())
+            (
+                self.network.storage_units_t.p[shydr].sum(axis=1)
+                / self.network.storage_units.p_nom_opt[shydr].sum()
+            )
             .sort_values(ascending=False)
             .reset_index()
         )[0].plot(ax=ax, label="Hydrogen storage", color="teal")
@@ -647,12 +673,10 @@ def plot_storage_soc_sorted(self, filename=None):
         plt.savefig(filename, figsize=(3, 4), bbox_inches="tight")
         plt.close()
 
-    return   
+    return
 
 
-def plot_gas_generation(
-    self, t_resolution="20H", save_path=False
-):
+def plot_gas_generation(self, t_resolution="20H", save_path=False):
     """
     Plots timeseries data for gas generation
 
@@ -714,7 +738,7 @@ def plot_gas_generation(
         legend=True,
         color=colors["H2_to_CH4"],
     )
-    
+
     ax.set_xlabel("")
 
     if save_path:
@@ -746,7 +770,7 @@ def plot_gas_summary(self, t_resolution="20H", stacked=True, save_path=False):
     """
     fig, ax = plt.subplots(figsize=(20, 10), dpi=150)
     matplotlib.rcParams.update({"font.size": 14})
-    
+
     colors = coloring()
 
     ch4_load_carrier = ["rural_gas_boiler", "CH4_for_industry", "CH4"]
@@ -792,7 +816,7 @@ def plot_gas_summary(self, t_resolution="20H", stacked=True, save_path=False):
             ylabel="[GW]",
             legend=True,
             stacked=True,
-            color=[colors[col] for col in data.columns]
+            color=[colors[col] for col in data.columns],
         )
 
     else:
@@ -822,7 +846,14 @@ def plot_gas_summary(self, t_resolution="20H", stacked=True, save_path=False):
             ].index.to_list()
         ]
         data = data.sum(axis=1).resample(t_resolution).mean() / 1e3
-        data.plot(ax=ax, label=ch4_load_carrier[0], color=colors[ch4_load_carrier[0]], lw=2, ylabel="[GW]", legend=True)
+        data.plot(
+            ax=ax,
+            label=ch4_load_carrier[0],
+            color=colors[ch4_load_carrier[0]],
+            lw=2,
+            ylabel="[GW]",
+            legend=True,
+        )
 
         for i in ch4_load_carrier[1:]:
             data = self.network.loads_t.p[
@@ -831,24 +862,16 @@ def plot_gas_summary(self, t_resolution="20H", stacked=True, save_path=False):
                 ].index.to_list()
             ]
             data = data.sum(axis=1).resample(t_resolution).mean() / 1e3
-            data.plot(ax=ax, label=i,color=colors[i], lw=2, legend=True)
+            data.plot(ax=ax, label=i, color=colors[i], lw=2, legend=True)
 
     ch4_gens_feedin = self.network.generators_t.p[
-        [
-            col
-            for col in self.network.generators_t.p.columns
-            if "CH4" in col
-        ]
+        [col for col in self.network.generators_t.p.columns if "CH4" in col]
     ]  # active power at bus
     ch4_links_feedin = -self.network.links_t.p1[
-        self.network.links.loc[
-            self.network.links.carrier == "H2_to_CH4"
-        ].index
+        self.network.links.loc[self.network.links.carrier == "H2_to_CH4"].index
     ]  # p1 is output p of H2_to_CH4
     h2_links_feedin = -self.network.links_t.p1[
-        self.network.links.loc[
-            self.network.links.carrier == "H2_feedin"
-        ].index
+        self.network.links.loc[self.network.links.carrier == "H2_feedin"].index
     ]
 
     total_gen_per_t = ch4_gens_feedin.sum(axis=1) / 1e3
@@ -868,9 +891,7 @@ def plot_gas_summary(self, t_resolution="20H", stacked=True, save_path=False):
 
     stores = self.network.stores.loc[self.network.stores.carrier == "CH4"]
     a = self.network.stores_t.p[stores.index].sum(axis=1) / 1e3
-    (a).resample(
-        t_resolution
-    ).mean().plot.line(
+    (a).resample(t_resolution).mean().plot.line(
         ax=ax,
         legend=True,
         label="Gas Storage Dispatch",
@@ -878,7 +899,7 @@ def plot_gas_summary(self, t_resolution="20H", stacked=True, save_path=False):
         linestyle="dashed",
         lw=2,
     )
-        
+
     ymax = ax.get_ylim()[1]
     ax.set_ylim(0, ymax * 1.2)
     ax.set_xlabel("")
@@ -935,7 +956,7 @@ def plot_h2_generation(self, t_resolution="20H", save_path=False):
         color=colors["power_to_H2"],
         lw=2,
     )
-    
+
     (h2_CH4_gen.sum(axis=1) / 1e3 + h2_power_gen.sum(axis=1) / 1e3).resample(
         t_resolution
     ).mean().plot(
@@ -944,10 +965,10 @@ def plot_h2_generation(self, t_resolution="20H", save_path=False):
         ylabel="[GW]",
         label="Total Dispatch",
         lw=2,
-        color='black',
-        linestyle='--',
+        color="black",
+        linestyle="--",
     )
-    
+
     ymax = ax.get_ylim()[1]
     ax.set_ylim(0, ymax * 1.1)
     ax.set_ylabel("[GW]")
@@ -983,8 +1004,8 @@ def plot_h2_summary(self, t_resolution="20H", stacked=True, save_path=False):
 
     """
 
-    matplotlib.rcParams.update({"font.size": 16}) 
-    colors = coloring()   
+    matplotlib.rcParams.update({"font.size": 16})
+    colors = coloring()
 
     rel_h2_links = ["H2_feedin", "H2_to_CH4", "H2_to_power"]
     rel_h2_loads = ["H2_for_industry", "H2_hgv_load"]
@@ -994,16 +1015,16 @@ def plot_h2_summary(self, t_resolution="20H", stacked=True, save_path=False):
             self.network.links.carrier == rel_h2_links[0]
         ].index.to_list()
     ]
-    
+
     fig, ax = plt.subplots(figsize=(20, 10), dpi=150)
-    
+
     if stacked:
 
         data = (
             pd.DataFrame(data.sum(axis=1)).resample(t_resolution).mean() / 1e3
         )
         data = data.rename(columns={0: rel_h2_links[0]})
-    
+
         for i in rel_h2_links[1:]:
             loads = self.network.links_t.p0[
                 self.network.links.loc[
@@ -1011,7 +1032,7 @@ def plot_h2_summary(self, t_resolution="20H", stacked=True, save_path=False):
                 ].index.to_list()
             ]
             data[i] = loads.sum(axis=1).resample(t_resolution).mean() / 1e3
-    
+
         DE_loads = self.network.loads.loc[
             self.network.loads.bus.isin(
                 self.network.buses.loc[
@@ -1024,22 +1045,17 @@ def plot_h2_summary(self, t_resolution="20H", stacked=True, save_path=False):
                 DE_loads.loc[DE_loads.carrier == i].index.to_list()
             ]
             data[i] = loads.sum(axis=1).resample(t_resolution).mean() / 1e3
-    
+
         data.plot.area(
-            ax=ax,
-            stacked=True,
-            color=[colors[col] for col in data.columns]
+            ax=ax, stacked=True, color=[colors[col] for col in data.columns]
         )
-            
+
         ax.set_title("Stacked H₂ Loads by Carrier")
-        
+
     else:
         data = data.sum(axis=1).resample(t_resolution).mean() / 1e3
         data.plot(
-            ax=ax,
-            label=rel_h2_links[0],
-            color=colors[rel_h2_links[0]],
-            lw=2
+            ax=ax, label=rel_h2_links[0], color=colors[rel_h2_links[0]], lw=2
         )
 
         for i in rel_h2_links[1:]:
@@ -1062,34 +1078,34 @@ def plot_h2_summary(self, t_resolution="20H", stacked=True, save_path=False):
             DE_loads.loc[DE_loads.carrier == rel_h2_loads[0]].index.to_list()
         ]
         data = data.sum(axis=1).resample(t_resolution).mean() / 1e3
-        data.plot(ax=ax, label=rel_h2_loads[0], color=colors[rel_h2_loads[0]], lw=2)
-        
-        ax.set_title("H₂ Loads by Carrier") 
-        
+        data.plot(
+            ax=ax, label=rel_h2_loads[0], color=colors[rel_h2_loads[0]], lw=2
+        )
+
+        ax.set_title("H₂ Loads by Carrier")
+
     h2_CH4_gen = -self.network.links_t.p1[
-        self.network.links.loc[
-            self.network.links.carrier == "CH4_to_H2"
-        ].index
+        self.network.links.loc[self.network.links.carrier == "CH4_to_H2"].index
     ]
     h2_power_gen = -self.network.links_t.p1[
         self.network.links.loc[
             self.network.links.carrier == "power_to_H2"
         ].index
     ]
-    (
-        h2_CH4_gen.sum(axis=1) / 1e3 + h2_power_gen.sum(axis=1) / 1e3
-    ).resample(t_resolution).mean().plot(
+    (h2_CH4_gen.sum(axis=1) / 1e3 + h2_power_gen.sum(axis=1) / 1e3).resample(
+        t_resolution
+    ).mean().plot(
         ax=ax,
         label="H₂ Generation",
         color="black",
         linestyle="dashed",
         lw=2,
     )
-    
+
     ymax = ax.get_ylim()[1]
     ax.set_ylim(0, ymax * 1.2)
     ax.set_ylabel("[GW]")
-    ax.set_xlabel("")   
+    ax.set_xlabel("")
     ax.legend(ncol=3, loc="upper left")
 
     if save_path:
@@ -1115,7 +1131,7 @@ def plot_heat_loads(self, t_resolution="20H", save_path=False):
     None.
 
     """
-    matplotlib.rcParams.update({"font.size": 16}) 
+    matplotlib.rcParams.update({"font.size": 16})
     colors = coloring()
     fig, ax = plt.subplots(figsize=(20, 10), dpi=150)
 
@@ -1136,16 +1152,22 @@ def plot_heat_loads(self, t_resolution="20H", save_path=False):
         label="central_heat + rural_heat",
         legend=True,
         ylabel="[GW]",
-        color="pink"
+        color="pink",
     )
     (central_h_loads / 1e3).resample(t_resolution).mean().plot(
-        ax=ax, label="central_heat", legend=True,color=colors["central_heat"],
+        ax=ax,
+        label="central_heat",
+        legend=True,
+        color=colors["central_heat"],
     )
     (rural_h_loads / 1e3).resample(t_resolution).mean().plot(
-        ax=ax, label="rural_heat", legend=True, color=colors["rural_heat"],
+        ax=ax,
+        label="rural_heat",
+        legend=True,
+        color=colors["rural_heat"],
     )
-    
-    ax.set_xlabel("")   
+
+    ax.set_xlabel("")
 
     if save_path:
         plt.savefig(save_path, dpi=150)
@@ -1236,8 +1258,8 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
         ]
         / 1e3
     )
-    
-    matplotlib.rcParams.update({"font.size": 16}) 
+
+    matplotlib.rcParams.update({"font.size": 16})
     colors = coloring()
     fig, ax = plt.subplots(figsize=(20, 10), dpi=150)
 
@@ -1284,7 +1306,11 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
             ]
             data = -data.sum(axis=1) / 1e3
             data.resample(t_resolution).mean().plot(
-                ax=ax, label=i, legend=True, color=colors[i], lw=2,
+                ax=ax,
+                label=i,
+                legend=True,
+                color=colors[i],
+                lw=2,
             )
 
     heat_store_dispatch_hb.resample(t_resolution).mean().plot.line(
@@ -1302,10 +1328,10 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
         color="black",
         linestyle="dashed",
     )
-    
+
     ymax = ax.get_ylim()[1]
     ax.set_ylim(0, ymax * 1.4)
-    ax.set_xlabel("") 
+    ax.set_xlabel("")
     ax.legend(ncol=3, loc="upper left")
 
     if save_path:
@@ -3345,8 +3371,8 @@ def plot_flexibility_duration_curve(etrago, etrago_lowflex, filename=None):
     if filename:
         fig.savefig(filename, dpi=600)
         plt.close()
-        
-        
+
+
 def plot_gen_diff(
     networkA,
     networkB,
@@ -3355,7 +3381,7 @@ def plot_gen_diff(
         "oil",
         "others",
         "reservoir",
-        #"waste",
+        # "waste",
     ],
 ):
     """
@@ -3374,11 +3400,11 @@ def plot_gen_diff(
     """
 
     def gen_by_c(network):
-                        
-        gen = (
-            network.generators_t.p.groupby(network.generators.carrier, axis=1).sum()
-        )
-                        
+
+        gen = network.generators_t.p.groupby(
+            network.generators.carrier, axis=1
+        ).sum()
+
         return gen
 
     gen = gen_by_c(networkB)
@@ -3388,16 +3414,16 @@ def plot_gen_diff(
     colors = coloring()
     fig, ax = plt.subplots(figsize=(20, 10), dpi=150)
     matplotlib.rcParams.update({"font.size": 14})
-    
+
     diff.drop(leave_out_carriers, axis=1, inplace=True)
     colors = [colors[col] for col in diff.columns]
 
     diff.plot(ax=ax, kind="line", color=colors, use_index=False)
     ax.legend(loc="upper left", ncol=5, prop={"size": 8})
-    '''x = []
+    """x = []
     for i in range(0, len(diff)):
         x.append(i)
-    plt.xticks(x, x)'''
+    plt.xticks(x, x)"""
     ax.set_xlabel("Timesteps")
     ax.set_ylabel("[MW]")
     ymax = ax.get_ylim()[1]
@@ -3405,7 +3431,7 @@ def plot_gen_diff(
     ax.set_title("Difference in Generation")
     plt.tight_layout()
     plt.show()
-    
+
 
 def plot_gen_dist_diff(
     networkA,
@@ -3469,19 +3495,33 @@ def plot_gen_dist_diff(
     for i, tech in enumerate(techs):
         i_row = i // n_cols
         i_col = i % n_cols
-        
-        if n_rows==1:
+
+        if n_rows == 1:
             ax = axes[i]
         else:
             ax = axes[i_row, i_col]
 
         gensA = networkA.generators[networkA.generators.carrier == tech]
         gensB = networkB.generators[networkB.generators.carrier == tech]
-        
-        genA = networkA.generators_t.p[gensA.index].mul(networkA.snapshot_weightings['generators'], axis=0).loc[networkA.snapshots[0]].groupby(networkA.generators.bus).sum().reindex(networkA.buses.index, fill_value=0.0)
-        genB = networkB.generators_t.p[gensB.index].mul(networkB.snapshot_weightings['generators'], axis=0).loc[networkB.snapshots[0]].groupby(networkB.generators.bus).sum().reindex(networkB.buses.index, fill_value=0.0)
-        
-        gen_distribution = genA-genB
+
+        genA = (
+            networkA.generators_t.p[gensA.index]
+            .mul(networkA.snapshot_weightings["generators"], axis=0)
+            .loc[networkA.snapshots[0]]
+            .groupby(networkA.generators.bus)
+            .sum()
+            .reindex(networkA.buses.index, fill_value=0.0)
+        )
+        genB = (
+            networkB.generators_t.p[gensB.index]
+            .mul(networkB.snapshot_weightings["generators"], axis=0)
+            .loc[networkB.snapshots[0]]
+            .groupby(networkB.generators.bus)
+            .sum()
+            .reindex(networkB.buses.index, fill_value=0.0)
+        )
+
+        gen_distribution = genA - genB
 
         networkA.plot(
             ax=ax,
@@ -3495,7 +3535,7 @@ def plot_gen_dist_diff(
         )
 
         ax.set_title(tech)
-        
+
     plt.suptitle("Difference in Generation per Carrier")
 
     if filename is None:
@@ -3503,8 +3543,8 @@ def plot_gen_dist_diff(
     else:
         plt.savefig(filename)
         plt.close()
-    
-        
+
+
 def plot_line_loading_diff(
     networkA, networkB, filename=None, boundaries=[], osm=False
 ):
@@ -3529,24 +3569,28 @@ def plot_line_loading_diff(
         * 'zoom' : resolution of osm
 
     """
-    geographical_boundaries=[-2.5, 16, 46.8, 58]
-    cartopy_present=False
+    geographical_boundaries = [-2.5, 16, 46.8, 58]
+    cartopy_present = False
     if cartopy_present:
-        subplot_kw={"projection": ccrs.PlateCarree()}
-        geomap=True
+        subplot_kw = {"projection": ccrs.PlateCarree()}
+        geomap = True
     else:
-        subplot_kw=None
-        geomap=False
+        subplot_kw = None
+        geomap = False
 
-    loadingA_AC = (networkA.lines_t.p0.abs().max() / networkA.lines.s_nom)
-    loadingB_AC = (networkB.lines_t.p0.abs().max() / networkB.lines.s_nom)
+    loadingA_AC = networkA.lines_t.p0.abs().max() / networkA.lines.s_nom
+    loadingB_AC = networkB.lines_t.p0.abs().max() / networkB.lines.s_nom
     loading_diff_AC = loadingA_AC - loadingB_AC  # ∆ Loading in pu
 
     dc_links = networkA.links[networkA.links.carrier == "DC"].index
-    loadingA_DC = (networkA.links_t.p0[dc_links].abs().max() 
-                   / networkA.links.loc[dc_links, "p_nom"])
-    loadingB_DC = (networkB.links_t.p0[dc_links].abs().max() 
-                   / networkB.links.loc[dc_links, "p_nom"])
+    loadingA_DC = (
+        networkA.links_t.p0[dc_links].abs().max()
+        / networkA.links.loc[dc_links, "p_nom"]
+    )
+    loadingB_DC = (
+        networkB.links_t.p0[dc_links].abs().max()
+        / networkB.links.loc[dc_links, "p_nom"]
+    )
     loading_diff_DC = loadingA_DC - loadingB_DC
 
     link_colors = pd.Series(np.nan, index=networkA.links.index)
@@ -3556,7 +3600,7 @@ def plot_line_loading_diff(
     vmax = max(loading_diff_AC.max(), loading_diff_DC.max())
     cmap = plt.cm.RdBu_r  # rot = mehr Loading, blau = weniger
 
-    fig, ax = plt.subplots(figsize=(12, 8),subplot_kw=subplot_kw)
+    fig, ax = plt.subplots(figsize=(12, 8), subplot_kw=subplot_kw)
 
     networkA.plot(
         ax=ax,
@@ -3572,8 +3616,7 @@ def plot_line_loading_diff(
     )
 
     sm = matplotlib.cm.ScalarMappable(
-        cmap=cmap,
-        norm=matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
+        cmap=cmap, norm=matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
     )
     sm.set_array([])
     cbar = plt.colorbar(sm, ax=ax, orientation="vertical")
@@ -3610,33 +3653,36 @@ def plot_network_expansion_diff(
         * 'zoom' : resolution of osm
 
     """
-    geographical_boundaries=[-2.5, 16, 46.8, 58]
+    geographical_boundaries = [-2.5, 16, 46.8, 58]
     if cartopy_present:
-        subplot_kw={"projection": ccrs.PlateCarree()}
-        geomap=True
+        subplot_kw = {"projection": ccrs.PlateCarree()}
+        geomap = True
     else:
-        subplot_kw=None
-        geomap=False
+        subplot_kw = None
+        geomap = False
 
     extension_lines = 100 * (
         (networkA.lines.s_nom_opt - networkB.lines.s_nom_opt)
         / networkA.lines.s_nom_opt
     )
-    
-    dc_links=networkA.links[networkA.links.carrier=='DC'].index
+
+    dc_links = networkA.links[networkA.links.carrier == "DC"].index
     extension_links = pd.Series(np.nan, index=networkA.links.index)
     extension_links.loc[dc_links] = 100 * (
-    (networkA.links.loc[dc_links, "p_nom_opt"] -
-     networkB.links.loc[dc_links, "p_nom_opt"])
-    / networkA.links.loc[dc_links, "p_nom_opt"])
-    
+        (
+            networkA.links.loc[dc_links, "p_nom_opt"]
+            - networkB.links.loc[dc_links, "p_nom_opt"]
+        )
+        / networkA.links.loc[dc_links, "p_nom_opt"]
+    )
+
     # Colormap definieren
     cmap = plt.cm.RdBu_r  # Rot = Ausbau, Blau = Abbau
     vmin = min(extension_lines.min(), extension_links.min())
     vmax = max(extension_lines.max(), extension_links.max())
-    
+
     # Plot vorbereiten
-    fig, ax = plt.subplots(figsize=(12, 8),subplot_kw=subplot_kw)
+    fig, ax = plt.subplots(figsize=(12, 8), subplot_kw=subplot_kw)
 
     networkA.plot(
         ax=ax,
@@ -3649,10 +3695,11 @@ def plot_network_expansion_diff(
         link_widths=1,
         geomap=geomap,
         boundaries=geographical_boundaries,
-        
     )
-    
-    sm = matplotlib.cm.ScalarMappable(cmap=cmap, norm=matplotlib.colors.Normalize(vmin=vmin, vmax=vmax))
+
+    sm = matplotlib.cm.ScalarMappable(
+        cmap=cmap, norm=matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
+    )
     sm.set_array([])
     cbar = plt.colorbar(sm, ax=ax, orientation="vertical")
     cbar.set_label("Extension Derivation in %")
@@ -3662,8 +3709,8 @@ def plot_network_expansion_diff(
     else:
         plt.savefig(filename)
         plt.close()
-        
-        
+
+
 def shifted_energy(network, carrier, buses):
     """Calulate shifted energy for a specific carrier
 
@@ -3689,35 +3736,39 @@ def shifted_energy(network, carrier, buses):
             ].index
         )
         & network.links.bus1.isin(
-            network.buses[
-                network.buses.carrier.str.contains(carrier)
-            ].index
+            network.buses[network.buses.carrier.str.contains(carrier)].index
         )
     ].bus1.unique()
 
-    supply = (network.links_t.p1[
-        network.links[
-            (network.links.bus1.isin(buses))
-            & ~(network.links.carrier.str.contains("charger"))
-        ].index
-    ].mul(-1).sum(axis=1) + (
-        network.generators_t.p[
-            network.generators[
-                network.generators.bus.isin(buses)
-            ].index
-        ].sum(axis=1)
-    )).mul(network.snapshot_weightings.generators, axis=0)
-
-    demand = (network.loads_t.p[
-        network.loads[network.loads.bus.isin(buses)].index
-    ].sum(axis=1) + (
-        network.links_t.p0[
+    supply = (
+        network.links_t.p1[
             network.links[
-                (network.links.bus0.isin(buses))
+                (network.links.bus1.isin(buses))
                 & ~(network.links.carrier.str.contains("charger"))
             ].index
+        ]
+        .mul(-1)
+        .sum(axis=1)
+        + (
+            network.generators_t.p[
+                network.generators[network.generators.bus.isin(buses)].index
+            ].sum(axis=1)
+        )
+    ).mul(network.snapshot_weightings.generators, axis=0)
+
+    demand = (
+        network.loads_t.p[
+            network.loads[network.loads.bus.isin(buses)].index
         ].sum(axis=1)
-    )).mul(network.snapshot_weightings.generators, axis=0)
+        + (
+            network.links_t.p0[
+                network.links[
+                    (network.links.bus0.isin(buses))
+                    & ~(network.links.carrier.str.contains("charger"))
+                ].index
+            ].sum(axis=1)
+        )
+    ).mul(network.snapshot_weightings.generators, axis=0)
 
     shifted = supply - demand
     return shifted

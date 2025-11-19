@@ -210,7 +210,7 @@ class Etrago:
             self.check_args()
 
         elif csv_folder_name is not None:
-            
+
             self.get_args_setting(csv_folder_name + "/args.json")
 
             self.network = Network(
@@ -231,17 +231,17 @@ class Etrago:
                 )
 
             try:
-                    self.market_model = Network(
-                        csv_folder_name + "/market",
-                        name,
-                        ignore_standard_types,
-                    )
+                self.market_model = Network(
+                    csv_folder_name + "/market",
+                    name,
+                    ignore_standard_types,
+                )
             except ValueError:
-                    logger.info(
-                        """
+                logger.info(
+                    """
                         No optimized market model available.
                         """
-                    )
+                )
 
             self.get_clustering_data(csv_folder_name)
 
@@ -344,7 +344,7 @@ class Etrago:
     plot_stacked_gen = plot_stacked_gen
 
     plot_curtailment = plot_curtailment
-    
+
     plot_voltage = plot_voltage
 
     plot_grid = plot_grid
