@@ -347,6 +347,8 @@ class Etrago:
 
     plot_voltage = plot_voltage
 
+    plot_storage_soc_sorted = plot_storage_soc_sorted
+
     plot_grid = plot_grid
 
     plot_clusters = plot_clusters

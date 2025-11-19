@@ -176,6 +176,7 @@ def coloring():
         "H2_saltcavern": "darkgreen",
         "central_heat_store": "firebrick",
         "heat": "firebrick",
+        "heat_generator_dispatch": "red",
         "rural_heat_store": "salmon",
         "AC": "blue",
         "nuclear": "palegreen",
@@ -1274,6 +1275,8 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
                 ].index.to_list()
             ]
             data[i] = -(loads).sum(axis=1) / 1e3
+
+        data["heat_generator_dispatch"] = heat_gen_dispatch
 
         data.resample(t_resolution).mean().plot.area(
             ax=ax,
