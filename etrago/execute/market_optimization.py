@@ -66,7 +66,7 @@ def market_optimization(self):
                 self.args,
                 False,
                 apply_on="pre_market_model",
-                ).functionality,
+            ).functionality,
             formulation=self.args["model_formulation"],
         )
     elif self.args["method"]["formulation"] == "linopy":
@@ -77,7 +77,7 @@ def market_optimization(self):
                 self.args,
                 False,
                 apply_on="pre_market_model",
-                ).functionality,
+            ).functionality,
             linearized_unit_commitment=True,
         )
 

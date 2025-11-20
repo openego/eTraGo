@@ -634,7 +634,7 @@ def run(
         Container for all network components.
 
     """
-    network=self.network.copy()
+    network = self.network.copy()
 
     if segmented_to is not False:
         segment_no = segmented_to
