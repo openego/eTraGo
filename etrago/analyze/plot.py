@@ -26,6 +26,7 @@ import logging
 import os
 
 from matplotlib import pyplot as plt
+from matplotlib.colors import TwoSlopeNorm
 from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
 from pyproj import Proj, transform
@@ -291,17 +292,9 @@ def plotting_colors(network):
     None.
 
     """
-    # if network.carriers.columns[1] != 'co2_emissions':
-    #     network.carriers = network.carriers.set_index(
-    #         network.carriers.columns[1])
     colors = coloring()
     for i in colors.keys():
         network.carriers.loc[i, "color"] = colors[i]
-    #     if i in colors.keys():
-    #         network.carriers.color[i] = colors[i]
-    # network.carriers.color['hydrogen_storage'] = 'sandybrown'
-    # network.carriers.color['battery_storage'] = 'blue'
-    # network.carriers.color[network.carriers.color == ''] = 'grey'
 
 
 def mul_weighting(network, timeseries):
@@ -2149,7 +2142,7 @@ def nodal_production_balance(network, timesteps, scaling=0.00001):
     bus_colors = pd.Series(
         {
             s[0]: "green" if s[1] > 0 else "red"
-            for s in residual_load.iteritems()
+            for s in residual_load.items()
         }
     )
 
@@ -3456,74 +3449,34 @@ def plot_gen_dist_diff(
     n_cols=3,
     gen_size=0.2,
     filename=None,
-    buscmap=plt.cm.jet,
+    buscmap=plt.cm.seismic,
     geo_boundaries=[-2.5, 16, 46.8, 58],
 ):
     """
-    Difference in generation distribution
-    Green/Yellow/Red colors mean that the generation at a location
-    is bigger with switches than without
-    Blue colors mean that the generation at a location is smaller with switches
-    than without
-
-    Parameters
-    ----------
-    networkA : PyPSA network container
-        Holds topology of grid with switches
-        including results from powerflow analysis
-    networkB : PyPSA network container
-        Holds topology of grid without switches
-        including results from powerflow analysis
-    techs : dict
-        type of technologies which shall be plotted
-    snapshot : int
-        snapshot
-    n_cols : int
-        number of columns of the plot
-    gen_size : num
-        size of generation bubbles at the buses
-    filename : str
-        Specify filename
-        If not given, figure will be show directly
-
-    Returns
-    -------
-    None.
-
+    Plot difference in generation distribution for each technology.
+    Global legends (colors + sizes) included.
     """
+
     if techs is None:
         techs = networkA.generators.carrier.unique()
-    else:
-        techs = techs
 
     n_graphs = len(techs)
-    n_cols = n_cols
-
-    if n_graphs % n_cols == 0:
-        n_rows = n_graphs // n_cols
-    else:
-        n_rows = n_graphs // n_cols + 1
+    n_rows = (n_graphs + n_cols - 1) // n_cols
 
     fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols)
-    size = 4
-    fig.set_size_inches(size * n_cols, size * n_rows)
+    fig.set_size_inches(4 * n_cols, 4 * n_rows)
+    axes = np.atleast_2d(axes)
 
-    for i, tech in enumerate(techs):
-        i_row = i // n_cols
-        i_col = i % n_cols
+    all_vals = []
 
-        if n_rows == 1:
-            ax = axes[i]
-        else:
-            ax = axes[i_row, i_col]
-
+    for tech in techs:
         gensA = networkA.generators[networkA.generators.carrier == tech]
         gensB = networkB.generators[networkB.generators.carrier == tech]
 
         genA = (
             networkA.generators_t.p[gensA.index]
             .mul(networkA.snapshot_weightings["generators"], axis=0)
-            .loc[networkA.snapshots[0]]
+            .loc[networkA.snapshots[snapshot]]
             .groupby(networkA.generators.bus)
             .sum()
             .reindex(networkA.buses.index, fill_value=0.0)
@@ -3531,7 +3484,43 @@ def plot_gen_dist_diff(
         genB = (
             networkB.generators_t.p[gensB.index]
             .mul(networkB.snapshot_weightings["generators"], axis=0)
-            .loc[networkB.snapshots[0]]
+            .loc[networkB.snapshots[snapshot]]
+            .groupby(networkB.generators.bus)
+            .sum()
+            .reindex(networkB.buses.index, fill_value=0.0)
+        )
+
+        all_vals.append((genA - genB).values)
+
+    all_vals = np.concatenate(all_vals)
+    maxabs = np.nanmax(np.abs(all_vals))
+    
+    vmin, vmax = -maxabs, maxabs
+    
+    norm = matplotlib.colors.TwoSlopeNorm(
+        vmin=vmin,
+        vcenter=0,
+        vmax=vmax
+    )
+
+    for i, tech in enumerate(techs):
+        ax = axes[i // n_cols][i % n_cols]
+
+        gensA = networkA.generators[networkA.generators.carrier == tech]
+        gensB = networkB.generators[networkB.generators.carrier == tech]
+
+        genA = (
+            networkA.generators_t.p[gensA.index]
+            .mul(networkA.snapshot_weightings["generators"], axis=0)
+            .loc[networkA.snapshots[snapshot]]
+            .groupby(networkA.generators.bus)
+            .sum()
+            .reindex(networkA.buses.index, fill_value=0.0)
+        )
+        genB = (
+            networkB.generators_t.p[gensB.index]
+            .mul(networkB.snapshot_weightings["generators"], axis=0)
+            .loc[networkB.snapshots[snapshot]]
             .groupby(networkB.generators.bus)
             .sum()
             .reindex(networkB.buses.index, fill_value=0.0)
@@ -3541,24 +3530,31 @@ def plot_gen_dist_diff(
 
         networkA.plot(
             ax=ax,
-            bus_sizes=gen_size * abs(gen_distribution),
+            bus_sizes=gen_size*gen_distribution.abs(),
             bus_colors=gen_distribution,
+            bus_cmap=buscmap,
+            bus_norm=norm,
             line_widths=0.08,
             link_widths=0,
-            bus_cmap=buscmap,
             geomap=False,
             boundaries=geo_boundaries,
         )
 
         ax.set_title(tech)
 
+    sm = plt.cm.ScalarMappable(cmap=buscmap, norm=norm)
+    sm.set_array([])
+
+    cbar = fig.colorbar(sm, ax=axes.ravel().tolist(), shrink=0.8)
+    cbar.set_label("Change in Generation (A − B)")
+
     plt.suptitle("Difference in Generation per Carrier")
 
-    if filename is None:
-        plt.show()
-    else:
+    if filename:
         plt.savefig(filename)
         plt.close()
+    else:
+        plt.show()
 
 
 def plot_line_loading_diff(
@@ -3612,9 +3608,12 @@ def plot_line_loading_diff(
     link_colors = pd.Series(np.nan, index=networkA.links.index)
     link_colors.loc[dc_links] = loading_diff_DC
 
+    cmap = plt.cm.RdBu_r
     vmin = min(loading_diff_AC.min(), loading_diff_DC.min())
     vmax = max(loading_diff_AC.max(), loading_diff_DC.max())
-    cmap = plt.cm.RdBu_r  # rot = mehr Loading, blau = weniger
+    vmin = -1*(max(abs(vmin), abs(vmax)))
+    vmax = max(abs(vmin), abs(vmax))
+    norm = TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax)
 
     fig, ax = plt.subplots(figsize=(12, 8), subplot_kw=subplot_kw)
 
@@ -3623,6 +3622,9 @@ def plot_line_loading_diff(
         line_colors=loading_diff_AC,
         link_colors=link_colors,
         line_cmap=cmap,
+        link_cmap=cmap,
+        line_norm=norm,
+        link_norm=norm,
         line_widths=1,
         link_widths=1,
         bus_sizes=0,
@@ -3632,8 +3634,7 @@ def plot_line_loading_diff(
     )
 
     sm = matplotlib.cm.ScalarMappable(
-        cmap=cmap, norm=matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
-    )
+        cmap=cmap, norm=norm)
     sm.set_array([])
     cbar = plt.colorbar(sm, ax=ax, orientation="vertical")
     cbar.set_label("Loading Difference in p.u.")
@@ -3692,12 +3693,13 @@ def plot_network_expansion_diff(
         / networkA.links.loc[dc_links, "p_nom_opt"]
     )
 
-    # Colormap definieren
-    cmap = plt.cm.RdBu_r  # Rot = Ausbau, Blau = Abbau
+    cmap = plt.cm.RdBu_r
     vmin = min(extension_lines.min(), extension_links.min())
     vmax = max(extension_lines.max(), extension_links.max())
+    vmin = -1*(max(abs(vmin), abs(vmax)))
+    vmax = max(abs(vmin), abs(vmax))
+    norm = TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax)
 
-    # Plot vorbereiten
     fig, ax = plt.subplots(figsize=(12, 8), subplot_kw=subplot_kw)
 
     networkA.plot(
@@ -3705,6 +3707,9 @@ def plot_network_expansion_diff(
         line_colors=extension_lines,
         link_colors=extension_links,
         line_cmap=cmap,
+        link_cmap=cmap,
+        line_norm=norm,
+        link_norm=norm,        
         bus_sizes=0,
         title="Derivation of AC- and DC-Line Extension",
         line_widths=1,
@@ -3712,10 +3717,9 @@ def plot_network_expansion_diff(
         geomap=geomap,
         boundaries=geographical_boundaries,
     )
-
+    
     sm = matplotlib.cm.ScalarMappable(
-        cmap=cmap, norm=matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
-    )
+        cmap=cmap, norm=norm)
     sm.set_array([])
     cbar = plt.colorbar(sm, ax=ax, orientation="vertical")
     cbar.set_label("Extension Derivation in %")
