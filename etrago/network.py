@@ -216,32 +216,67 @@ class Etrago:
             self.network = Network(
                 csv_folder_name, name, ignore_standard_types
             )
+            
+            if self.args:
+                
+                if self.args["spatial_disaggregation"] is not None:
+                    self.disaggregated_network = Network(
+                        csv_folder_name + "/disaggregated_network",
+                        name,
+                        ignore_standard_types,
+                    )
+    
+                if self.args["method"]["market_optimization"]:
+                    try:
+                        self.market_model = Network(
+                            csv_folder_name + "/market",
+                            name,
+                            ignore_standard_types,
+                        )
+                    except ValueError:
+                        logger.warning(
+                            """
+                            Could not import a market_model but the selected
+                            method in the args indicated that it should be
+                            there. This happens when the exported network was
+                            not solved yet.Run 'etrago.optimize()' to build
+                            and solve the market model.
+                            """
+                        )
+                
+            else:
+                
+                logger.warning(
+                    f"""
+                    No args.json in {csv_folder_name} available.
+                    """
+                )
 
-            try:
-                self.disaggregated_network = Network(
-                    csv_folder_name + "/disaggregated_network",
-                    name,
-                    ignore_standard_types,
-                )
-            except ValueError:
-                logger.info(
-                    """
-                    No disaggregated network available.
-                    """
-                )
-
-            try:
-                self.market_model = Network(
-                    csv_folder_name + "/market",
-                    name,
-                    ignore_standard_types,
-                )
-            except ValueError:
-                logger.info(
-                    """
-                        No optimized market model available.
+                try:
+                    self.disaggregated_network = Network(
+                        csv_folder_name + "/disaggregated_network",
+                        name,
+                        ignore_standard_types,
+                    )
+                except ValueError:
+                    logger.info(
                         """
-                )
+                        No disaggregated network available.
+                        """
+                    )
+    
+                try:
+                    self.market_model = Network(
+                        csv_folder_name + "/market",
+                        name,
+                        ignore_standard_types,
+                    )
+                except ValueError:
+                    logger.info(
+                        """
+                            No separate market model available.
+                            """
+                    )
 
             self.get_clustering_data(csv_folder_name)
 
