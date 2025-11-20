@@ -45,11 +45,12 @@ from etrago.analyze.calc_results import (
 from etrago.analyze.plot import (
     bev_flexibility_potential,
     demand_side_management,
-    flexibility_usage,
     heat_stores,
     hydrogen_stores,
     plot_carrier,
     plot_clusters,
+    plot_curtailment,
+    plot_flexibility_usage,
     plot_gas_generation,
     plot_gas_summary,
     plot_grid,
@@ -57,7 +58,10 @@ from etrago.analyze.plot import (
     plot_h2_summary,
     plot_heat_loads,
     plot_heat_summary,
-    shifted_energy,
+    plot_residual_load,
+    plot_stacked_gen,
+    plot_storage_soc_sorted,
+    plot_voltage,
 )
 from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
 from etrago.cluster.gas import run_spatial_clustering_gas
@@ -205,20 +209,61 @@ class Etrago:
             self.check_args()
 
         elif csv_folder_name is not None:
+
             self.get_args_setting(csv_folder_name + "/args.json")
 
             self.network = Network(
                 csv_folder_name, name, ignore_standard_types
             )
 
-            if self.args["spatial_disaggregation"] is not None:
-                self.disaggregated_network = Network(
-                    csv_folder_name + "/disaggregated_network",
-                    name,
-                    ignore_standard_types,
+            if self.args:
+
+                if self.args["spatial_disaggregation"] is not None:
+                    self.disaggregated_network = Network(
+                        csv_folder_name + "/disaggregated_network",
+                        name,
+                        ignore_standard_types,
+                    )
+
+                if self.args["method"]["market_optimization"]:
+                    try:
+                        self.market_model = Network(
+                            csv_folder_name + "/market",
+                            name,
+                            ignore_standard_types,
+                        )
+                    except ValueError:
+                        logger.warning(
+                            """
+                            Could not import a market_model but the selected
+                            method in the args indicated that it should be
+                            there. This happens when the exported network was
+                            not solved yet.Run 'etrago.optimize()' to build
+                            and solve the market model.
+                            """
+                        )
+
+            else:
+
+                logger.warning(
+                    f"""
+                    No args.json in {csv_folder_name} available.
+                    """
                 )
 
-            if self.args["method"]["market_optimization"]:
+                try:
+                    self.disaggregated_network = Network(
+                        csv_folder_name + "/disaggregated_network",
+                        name,
+                        ignore_standard_types,
+                    )
+                except ValueError:
+                    logger.info(
+                        """
+                        No disaggregated network available.
+                        """
+                    )
+
                 try:
                     self.market_model = Network(
                         csv_folder_name + "/market",
@@ -226,14 +271,10 @@ class Etrago:
                         ignore_standard_types,
                     )
                 except ValueError:
-                    logger.warning(
+                    logger.info(
                         """
-                        Could not import a market_model but the selected
-                        method in the args indicated that it should be there.
-                        This happens when the exported network was not solved
-                        yet.Run 'etrago.optimize()' to build and solve the
-                        market model.
-                        """
+                            No separate market model available.
+                            """
                     )
 
             self.get_clustering_data(csv_folder_name)
@@ -330,6 +371,16 @@ class Etrago:
 
     update_busmap = update_busmap
 
+    plot_residual_load = plot_residual_load
+
+    plot_stacked_gen = plot_stacked_gen
+
+    plot_curtailment = plot_curtailment
+
+    plot_voltage = plot_voltage
+
+    plot_storage_soc_sorted = plot_storage_soc_sorted
+
     plot_grid = plot_grid
 
     plot_clusters = plot_clusters
@@ -348,7 +399,7 @@ class Etrago:
 
     plot_heat_summary = plot_heat_summary
 
-    plot_flexibility_usage = flexibility_usage
+    plot_flexibility_usage = plot_flexibility_usage
 
     demand_side_management = demand_side_management
 
@@ -365,8 +416,6 @@ class Etrago:
     adjust_CH4_gen_carriers = adjust_CH4_gen_carriers
 
     manual_fixes_datamodel = manual_fixes_datamodel
-
-    shifted_energy = shifted_energy
 
     post_contingency_analysis = post_contingency_analysis_lopf
 

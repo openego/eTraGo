@@ -864,6 +864,7 @@ def calc_etrago_results(self):
             "annual system costs",
             "annual investment costs",
             "annual marginal costs",
+            "redispatch costs",
             "annual electrical grid investment costs",
             "annual ac grid investment costs",
             "annual dc grid investment costs",
@@ -887,7 +888,6 @@ def calc_etrago_results(self):
             "abs. electrical dc grid expansion",
             "rel. electrical ac grid expansion",
             "rel. electrical dc grid expansion",
-            "redispatch cost",
         ],
     )
 
@@ -1031,7 +1031,9 @@ def calc_etrago_results(self):
             .sum(axis=0)
             .sum()
         )
-        self.results.value["redispatch cost"] = gen + link
+        self.results.value["redispatch costs"] = gen + link
+    else:
+        self.results = self.results.drop(index="redispatch costs")
 
 
 def total_redispatch(network, only_de=True, plot=False):
