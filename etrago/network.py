@@ -216,16 +216,16 @@ class Etrago:
             self.network = Network(
                 csv_folder_name, name, ignore_standard_types
             )
-            
+
             if self.args:
-                
+
                 if self.args["spatial_disaggregation"] is not None:
                     self.disaggregated_network = Network(
                         csv_folder_name + "/disaggregated_network",
                         name,
                         ignore_standard_types,
                     )
-    
+
                 if self.args["method"]["market_optimization"]:
                     try:
                         self.market_model = Network(
@@ -243,9 +243,9 @@ class Etrago:
                             and solve the market model.
                             """
                         )
-                
+
             else:
-                
+
                 logger.warning(
                     f"""
                     No args.json in {csv_folder_name} available.
@@ -264,7 +264,7 @@ class Etrago:
                         No disaggregated network available.
                         """
                     )
-    
+
                 try:
                     self.market_model = Network(
                         csv_folder_name + "/market",

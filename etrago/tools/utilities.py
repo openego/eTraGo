@@ -2005,7 +2005,7 @@ def get_args_setting(self, jsonpath="scenario_setting.json"):
                 else:
                     self.args = json.load(f)
         else:
-            self.args=None
+            self.args = None
 
 
 def merge_dicts(dict1, dict2):

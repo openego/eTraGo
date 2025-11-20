@@ -2140,10 +2140,7 @@ def nodal_production_balance(network, timesteps, scaling=0.00001):
     residual_load = (gen - load).sum()
 
     bus_colors = pd.Series(
-        {
-            s[0]: "green" if s[1] > 0 else "red"
-            for s in residual_load.items()
-        }
+        {s[0]: "green" if s[1] > 0 else "red" for s in residual_load.items()}
     )
 
     bus_sizes = residual_load.abs() * scaling
@@ -3494,14 +3491,10 @@ def plot_gen_dist_diff(
 
     all_vals = np.concatenate(all_vals)
     maxabs = np.nanmax(np.abs(all_vals))
-    
+
     vmin, vmax = -maxabs, maxabs
-    
-    norm = matplotlib.colors.TwoSlopeNorm(
-        vmin=vmin,
-        vcenter=0,
-        vmax=vmax
-    )
+
+    norm = matplotlib.colors.TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax)
 
     for i, tech in enumerate(techs):
         ax = axes[i // n_cols][i % n_cols]
@@ -3530,7 +3523,7 @@ def plot_gen_dist_diff(
 
         networkA.plot(
             ax=ax,
-            bus_sizes=gen_size*gen_distribution.abs(),
+            bus_sizes=gen_size * gen_distribution.abs(),
             bus_colors=gen_distribution,
             bus_cmap=buscmap,
             bus_norm=norm,
@@ -3611,7 +3604,7 @@ def plot_line_loading_diff(
     cmap = plt.cm.RdBu_r
     vmin = min(loading_diff_AC.min(), loading_diff_DC.min())
     vmax = max(loading_diff_AC.max(), loading_diff_DC.max())
-    vmin = -1*(max(abs(vmin), abs(vmax)))
+    vmin = -1 * (max(abs(vmin), abs(vmax)))
     vmax = max(abs(vmin), abs(vmax))
     norm = TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax)
 
@@ -3633,8 +3626,7 @@ def plot_line_loading_diff(
         boundaries=geographical_boundaries,
     )
 
-    sm = matplotlib.cm.ScalarMappable(
-        cmap=cmap, norm=norm)
+    sm = matplotlib.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
     cbar = plt.colorbar(sm, ax=ax, orientation="vertical")
     cbar.set_label("Loading Difference in p.u.")
@@ -3696,7 +3688,7 @@ def plot_network_expansion_diff(
     cmap = plt.cm.RdBu_r
     vmin = min(extension_lines.min(), extension_links.min())
     vmax = max(extension_lines.max(), extension_links.max())
-    vmin = -1*(max(abs(vmin), abs(vmax)))
+    vmin = -1 * (max(abs(vmin), abs(vmax)))
     vmax = max(abs(vmin), abs(vmax))
     norm = TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax)
 
@@ -3709,7 +3701,7 @@ def plot_network_expansion_diff(
         line_cmap=cmap,
         link_cmap=cmap,
         line_norm=norm,
-        link_norm=norm,        
+        link_norm=norm,
         bus_sizes=0,
         title="Derivation of AC- and DC-Line Extension",
         line_widths=1,
@@ -3717,9 +3709,8 @@ def plot_network_expansion_diff(
         geomap=geomap,
         boundaries=geographical_boundaries,
     )
-    
-    sm = matplotlib.cm.ScalarMappable(
-        cmap=cmap, norm=norm)
+
+    sm = matplotlib.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
     cbar = plt.colorbar(sm, ax=ax, orientation="vertical")
     cbar.set_label("Extension Derivation in %")
