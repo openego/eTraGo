@@ -9,6 +9,14 @@ etrago.analyze.calc\_results module
     :undoc-members:
     :show-inheritance:
 
+etrago.analyze.electrolysis\_results module
+-----------------------------------
+
+.. automodule:: etrago.analyze.electrolysis_results
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 etrago.analyze.plot module
 ---------------------------
 
@@ -16,5 +24,4 @@ etrago.analyze.plot module
     :members:
     :undoc-members:
     :show-inheritance:
-
 
