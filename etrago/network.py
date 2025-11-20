@@ -36,7 +36,6 @@ from etrago import __version__
 from etrago.analyze.calc_results import (
     ac_export,
     ac_export_per_country,
-    calc_atlas_results,
     calc_etrago_results,
     dc_export,
     dc_export_per_country,
@@ -304,8 +303,6 @@ class Etrago:
     spatial_disaggregation = run_disaggregation
 
     calc_results = calc_etrago_results
-
-    calc_atlas_results = calc_atlas_results
 
     calc_ac_export = ac_export
 
