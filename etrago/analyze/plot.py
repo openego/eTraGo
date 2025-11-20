@@ -330,6 +330,8 @@ def plot_stacked_gen(self, bus=None, resolution="GW", filename=None):
 
     Parameters
     ----------
+    self : :class:`Etrago
+        Overall container of Etrago
     bus: string
         Plot all generators at one specific bus. If none,
         sum is calulated for all buses
@@ -338,7 +340,8 @@ def plot_stacked_gen(self, bus=None, resolution="GW", filename=None):
 
     Returns
     -------
-    Plot
+    None.
+
     """
     if resolution == "GW":
         reso_int = 1e3
@@ -413,6 +416,8 @@ def plot_curtailment(self, carrier="solar", filename=None):
 
     Parameters
     ----------
+    self : :class:`Etrago
+        Overall container of Etrago
     carrier: str
         Plot curtailemt of this carrier
     filename: str or None
@@ -421,9 +426,9 @@ def plot_curtailment(self, carrier="solar", filename=None):
 
     Returns
     -------
-    Plot
-    """
+    None.
 
+    """
     p_by_carrier = self.network.generators_t.p.groupby(
         self.network.generators.carrier, axis=1
     ).sum()
@@ -481,13 +486,14 @@ def plot_residual_load(self):
 
     Parameters
     ----------
-
+    self : :class:`Etrago
+        Overall container of Etrago
 
     Returns
     -------
-    Plot
-    """
+    None.
 
+    """
     renewables = self.network.generators[
         self.network.generators.carrier.isin(
             ["wind_onshore", "wind_offshore", "solar", "run_of_river", "wind"]
@@ -510,6 +516,8 @@ def plot_residual_load(self):
         legend=False,
     )
     plot.set_ylabel("MW")
+    plot.set_xlabel("")
+
     # sorted curve
     sorted_residual_load = residual_load.sort_values(
         ascending=False
@@ -533,19 +541,14 @@ def plot_voltage(self, boundaries=[]):
 
     Parameters
     ----------
-    network : PyPSA network container
+    self : :class:`Etrago
+        Overall container of Etrago
     boundaries: list of 2 values, setting the lower and upper bound of colorbar
-    osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
-        If not False, osm is set as background
-        with the following settings as dict:
-
-        * 'x': array of two floats, x axis boundaries (lat)
-        * 'y': array of two floats, y axis boundaries (long)
-        * 'zoom' : resolution of osm
 
     Returns
     -------
-    Plot
+    None.
+
     """
     geographical_boundaries = [-2.5, 16, 46.8, 58]
     if cartopy_present:
@@ -592,9 +595,8 @@ def plot_storage_soc_sorted(self, filename=None):
 
     Parameters
     ----------
-    network : PyPSA network container
-        Holds topology of grid including results from powerflow analysis
-
+    self : :class:`Etrago
+        Overall container of Etrago
     filename : path to folder
 
     Returns
@@ -1738,6 +1740,8 @@ def plot_flexibility_usage(
 
     Parameters
     ----------
+    self : :class:`Etrago
+        Overall container of Etrago
     flexibility : str
         Name of flexibility option.
     agg : str, optional
@@ -2353,6 +2357,8 @@ def plot_grid(
 
     Parameters
     ----------
+    self : :class:`Etrago
+        Overall container of Etrago
     line_colors : str
         Set static line color or attribute to plot e.g. 'expansion_abs'
         Current options:
@@ -3012,6 +3018,8 @@ def plot_carrier(
     """
     Parameters
     ----------
+    self : :class:`Etrago
+        Overall container of Etrago
     network : :class:`pypsa.Network
         Overall container of PyPSA
     carrier_links : list
@@ -3110,6 +3118,8 @@ def plot_clusters(
     """
     Parameters
     ----------
+    self : :class:`Etrago
+        Overall container of Etrago
     carrier : str, optional
         This variable set the carrier of the buses that will be plotted. The
         default is "AC".
@@ -3128,6 +3138,7 @@ def plot_clusters(
     Returns
     -------
     None.
+
     """
     new_geom = self.network.buses[
         [
@@ -3399,7 +3410,8 @@ def plot_gen_diff(
 
     Returns
     -------
-    Plot
+    None.
+
     """
 
     def gen_by_c(network):
@@ -3477,6 +3489,7 @@ def plot_gen_dist_diff(
     Returns
     -------
     None.
+
     """
     if techs is None:
         techs = networkA.generators.carrier.unique()
@@ -3549,7 +3562,10 @@ def plot_gen_dist_diff(
 
 
 def plot_line_loading_diff(
-    networkA, networkB, filename=None, boundaries=[], osm=False
+    networkA,
+    networkB,
+    filename=None,
+    boundaries=[],
 ):
     """Plot relative network expansion derivation of AC- and DC-lines.
 
@@ -3563,13 +3579,10 @@ def plot_line_loading_diff(
         Save figure in this direction
     boundaries: array
        Set boundaries of heatmap axis
-    osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
-        If not False, osm is set as background
-        with the following settings as dict:
 
-        * 'x': array of two floats, x axis boundaries (lat)
-        * 'y': array of two floats, y axis boundaries (long)
-        * 'zoom' : resolution of osm
+    Returns
+    -------
+    None.
 
     """
     geographical_boundaries = [-2.5, 16, 46.8, 58]
@@ -3633,7 +3646,10 @@ def plot_line_loading_diff(
 
 
 def plot_network_expansion_diff(
-    networkA, networkB, filename=None, boundaries=[], osm=False
+    networkA,
+    networkB,
+    filename=None,
+    boundaries=[],
 ):
     """Plot relative network expansion derivation of AC- and DC-lines.
 
@@ -3647,13 +3663,10 @@ def plot_network_expansion_diff(
         Save figure in this direction
     boundaries: array
        Set boundaries of heatmap axis
-    osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
-        If not False, osm is set as background
-        with the following settings as dict:
 
-        * 'x': array of two floats, x axis boundaries (lat)
-        * 'y': array of two floats, y axis boundaries (long)
-        * 'zoom' : resolution of osm
+    Returns
+    -------
+    None.
 
     """
     geographical_boundaries = [-2.5, 16, 46.8, 58]
