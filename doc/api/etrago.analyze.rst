@@ -10,7 +10,7 @@ etrago.analyze.calc\_results module
     :show-inheritance:
 
 etrago.analyze.electrolysis\_results module
------------------------------------
+-------------------------------------------
 
 .. automodule:: etrago.analyze.electrolysis_results
     :members:
