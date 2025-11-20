@@ -686,7 +686,6 @@ def electricity_system_costs_germany(self):
     return marginal_cost, invest_cost, import_costs
 
 
-
 def ac_export(self):
     """Calculate the balance of electricity exports and imports over AC lines
 
@@ -1177,5 +1176,3 @@ def total_redispatch(network, only_de=True, plot=False):
             "potential": total_ramp_down_potential,
         },
     }
-
-
