@@ -2699,24 +2699,6 @@ def check_args(etrago):
             )
             etrago.args["method"]["formulation"] = "pyomo"
 
-    if etrago.args["method"]["formulation"] != "pyomo":
-        try:
-            # The import isn't used, but just here to test for Gurobi.
-            # So we can make `flake8` stop complaining about the "unused
-            # import" via the appropriate `noqa` comment.
-            import gurobipy  # noqa: F401
-        except ModuleNotFoundError:
-            print(
-                "If you want to use nomopyomo you need to use the"
-                " solver gurobi and the package gurobipy."
-                " You can find more information and installation"
-                " instructions for gurobi here:"
-                " https://support.gurobi.com/hc/en-us/articles"
-                "/360044290292-How-do-I-install-Gurobi-for-Python-"
-                " For installation of gurobipy use pip."
-            )
-            raise
-
     if (etrago.args["method"]["formulation"] != "pyomo") & (
         etrago.args["temporal_disaggregation"]["active"]
     ):
