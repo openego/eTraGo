@@ -399,7 +399,7 @@ def lopf(self):
 
     self.conduct_dispatch_disaggregation = False
 
-    if self.args["snapshot_clustering"]["active"] == True & (
+    if self.args["snapshot_clustering"]["active"] & (
         self.args["snapshot_clustering"]["method"] == "typical_periods"
     ):
         iterate_lopf(
