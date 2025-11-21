@@ -474,13 +474,24 @@ def plot_curtailment(self, carrier="solar", filename=None):
         plt.close()
 
 
-def plot_residual_load(self):
+def plot_residual_load(
+    self,
+    gen_carrier=["wind_onshore", "wind_offshore", "solar", "solar_rooftop"],
+    load_carrier=["AC"],
+):
     """Plots residual load summed of all exisiting buses.
 
     Parameters
     ----------
     self : :class:`Etrago
         Overall container of Etrago
+    gen_carrier : list of str, optional
+        List of generator carrier types whose generation is treated as renewable
+        and subtracted from the load.
+        Defaults to ``['wind_onshore', 'wind_offshore', 'solar', 'solar_rooftop']``.
+    load_carrier : list of str, optional
+        List of load carrier types included in the load summation.
+        Defaults to ``['AC']``.
 
     Returns
     -------
@@ -488,9 +499,7 @@ def plot_residual_load(self):
 
     """
     renewables = self.network.generators[
-        self.network.generators.carrier.isin(
-            ["wind_onshore", "wind_offshore", "solar", "run_of_river", "wind"]
-        )
+        self.network.generators.carrier.isin(gen_carrier)
     ]
     renewables_t = (
         self.network.generators.p_nom[renewables.index]
@@ -498,7 +507,8 @@ def plot_residual_load(self):
             renewables.index
         ]
     )
-    load = self.network.loads_t.p_set.sum(axis=1)
+    loads = self.network.loads[self.network.loads.carrier == "AC"]
+    load = self.network.loads_t.p_set[loads.index].sum(axis=1)
     all_renew = renewables_t.sum(axis=1)
     residual_load = load - all_renew
     plot = residual_load.plot(
