@@ -486,12 +486,10 @@ def plot_residual_load(
     self : :class:`Etrago
         Overall container of Etrago
     gen_carrier : list of str, optional
-        List of generator carrier types whose generation is treated as renewable
+        List of generator carrier types whose generation is considered
         and subtracted from the load.
-        Defaults to ``['wind_onshore', 'wind_offshore', 'solar', 'solar_rooftop']``.
     load_carrier : list of str, optional
         List of load carrier types included in the load summation.
-        Defaults to ``['AC']``.
 
     Returns
     -------
