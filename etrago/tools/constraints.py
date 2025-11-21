@@ -2478,7 +2478,7 @@ def snapshot_clustering_seasonal_storage(
     network.model.storages = sus.index
     network.model.stores = sto.index
 
-    candidates = network.cluster.index.get_level_values(0).unique()
+    candidates = self.cluster_temporal.index.get_level_values(0).unique()
 
     # create set for inter-temp constraints and variables
     network.model.candidates = po.Set(initialize=candidates, ordered=True)
@@ -2515,7 +2515,7 @@ def snapshot_clustering_seasonal_storage(
         )
 
         def intra_max(model, st, h):
-            cand = network.cluster_ts["Candidate_day"][h]
+            cand = self.cluster_ts["Candidate_day"][h]
             return (
                 model.state_of_charge_intra_max[st, cand]
                 >= model.state_of_charge_intra[st, h]
@@ -2526,7 +2526,7 @@ def snapshot_clustering_seasonal_storage(
         )
 
         def intra_min(model, st, h):
-            cand = network.cluster_ts["Candidate_day"][h]
+            cand = self.cluster_ts["Candidate_day"][h]
             return (
                 model.state_of_charge_intra_min[st, cand]
                 <= model.state_of_charge_intra[st, h]
@@ -2537,7 +2537,7 @@ def snapshot_clustering_seasonal_storage(
         )
 
         def intra_max_store(model, st, h):
-            cand = network.cluster_ts["Candidate_day"][h]
+            cand = self.cluster_ts["Candidate_day"][h]
             return (
                 model.state_of_charge_intra_store_max[st, cand]
                 >= model.state_of_charge_intra_store[st, h]
@@ -2548,7 +2548,7 @@ def snapshot_clustering_seasonal_storage(
         )
 
         def intra_min_store(model, st, h):
-            cand = network.cluster_ts["Candidate_day"][h]
+            cand = self.cluster_ts["Candidate_day"][h]
             return (
                 model.state_of_charge_intra_store_min[st, cand]
                 <= model.state_of_charge_intra_store[st, h]
@@ -2646,10 +2646,10 @@ def snapshot_clustering_seasonal_storage(
         Modeling seasonal storage', 2018, equation no. 19
         """
         if i == network.model.candidates.at(-1):
-            last_hour = network.cluster["last_hour_RepresentativeDay"][i]
+            last_hour = self.cluster_temporal["last_hour_RepresentativeDay"][i]
             expr = po.Constraint.Skip
         else:
-            last_hour = network.cluster["last_hour_RepresentativeDay"][i]
+            last_hour = self.cluster_temporal["last_hour_RepresentativeDay"][i]
             if self.args["snapshot_clustering"]["how"] == "weekly":
                 hrs = 168
             elif self.args["snapshot_clustering"]["how"] == "monthly":
@@ -2674,10 +2674,10 @@ def snapshot_clustering_seasonal_storage(
 
     def inter_store_soc_rule(m, s, i):
         if i == network.model.candidates.at(-1):
-            last_hour = network.cluster["last_hour_RepresentativeDay"][i]
+            last_hour = self.cluster_temporal["last_hour_RepresentativeDay"][i]
             expr = po.Constraint.Skip
         else:
-            last_hour = network.cluster["last_hour_RepresentativeDay"][i]
+            last_hour = self.cluster_temporal["last_hour_RepresentativeDay"][i]
             if self.args["snapshot_clustering"]["how"] == "weekly":
                 hrs = 168
             elif self.args["snapshot_clustering"]["how"] == "monthly":
@@ -2727,7 +2727,7 @@ def snapshot_clustering_seasonal_storage(
             m.state_of_charge[s, h]
             == m.state_of_charge_intra[s, h]
             + m.state_of_charge_inter[
-                s, network.cluster_ts["Candidate_day"][h]
+                s, self.cluster_ts["Candidate_day"][h]
             ]
         )
 
@@ -2736,7 +2736,7 @@ def snapshot_clustering_seasonal_storage(
             m.store_e[s, h]
             == m.state_of_charge_intra_store[s, h]
             + m.state_of_charge_inter_store[
-                s, network.cluster_ts["Candidate_day"][h]
+                s, self.cluster_ts["Candidate_day"][h]
             ]
         )
 
@@ -2770,22 +2770,22 @@ def snapshot_clustering_seasonal_storage(
         # Choose datetime of representive day
         if self.args["snapshot_clustering"]["how"] == "weekly":
             hrs = 168
-            candidate = network.cluster_ts["Candidate_day"][h]
-            last_hour = network.cluster.loc[candidate][
+            candidate = self.cluster_ts["Candidate_day"][h]
+            last_hour = self.cluster_temporal.loc[candidate][
                 "last_hour_RepresentativeDay"
             ]
             first_hour = last_hour - pd.DateOffset(hours=167)
-            period_start = network.cluster_ts.index[0::168][candidate - 1]
+            period_start = self.cluster_ts.index[0::168][candidate - 1]
             delta_t = h - period_start
             intra_hour = first_hour + delta_t
         elif self.args["snapshot_clustering"]["how"] == "monthly":
             hrs = 720
-            candidate = network.cluster_ts["Candidate_day"][h]
-            last_hour = network.cluster.loc[candidate][
+            candidate = self.cluster_ts["Candidate_day"][h]
+            last_hour = self.cluster_temporal.loc[candidate][
                 "last_hour_RepresentativeDay"
             ]
             first_hour = last_hour - pd.DateOffset(hours=719)
-            period_start = network.cluster_ts.index[0::720][candidate - 1]
+            period_start = self.cluster_ts.index[0::720][candidate - 1]
             delta_t = h - period_start
             intra_hour = first_hour + delta_t
         else:
@@ -2793,7 +2793,7 @@ def snapshot_clustering_seasonal_storage(
             date = str(
                 network.snapshots[
                     network.snapshots.dayofyear - 1
-                    == network.cluster["RepresentativeDay"][h.dayofyear]
+                    == self.cluster_temporal["RepresentativeDay"][h.dayofyear]
                 ][0]
             ).split(" ")[0]
             hour = str(h).split(" ")[1]
@@ -2802,7 +2802,7 @@ def snapshot_clustering_seasonal_storage(
         return (
             m.state_of_charge_intra[s, intra_hour]
             + m.state_of_charge_inter[
-                s, network.cluster_ts["Candidate_day"][h]
+                s, self.cluster_ts["Candidate_day"][h]
             ]
             * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs
             >= 0
@@ -2812,22 +2812,22 @@ def snapshot_clustering_seasonal_storage(
         # Choose datetime of representive day
         if self.args["snapshot_clustering"]["how"] == "weekly":
             hrs = 168
-            candidate = network.cluster_ts["Candidate_day"][h]
-            last_hour = network.cluster.loc[candidate][
+            candidate = self.cluster_ts["Candidate_day"][h]
+            last_hour = self.cluster_temporal.loc[candidate][
                 "last_hour_RepresentativeDay"
             ]
             first_hour = last_hour - pd.DateOffset(hours=167)
-            period_start = network.cluster_ts.index[0::168][candidate - 1]
+            period_start = self.cluster_ts.index[0::168][candidate - 1]
             delta_t = h - period_start
             intra_hour = first_hour + delta_t
         elif self.args["snapshot_clustering"]["how"] == "monthly":
             hrs = 720
-            candidate = network.cluster_ts["Candidate_day"][h]
-            last_hour = network.cluster.loc[candidate][
+            candidate = self.cluster_ts["Candidate_day"][h]
+            last_hour = self.cluster_temporal.loc[candidate][
                 "last_hour_RepresentativeDay"
             ]
             first_hour = last_hour - pd.DateOffset(hours=719)
-            period_start = network.cluster_ts.index[0::720][candidate - 1]
+            period_start = self.cluster_ts.index[0::720][candidate - 1]
             delta_t = h - period_start
             intra_hour = first_hour + delta_t
         else:
@@ -2835,7 +2835,7 @@ def snapshot_clustering_seasonal_storage(
             date = str(
                 network.snapshots[
                     network.snapshots.dayofyear - 1
-                    == network.cluster["RepresentativeDay"][h.dayofyear]
+                    == self.cluster_temporal["RepresentativeDay"][h.dayofyear]
                 ][0]
             ).split(" ")[0]
             hour = str(h).split(" ")[1]
@@ -2852,7 +2852,7 @@ def snapshot_clustering_seasonal_storage(
         return (
             m.state_of_charge_intra_store[s, intra_hour]
             + m.state_of_charge_inter_store[
-                s, network.cluster_ts["Candidate_day"][h]
+                s, self.cluster_ts["Candidate_day"][h]
             ]
             * (1 - network.stores.at[s, "standing_loss"]) ** hrs
             >= low
@@ -2876,10 +2876,10 @@ def snapshot_clustering_seasonal_storage(
 
         return (
             m.state_of_charge_intra_min[
-                s, network.cluster_ts["Candidate_day"][h]
+                s, self.cluster_ts["Candidate_day"][h]
             ]
             + m.state_of_charge_inter[
-                s, network.cluster_ts["Candidate_day"][h]
+                s, self.cluster_ts["Candidate_day"][h]
             ]
             * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs
             >= 0
@@ -2895,28 +2895,28 @@ def snapshot_clustering_seasonal_storage(
 
         if "DSM" in s:
             if self.args["snapshot_clustering"]["how"] == "weekly":
-                candidate = network.cluster_ts["Candidate_day"][h]
-                last_hour = network.cluster.loc[candidate][
+                candidate = self.cluster_ts["Candidate_day"][h]
+                last_hour = self.cluster_temporal.loc[candidate][
                     "last_hour_RepresentativeDay"
                 ]
                 first_hour = last_hour - pd.DateOffset(hours=167)
-                period_start = network.cluster_ts.index[0::168][candidate - 1]
+                period_start = self.cluster_ts.index[0::168][candidate - 1]
                 delta_t = h - period_start
                 intra_hour = first_hour + delta_t
             elif self.args["snapshot_clustering"]["how"] == "monthly":
-                candidate = network.cluster_ts["Candidate_day"][h]
-                last_hour = network.cluster.loc[candidate][
+                candidate = self.cluster_ts["Candidate_day"][h]
+                last_hour = self.cluster_temporal.loc[candidate][
                     "last_hour_RepresentativeDay"
                 ]
                 first_hour = last_hour - pd.DateOffset(hours=719)
-                period_start = network.cluster_ts.index[0::720][candidate - 1]
+                period_start = self.cluster_ts.index[0::720][candidate - 1]
                 delta_t = h - period_start
                 intra_hour = first_hour + delta_t
             else:
                 date = str(
                     network.snapshots[
                         network.snapshots.dayofyear - 1
-                        == network.cluster["RepresentativeDay"][h.dayofyear]
+                        == self.cluster_temporal["RepresentativeDay"][h.dayofyear]
                     ][0]
                 ).split(" ")[0]
                 hour = str(h).split(" ")[1]
@@ -2930,10 +2930,10 @@ def snapshot_clustering_seasonal_storage(
 
         return (
             m.state_of_charge_intra_store_min[
-                s, network.cluster_ts["Candidate_day"][h]
+                s, self.cluster_ts["Candidate_day"][h]
             ]
             + m.state_of_charge_inter_store[
-                s, network.cluster_ts["Candidate_day"][h]
+                s, self.cluster_ts["Candidate_day"][h]
             ]
             * (1 - network.stores.at[s, "standing_loss"]) ** hrs
             >= low
@@ -2942,22 +2942,22 @@ def snapshot_clustering_seasonal_storage(
     if simplified:
         network.model.state_of_charge_lower = po.Constraint(
             sus.index,
-            network.cluster_ts.index,
+            self.cluster_ts.index,
             rule=state_of_charge_lower_simplified,
         )
         network.model.state_of_charge_lower_store = po.Constraint(
             sto.index,
-            network.cluster_ts.index,
+            self.cluster_ts.index,
             rule=state_of_charge_lower_store_simplified,
         )
 
     else:
         network.model.state_of_charge_lower = po.Constraint(
-            sus.index, network.cluster_ts.index, rule=state_of_charge_lower
+            sus.index, self.cluster_ts.index, rule=state_of_charge_lower
         )
         network.model.state_of_charge_lower_store = po.Constraint(
             sto.index,
-            network.cluster_ts.index,
+            self.cluster_ts.index,
             rule=state_of_charge_lower_store,
         )
 
@@ -2975,22 +2975,22 @@ def snapshot_clustering_seasonal_storage(
         # Choose datetime of representive day
         if self.args["snapshot_clustering"]["how"] == "weekly":
             hrs = 168
-            candidate = network.cluster_ts["Candidate_day"][h]
-            last_hour = network.cluster.loc[candidate][
+            candidate = self.cluster_ts["Candidate_day"][h]
+            last_hour = self.cluster_temporal.loc[candidate][
                 "last_hour_RepresentativeDay"
             ]
             first_hour = last_hour - pd.DateOffset(hours=167)
-            period_start = network.cluster_ts.index[0::168][candidate - 1]
+            period_start = self.cluster_ts.index[0::168][candidate - 1]
             delta_t = h - period_start
             intra_hour = first_hour + delta_t
         elif self.args["snapshot_clustering"]["how"] == "monthly":
             hrs = 720
-            candidate = network.cluster_ts["Candidate_day"][h]
-            last_hour = network.cluster.loc[candidate][
+            candidate = self.cluster_ts["Candidate_day"][h]
+            last_hour = self.cluster_temporal.loc[candidate][
                 "last_hour_RepresentativeDay"
             ]
             first_hour = last_hour - pd.DateOffset(hours=719)
-            period_start = network.cluster_ts.index[0::720][candidate - 1]
+            period_start = self.cluster_ts.index[0::720][candidate - 1]
             delta_t = h - period_start
             intra_hour = first_hour + delta_t
         else:
@@ -2998,7 +2998,7 @@ def snapshot_clustering_seasonal_storage(
             date = str(
                 network.snapshots[
                     network.snapshots.dayofyear - 1
-                    == network.cluster["RepresentativeDay"][h.dayofyear]
+                    == self.cluster_temporal["RepresentativeDay"][h.dayofyear]
                 ][0]
             ).split(" ")[0]
             hour = str(h).split(" ")[1]
@@ -3012,7 +3012,7 @@ def snapshot_clustering_seasonal_storage(
         return (
             m.state_of_charge_intra[s, intra_hour]
             + m.state_of_charge_inter[
-                s, network.cluster_ts["Candidate_day"][h]
+                s, self.cluster_ts["Candidate_day"][h]
             ]
             * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs
             <= p_nom * network.storage_units.at[s, "max_hours"]
@@ -3022,22 +3022,22 @@ def snapshot_clustering_seasonal_storage(
         # Choose datetime of representive day
         if self.args["snapshot_clustering"]["how"] == "weekly":
             hrs = 168
-            candidate = network.cluster_ts["Candidate_day"][h]
-            last_hour = network.cluster.loc[candidate][
+            candidate = self.cluster_ts["Candidate_day"][h]
+            last_hour = self.cluster_temporal.loc[candidate][
                 "last_hour_RepresentativeDay"
             ]
             first_hour = last_hour - pd.DateOffset(hours=167)
-            period_start = network.cluster_ts.index[0::168][candidate - 1]
+            period_start = self.cluster_ts.index[0::168][candidate - 1]
             delta_t = h - period_start
             intra_hour = first_hour + delta_t
         elif self.args["snapshot_clustering"]["how"] == "monthly":
             hrs = 720
-            candidate = network.cluster_ts["Candidate_day"][h]
-            last_hour = network.cluster.loc[candidate][
+            candidate = self.cluster_ts["Candidate_day"][h]
+            last_hour = self.cluster_temporal.loc[candidate][
                 "last_hour_RepresentativeDay"
             ]
             first_hour = last_hour - pd.DateOffset(hours=719)
-            period_start = network.cluster_ts.index[0::720][candidate - 1]
+            period_start = self.cluster_ts.index[0::720][candidate - 1]
             delta_t = h - period_start
             intra_hour = first_hour + delta_t
         else:
@@ -3045,7 +3045,7 @@ def snapshot_clustering_seasonal_storage(
             date = str(
                 network.snapshots[
                     network.snapshots.dayofyear - 1
-                    == network.cluster["RepresentativeDay"][h.dayofyear]
+                    == self.cluster_temporal["RepresentativeDay"][h.dayofyear]
                 ][0]
             ).split(" ")[0]
             hour = str(h).split(" ")[1]
@@ -3065,7 +3065,7 @@ def snapshot_clustering_seasonal_storage(
         return (
             m.state_of_charge_intra_store[s, intra_hour]
             + m.state_of_charge_inter_store[
-                s, network.cluster_ts["Candidate_day"][h]
+                s, self.cluster_ts["Candidate_day"][h]
             ]
             * (1 - network.stores.at[s, "standing_loss"]) ** hrs
             <= e_nom
@@ -3086,10 +3086,10 @@ def snapshot_clustering_seasonal_storage(
 
         return (
             m.state_of_charge_intra_max[
-                s, network.cluster_ts["Candidate_day"][h]
+                s, self.cluster_ts["Candidate_day"][h]
             ]
             + m.state_of_charge_inter[
-                s, network.cluster_ts["Candidate_day"][h]
+                s, self.cluster_ts["Candidate_day"][h]
             ]
             * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs
             <= p_nom * network.storage_units.at[s, "max_hours"]
@@ -3108,24 +3108,24 @@ def snapshot_clustering_seasonal_storage(
         else:
             if "DSM" in s:
                 if self.args["snapshot_clustering"]["how"] == "weekly":
-                    candidate = network.cluster_ts["Candidate_day"][h]
-                    last_hour = network.cluster.loc[candidate][
+                    candidate = self.cluster_ts["Candidate_day"][h]
+                    last_hour = self.cluster_temporal.loc[candidate][
                         "last_hour_RepresentativeDay"
                     ]
                     first_hour = last_hour - pd.DateOffset(hours=167)
-                    period_start = network.cluster_ts.index[0::168][
+                    period_start = self.cluster_ts.index[0::168][
                         candidate - 1
                     ]
                     delta_t = h - period_start
                     intra_hour = first_hour + delta_t
 
                 elif self.args["snapshot_clustering"]["how"] == "monthly":
-                    candidate = network.cluster_ts["Candidate_day"][h]
-                    last_hour = network.cluster.loc[candidate][
+                    candidate = self.cluster_ts["Candidate_day"][h]
+                    last_hour = self.cluster_temporal.loc[candidate][
                         "last_hour_RepresentativeDay"
                     ]
                     first_hour = last_hour - pd.DateOffset(hours=719)
-                    period_start = network.cluster_ts.index[0::720][
+                    period_start = self.cluster_ts.index[0::720][
                         candidate - 1
                     ]
                     delta_t = h - period_start
@@ -3135,7 +3135,7 @@ def snapshot_clustering_seasonal_storage(
                     date = str(
                         network.snapshots[
                             network.snapshots.dayofyear - 1
-                            == network.cluster["RepresentativeDay"][
+                            == self.cluster_temporal["RepresentativeDay"][
                                 h.dayofyear
                             ]
                         ][0]
@@ -3152,10 +3152,10 @@ def snapshot_clustering_seasonal_storage(
 
         return (
             m.state_of_charge_intra_store_max[
-                s, network.cluster_ts["Candidate_day"][h]
+                s, self.cluster_ts["Candidate_day"][h]
             ]
             + m.state_of_charge_inter_store[
-                s, network.cluster_ts["Candidate_day"][h]
+                s, self.cluster_ts["Candidate_day"][h]
             ]
             * (1 - network.stores.at[s, "standing_loss"]) ** hrs
             <= e_nom
@@ -3164,22 +3164,22 @@ def snapshot_clustering_seasonal_storage(
     if simplified:
         network.model.state_of_charge_upper = po.Constraint(
             sus.index,
-            network.cluster_ts.index,
+            self.cluster_ts.index,
             rule=state_of_charge_upper_simplified,
         )
         network.model.state_of_charge_upper_store = po.Constraint(
             sto.index,
-            network.cluster_ts.index,
+            self.cluster_ts.index,
             rule=state_of_charge_upper_store_simplified,
         )
 
     else:
         network.model.state_of_charge_upper = po.Constraint(
-            sus.index, network.cluster_ts.index, rule=state_of_charge_upper
+            sus.index, self.cluster_ts.index, rule=state_of_charge_upper
         )
         network.model.state_of_charge_upper_store = po.Constraint(
             sto.index,
-            network.cluster_ts.index,
+            self.cluster_ts.index,
             rule=state_of_charge_upper_store,
         )
 
@@ -3188,13 +3188,13 @@ def snapshot_clustering_seasonal_storage(
         Defines cyclic condition like pypsas 'state_of_charge_contraint'.
         There are small differences to original results.
         """
-        last_day = network.cluster.index[-1]
-        last_calc_hour = network.cluster["last_hour_RepresentativeDay"][
+        last_day = self.cluster_temporal.index[-1]
+        last_calc_hour = self.cluster_temporal["last_hour_RepresentativeDay"][
             last_day
         ]
         last_inter = m.state_of_charge_inter[s, last_day]
         last_intra = m.state_of_charge_intra[s, last_calc_hour]
-        first_day = network.cluster.index[0]
+        first_day = self.cluster_temporal.index[0]
 
         if self.args["snapshot_clustering"]["how"] == "weekly":
             hrs = 167
@@ -3203,7 +3203,7 @@ def snapshot_clustering_seasonal_storage(
         else:
             hrs = 23
 
-        first_calc_hour = network.cluster["last_hour_RepresentativeDay"][
+        first_calc_hour = self.cluster_temporal["last_hour_RepresentativeDay"][
             first_day
         ] - pd.DateOffset(hours=hrs)
         first_inter = m.state_of_charge_inter[s, first_day]
@@ -3221,13 +3221,13 @@ def snapshot_clustering_seasonal_storage(
         )
 
     def cyclic_state_of_charge_store(m, s):
-        last_day = network.cluster.index[-1]
-        last_calc_hour = network.cluster["last_hour_RepresentativeDay"][
+        last_day = self.cluster_temporal.index[-1]
+        last_calc_hour = self.cluster_temporal["last_hour_RepresentativeDay"][
             last_day
         ]
         last_inter = m.state_of_charge_inter_store[s, last_day]
         last_intra = m.state_of_charge_intra_store[s, last_calc_hour]
-        first_day = network.cluster.index[0]
+        first_day = self.cluster_temporal.index[0]
 
         if self.args["snapshot_clustering"]["how"] == "weekly":
             hrs = 167
@@ -3236,7 +3236,7 @@ def snapshot_clustering_seasonal_storage(
         else:
             hrs = 23
 
-        first_calc_hour = network.cluster["last_hour_RepresentativeDay"][
+        first_calc_hour = self.cluster_temporal["last_hour_RepresentativeDay"][
             first_day
         ] - pd.DateOffset(hours=hrs)
         first_inter = m.state_of_charge_inter_store[s, first_day]
@@ -3292,7 +3292,7 @@ def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):
     network.model.del_component("state_of_charge_constraint_index_0")
     network.model.del_component("state_of_charge_constraint_index_1")
 
-    candidates = network.cluster.index.get_level_values(0).unique()
+    candidates = self.cluster_temporal.index.get_level_values(0).unique()
     network.model.state_of_charge_all = po.Var(
         network.storage_units.index,
         candidates - 1 + self.args["start_snapshot"],
@@ -3303,7 +3303,7 @@ def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):
     def set_soc_all(m, s, h):
         if h == self.args["start_snapshot"]:
             prev = (
-                network.cluster.index.get_level_values(0)[-1]
+                self.cluster_temporal.index.get_level_values(0)[-1]
                 - 1
                 + self.args["start_snapshot"]
             )
@@ -3311,7 +3311,7 @@ def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):
         else:
             prev = h - 1
 
-        cluster_hour = network.cluster["Hour"][
+        cluster_hour = self.cluster_temporal["Hour"][
             h + 1 - self.args["start_snapshot"]
         ]
 
@@ -3638,11 +3638,14 @@ def fixed_storage_unit_soc_at_horizon_end(self, n, sns):
 
 class Constraints:
     def __init__(
-        self, args, conduct_dispatch_disaggregation, apply_on="grid_model"
+        self, args, conduct_dispatch_disaggregation, apply_on="grid_model",
+        cluster_temporal = None, cluster_ts=None
     ):
         self.args = args
         self.conduct_dispatch_disaggregation = conduct_dispatch_disaggregation
         self.apply_on = apply_on
+        self.cluster_temporal = cluster_temporal
+        self.cluster_ts = cluster_ts
 
     def functionality(self, network, snapshots):
         """Add constraints to pypsa-model using extra-functionality.
@@ -3739,12 +3742,13 @@ class Constraints:
         if (
             self.args["snapshot_clustering"]["active"]
             and self.args["snapshot_clustering"]["method"] == "typical_periods"
+            and self.apply_on == "grid_model"
         ):
             if (
                 self.args["snapshot_clustering"]["storage_constraints"]
                 == "daily_bounds"
             ):
-                if self.args["method"]["pyomo"]:
+                if self.args["method"]["formulation"] == "pyomo":
                     snapshot_clustering_daily_bounds(self, network, snapshots)
                 else:
                     snapshot_clustering_daily_bounds_nmp(
@@ -3756,7 +3760,7 @@ class Constraints:
                 == "soc_constraints"
             ):
                 if self.args["snapshot_clustering"]["how"] == "hourly":
-                    if self.args["method"]["pyomo"]:
+                    if self.args["method"]["formulation"] == "pyomo":
                         snapshot_clustering_seasonal_storage_hourly(
                             self, network, snapshots
                         )
@@ -3765,7 +3769,7 @@ class Constraints:
                             self, network, snapshots
                         )
                 else:
-                    if self.args["method"]["pyomo"]:
+                    if self.args["method"]["formulation"] == "pyomo":
                         snapshot_clustering_seasonal_storage(
                             self, network, snapshots
                         )
@@ -3784,7 +3788,7 @@ class Constraints:
                         clustering -> changed to soc_constraints"""
                     )
 
-                    if self.args["method"]["pyomo"]:
+                    if self.args["method"]["formulation"] == "pyomo":
                         snapshot_clustering_seasonal_storage_hourly(
                             self, network, snapshots
                         )
@@ -3793,7 +3797,7 @@ class Constraints:
                             self, network, snapshots
                         )
 
-                if self.args["method"]["pyomo"]:
+                if self.args["method"]["formulation"] == "pyomo":
                     snapshot_clustering_seasonal_storage(
                         self, network, snapshots, simplified=True
                     )
