@@ -57,7 +57,7 @@ args = {
         "formulation": "linopy",
         "market_optimization":
             {
-                "active": True,
+                "active": False,
                 "market_zones": "status_quo", # only used if type='market_grid'
                 "rolling_horizon": {# Define parameter of market optimization
                     "planning_horizon": 168, # number of snapshots in each optimization
@@ -161,7 +161,7 @@ args = {
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": True,  # meet the demand at value of loss load cost
     "foreign_lines": {
-        "carrier": "AC",  # 'DC' for modeling foreign lines as links
+        "carrier": "DC",  # 'DC' for modeling foreign lines as links
         "capacity": "osmTGmod",  # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
     },
     "comments": None,
@@ -639,9 +639,9 @@ def run_etrago(args, json_path):
             carrier = "distribution_grid",
             bus0 = mv_grids.bus_id.astype(str).values,
             bus1 = (mv_grids.bus_id.astype(str) + "_distribution_grid").values,
-            p_nom_min = 500,
+            p_nom_min = 100,
             p_nom_extendable = True,
-            capital_cost = 100,
+            capital_cost = 500,
             p_min_pu = -1
             )
         
