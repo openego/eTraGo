@@ -170,7 +170,7 @@ def adjust_no_electric_network(
             "Li ion": "BEV charger",
             "Li_ion": "BEV_charger",
             "O2": "PtH2_O2",
-            "rural_heat": "rural_heat_pump",
+            #"rural_heat": "rural_heat_pump",
             "distribution_grid": "distribution_grid",
         }
 
@@ -248,8 +248,7 @@ def adjust_no_electric_network(
                 etrago.network.links.carrier==carrier
             ].copy()
             
-            #import pdb; pdb.set_trace()
-            links_from_dg_buses["to_ac"] = links_from_dg_buses["bus0"].map(busmap2)
+            links_from_dg_buses["to_ac"] = links_from_dg_buses["bus0"].map(busmap3)
             for bus, df in links_from_dg_buses.groupby("to_ac"):
                 cluster_bus = df.bus1.iat[0]
                 for new_bus in df.bus1:

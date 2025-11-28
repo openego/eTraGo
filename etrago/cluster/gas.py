@@ -350,16 +350,26 @@ def sector_coupled_clustering_strategy(etrago):
     """
 
     if "eGon2035" in etrago.args["scn_name"]:
-        strategy = {
-            "central_heat": {
-                "base": ["CH4", "AC"],
-                "strategy": "simultaneous",
-            },
-            "rural_heat": {"base": ["AC"], "strategy": "consecutive"},
-            "H2_grid": {"base": ["CH4"], "strategy": "consecutive"},
-            "H2_saltcavern": {"base": ["H2_grid"], "strategy": "consecutive"},
-            "Li_ion": {"base": ["AC"], "strategy": "consecutive"},
-        }
+        if etrago.args["method"]["distribution_grids"]:
+            strategy = {
+                "central_heat": {
+                    "base": ["CH4", "AC"],
+                    "strategy": "simultaneous",
+                },
+                "H2_grid": {"base": ["CH4"], "strategy": "consecutive"},
+                "H2_saltcavern": {"base": ["H2_grid"], "strategy": "consecutive"},
+            }
+        else:
+            strategy = {
+                "central_heat": {
+                    "base": ["CH4", "AC"],
+                    "strategy": "simultaneous",
+                },
+                "rural_heat": {"base": ["AC"], "strategy": "consecutive"},
+                "H2_grid": {"base": ["CH4"], "strategy": "consecutive"},
+                "H2_saltcavern": {"base": ["H2_grid"], "strategy": "consecutive"},
+                "Li_ion": {"base": ["AC"], "strategy": "consecutive"},
+            }
 
     elif "eGon100RE" in etrago.args["scn_name"]:
         strategy = {
