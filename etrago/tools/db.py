@@ -146,7 +146,7 @@ def create_oedb_config_file(filepath, section="oep"):
     return cfg
 
 
-def connection(filepath=None, section="oep", readonly=False):
+def connection(filepath=None, section="oep"):
     """
     Instantiate a database connection (for the use with SQLAlchemy).
 
@@ -161,10 +161,6 @@ def connection(filepath=None, section="oep", readonly=False):
     section : str
         Section in config file containing database connection parameters.
         Default: 'oep'.
-    readonly : bool
-        Set this option to True for creating a read-only and passwordless
-        engine for accessing the open energy platform.
-        Default: False.
 
     Returns
     -------
@@ -172,8 +168,9 @@ def connection(filepath=None, section="oep", readonly=False):
         SQLalchemy engine object containing the connection details
     """
 
-    if readonly:
-        conn = create_engine("postgresql+oedialect://openenergy-platform.org")
+    if section == "test-oep":
+        conn = create_engine("postgresql+oedialect://toep.iks.cs.ovgu.de")
+
     else:
         # define default filepath if not provided
         if filepath is None:

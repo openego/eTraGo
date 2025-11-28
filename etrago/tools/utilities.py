@@ -33,14 +33,15 @@ import os
 import zipfile
 
 from pyomo.environ import Constraint, PositiveReals, Var
+from shapely.geometry import LineString, Point
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pypsa
+import saio
 import sqlalchemy.exc
 
 if "READTHEDOCS" not in os.environ:
-    from shapely.geometry import LineString, Point
-    import geopandas as gpd
 
     from etrago.tools import db
 
@@ -285,10 +286,16 @@ def buses_by_country(self, apply_on="grid_model"):
         "Russia": "RU",
     }
 
+    if "toep.iks.cs.ovgu.de" in str(self.engine.url):
+        saio.register_schema("data", self.engine)
+        from saio.data import edut_00_013 as vg250_lan
+    else:
+        saio.register_schema("boundaries", self.engine)
+        from saio.boundaries import vg250_lan
     # read Germany borders from egon-data
-    query = "SELECT * FROM boundaries.vg250_lan"
-    con = self.engine
-    germany_sh = gpd.read_postgis(query, con, geom_col="geometry")
+    query = self.session.query(vg250_lan)
+
+    germany_sh = saio.as_pandas(query, geometry="geometry")
 
     # read Europe borders. Original data downloaded from naturalearthdata.com/
     # under Public Domain license
@@ -1972,7 +1979,7 @@ def ramp_limits(network):
 def get_args_setting(self, jsonpath="scenario_setting.json"):
     """
     Get and open json file with scenaio settings of eTraGo ``args``.
-    The settings incluedes all eTraGo specific settings of arguments and
+    The settings includes all eTraGo specific settings of arguments and
     parameters for a reproducible calculation.
 
     Parameters
@@ -1988,11 +1995,14 @@ def get_args_setting(self, jsonpath="scenario_setting.json"):
     """
 
     if jsonpath is not None:
-        with open(jsonpath) as f:
-            if "args" in locals():
-                self.args = merge_dicts(self.args, json.load(f))
-            else:
-                self.args = json.load(f)
+        if os.path.exists(jsonpath):
+            with open(jsonpath) as f:
+                if "args" in locals():
+                    self.args = merge_dicts(self.args, json.load(f))
+                else:
+                    self.args = json.load(f)
+        else:
+            self.args = None
 
 
 def merge_dicts(dict1, dict2):
@@ -2039,9 +2049,7 @@ def get_clustering_data(self, path):
 
     """
 
-    if (self.args["network_clustering_ehv"]["active"]) | (
-        self.args["network_clustering"]["active"]
-    ):
+    try:
         path_clus = os.path.join(path, "clustering")
         if os.path.exists(path_clus):
             ch4_h2_mapping_path = os.path.join(
@@ -2073,11 +2081,10 @@ def get_clustering_data(self, path):
                 logger.info(
                     "There is no busmap data available in the loaded object."
                 )
-
-        else:
-            logger.info(
-                "There is no clustering data available in the loaded object."
-            )
+    except ValueError:
+        logger.info(
+            "There is no clustering data available in the loaded object."
+        )
 
 
 def set_random_noise(self, sigma=0.01):
@@ -2519,18 +2526,57 @@ def check_args(etrago):
 
     """
 
-    names = [
-        "eGon2035",
-        "eGon100RE",
-        "eGon2035_lowflex",
-        "eGon100RE_lowflex",
-        "status2019",
-    ]
+    if "toep.iks.cs.ovgu.de" in str(etrago.engine.url):
+        saio.register_schema("data", etrago.engine)
+        from saio.data import (
+            edut_00_056 as egon_etrago_bus,
+        )
+    else:
+        saio.register_schema("grid", etrago.engine)
+        from saio.grid import egon_etrago_bus
+    query = etrago.session.query(egon_etrago_bus).filter(
+        egon_etrago_bus.scn_name == etrago.args["scn_name"]
+    )
 
-    assert (
-        etrago.args["scn_name"] in names
-    ), f"'scn_name' has to be in {names} but is {etrago.args['scn_name']}."
+    df_scenario = saio.as_pandas(query, crs=4326, geometry=None)
 
+    assert len(df_scenario) > 0, (
+        f"Selected scenario {etrago.args['scn_name']} "
+        "not available in selected database."
+    )
+
+    if etrago.args["scn_extension"]:
+        assert (
+            type(etrago.args["scn_extension"]) is not str
+        ), "scn_extension should be defined as a list but is a string."
+
+        if "toep.iks.cs.ovgu.de" in str(etrago.engine.url):
+            print(
+                "Extension scenarios are not available in selected database."
+            )
+        else:
+            try:
+                saio.register_schema("grid", etrago.engine)
+                from saio.grid import egon_etrago_extension_bus
+
+            except sqlalchemy.exc.NoSuchTableError:
+                print(
+                    "Extension scenarios are not available in selected"
+                    " database."
+                )
+                raise
+
+            for scenario_extension in etrago.args["scn_extension"]:
+                query = etrago.session.query(egon_etrago_bus).filter(
+                    egon_etrago_extension_bus.scn_name == scenario_extension
+                )
+
+                df_scenario = saio.as_pandas(query, crs=4326, geometry=None)
+
+                assert len(df_scenario) > 0, (
+                    f"Selected extension scenario {scenario_extension} not "
+                    "available in selected database."
+                )
     assert (
         etrago.args["start_snapshot"] <= etrago.args["end_snapshot"]
     ), "start_snapshot after end_snapshot"
@@ -2649,24 +2695,6 @@ def check_args(etrago):
                 " Setting `args['method']['formulation']` to `pyomo`."
             )
             etrago.args["method"]["formulation"] = "pyomo"
-
-    if etrago.args["method"]["formulation"] != "pyomo":
-        try:
-            # The import isn't used, but just here to test for Gurobi.
-            # So we can make `flake8` stop complaining about the "unused
-            # import" via the appropriate `noqa` comment.
-            import gurobipy  # noqa: F401
-        except ModuleNotFoundError:
-            print(
-                "If you want to use nomopyomo you need to use the"
-                " solver gurobi and the package gurobipy."
-                " You can find more information and installation"
-                " instructions for gurobi here:"
-                " https://support.gurobi.com/hc/en-us/articles"
-                "/360044290292-How-do-I-install-Gurobi-for-Python-"
-                " For installation of gurobipy use pip."
-            )
-            raise
 
     if (etrago.args["method"]["formulation"] != "pyomo") & (
         etrago.args["temporal_disaggregation"]["active"]
@@ -2819,14 +2847,31 @@ def adjust_CH4_gen_carriers(self):
         marginal_cost_def = {"CH4": 40.9765, "biogas": 25.6}
 
         engine = db.connection(section=self.args["db"])
+
         try:
-            sql = f"""
-            SELECT gas_parameters
-            FROM scenario.egon_scenario_parameters
-            WHERE name = '{self.args["scn_name"].split("_")[0]}';"""
-            df = pd.read_sql(sql, engine)
+            if "toep.iks.cs.ovgu.de" in str(engine.url):
+                saio.register_schema("data", engine)
+                from saio.data import (
+                    edut_00_137 as egon_scenario_parameters,
+                )
+            else:
+                saio.register_schema("grid", engine)
+                from saio.grid import egon_scenario_parameters
+            df = saio.as_pandas(
+                self.session.query(egon_scenario_parameters).filter(
+                    egon_scenario_parameters.name
+                    == self.args["scn_name"].split("_")[0]
+                )
+            )
             marginal_cost = df["gas_parameters"][0]["marginal_cost"]
-        except sqlalchemy.exc.ProgrammingError:
+        except sqlalchemy.exc.NoSuchTableError as e:
+            logging.warning(
+                f"""
+                The database query failed for
+                'scenario.egon_scenario_parameters'.
+                Fallback values are being used. Error message: {e}
+                """
+            )
             marginal_cost = marginal_cost_def
 
         self.network.generators.loc[
@@ -2962,6 +3007,19 @@ def manual_fixes_datamodel(etrago):
     etrago.network.storage_units.lifetime = 27.5
     etrago.network.transformers.lifetime = 40
     etrago.network.lines.lifetime = 40
+
+    # Set cyclic state of charge of storage units and stores
+    if etrago.args["scn_name"] in [
+        "status2019",
+        "eGon2035",
+        "eGon2035_lowflex",
+    ]:
+        etrago.network.storage_units.cyclic_state_of_charge = True
+        etrago.network.stores.loc[
+            (etrago.network.stores.carrier != "dsm")
+            & (etrago.network.stores.carrier != "battery_storage"),
+            "e_cyclic",
+        ] = True
 
     # Set build years to 0 to avoid problems in the clustering
     etrago.network.lines.build_year = 0

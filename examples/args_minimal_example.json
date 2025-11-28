@@ -1,13 +1,13 @@
 {
-    "db": "egon-data",
+    "db": "test-oep",
     "gridversion": null,
     "method": { 
         "type": "lopf",  
-        "n_iter": 4,
+        "n_iter": 1,
         "formulation": "linopy",
         "market_optimization":
             {
-                "active": true,
+                "active": false,
                 "market_zones": "status_quo",
                 "rolling_horizon": {
                     "planning_horizon": 168,
@@ -22,14 +22,14 @@
         "q_allocation": "p_nom"
     },
     "start_snapshot": 1,
-    "end_snapshot": 2,
-    "solver": "gurobi",
+    "end_snapshot": 24,
+    "solver": "glpk",
     "solver_options": {},
     "model_formulation": "kirchhoff",
     "scn_name": "eGon2035",
     "scn_extension": null,
     "lpfile": false,
-    "csv_export": "results",
+    "csv_export": false,
     "extendable": {
         "extendable_components": [
             "as_in_db"
@@ -109,7 +109,7 @@
     },
     "load_shedding": false,
     "foreign_lines": {
-        "carrier": "AC",
+        "carrier": "DC",
         "capacity": "osmTGmod"
     },
     "comments": null
