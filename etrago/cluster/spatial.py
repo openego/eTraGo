@@ -192,6 +192,7 @@ def strategies_links():
         "p_min_pu": "mean",
         "p_max_pu": "mean",
         "marginal_cost": "mean",
+        "marginal_cost_quadratic": "mean",
         "terrain_factor": _make_consense_links,
         "p_nom_opt": "mean",
         "country": nan_links,

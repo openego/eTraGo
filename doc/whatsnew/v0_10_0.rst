@@ -1,4 +1,4 @@
-Release 0.10.0 (XXXX)
+Release 0.10.0 (November 21, 2025)
 +++++++++++++++++++++
 
 Added features
@@ -7,8 +7,8 @@ Added features
 * eTraGo is now compatible with Python 3.9, 3.10 and 3.11
 * Updates to several packages, such as pypsa and pandas
 * The module structure has been updated, modules are now grouped into analyze, cluster, disaggregate and tools packages.
-* eTraGo is compatible to a status quo scenario representing the year 2019 (called: status2019)
-* A new consecutive optimization method is implemented with the following key features
+* eTraGo is compatible to a status quo scenario representing the year 2019 (called: status2019).
+* A new consecutive optimization method is implemented with the following key features:
 - Separate market from grid model
 - Consider actual bidding zones in the market optimization
 - Grid optimization considering network topology and cost-based redispatch
@@ -16,4 +16,3 @@ Added features
 * An iterative security constraint LOPF (SCLOPF) is now available. It is not selected by default because not all features are compatible yet.
 * Analyzing and plotting functions have been updated to take into account the new optimization method.
 * Various minor changes and bug fixes
-

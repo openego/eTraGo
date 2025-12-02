@@ -59,15 +59,15 @@ def snapshot_clustering(self):
     None.
 
     """
+    # Save network in full resolution if not copied before
+    if self.network_tsa.buses.empty:
+        self.network_tsa = self.network.copy()
 
     if self.args["snapshot_clustering"]["active"]:
-        # save second network for optional dispatch disaggregation
-        if self.args["temporal_disaggregation"]["active"]:
-            self.network_tsa = self.network.copy()
 
         if self.args["snapshot_clustering"]["method"] == "segmentation":
             self.network = run(
-                network=self.network.copy(),
+                self,
                 n_clusters=1,
                 segmented_to=self.args["snapshot_clustering"]["n_segments"],
                 extreme_periods=self.args["snapshot_clustering"][
@@ -77,7 +77,7 @@ def snapshot_clustering(self):
 
         elif self.args["snapshot_clustering"]["method"] == "typical_periods":
             self.network = run(
-                network=self.network.copy(),
+                self,
                 n_clusters=self.args["snapshot_clustering"]["n_clusters"],
                 how=self.args["snapshot_clustering"]["how"],
                 extreme_periods=self.args["snapshot_clustering"][
@@ -603,7 +603,7 @@ def segmentation_extreme_periods(
 
 
 def run(
-    network,
+    self,
     n_clusters=None,
     how="daily",
     segmented_to=False,
@@ -634,6 +634,7 @@ def run(
         Container for all network components.
 
     """
+    network = self.network.copy()
 
     if segmented_to is not False:
         segment_no = segmented_to
@@ -684,8 +685,8 @@ def run(
             "cluster_typical-periods=" + str(n_clusters) + howie + ".csv"
         )
 
-    network.cluster = df_cluster
-    network.cluster_ts = df_i_h
+    self.cluster_temporal = df_cluster
+    self.cluster_ts = df_i_h
 
     update_data_frames(
         network, cluster_weights, dates, hours, timeseries, segmentation
@@ -806,17 +807,14 @@ def skip_snapshots(self):
     None.
 
     """
-
-    # save second network for optional dispatch disaggregation
-    if (
-        self.args["temporal_disaggregation"]["active"]
-        and not self.args["snapshot_clustering"]["active"]
-    ) or self.args["method"]["market_optimization"]:
+    # Save network in full resolution if not copied before
+    if self.network_tsa.buses.empty:
         self.network_tsa = self.network.copy()
 
     n_skip = self.args["skip_snapshots"]
 
     if n_skip:
+
         last_weight = (
             int(
                 (

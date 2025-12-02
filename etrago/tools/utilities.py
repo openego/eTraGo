@@ -287,8 +287,8 @@ def buses_by_country(self, apply_on="grid_model"):
     }
 
     if "toep.iks.cs.ovgu.de" in str(self.engine.url):
-        saio.register_schema("model_draft", self.engine)
-        from saio.model_draft import edut_00_013 as vg250_lan
+        saio.register_schema("data", self.engine)
+        from saio.data import edut_00_013 as vg250_lan
     else:
         saio.register_schema("boundaries", self.engine)
         from saio.boundaries import vg250_lan
@@ -1982,7 +1982,7 @@ def ramp_limits(network):
 def get_args_setting(self, jsonpath="scenario_setting.json"):
     """
     Get and open json file with scenaio settings of eTraGo ``args``.
-    The settings incluedes all eTraGo specific settings of arguments and
+    The settings includes all eTraGo specific settings of arguments and
     parameters for a reproducible calculation.
 
     Parameters
@@ -1998,11 +1998,14 @@ def get_args_setting(self, jsonpath="scenario_setting.json"):
     """
 
     if jsonpath is not None:
-        with open(jsonpath) as f:
-            if "args" in locals():
-                self.args = merge_dicts(self.args, json.load(f))
-            else:
-                self.args = json.load(f)
+        if os.path.exists(jsonpath):
+            with open(jsonpath) as f:
+                if "args" in locals():
+                    self.args = merge_dicts(self.args, json.load(f))
+                else:
+                    self.args = json.load(f)
+        else:
+            self.args = None
 
 
 def merge_dicts(dict1, dict2):
@@ -2049,9 +2052,7 @@ def get_clustering_data(self, path):
 
     """
 
-    if (self.args["network_clustering_ehv"]["active"]) | (
-        self.args["network_clustering"]["active"]
-    ):
+    try:
         path_clus = os.path.join(path, "clustering")
         if os.path.exists(path_clus):
             ch4_h2_mapping_path = os.path.join(
@@ -2083,11 +2084,10 @@ def get_clustering_data(self, path):
                 logger.info(
                     "There is no busmap data available in the loaded object."
                 )
-
-        else:
-            logger.info(
-                "There is no clustering data available in the loaded object."
-            )
+    except ValueError:
+        logger.info(
+            "There is no clustering data available in the loaded object."
+        )
 
 
 def set_random_noise(self, sigma=0.01):
@@ -2530,8 +2530,8 @@ def check_args(etrago):
     """
 
     if "toep.iks.cs.ovgu.de" in str(etrago.engine.url):
-        saio.register_schema("model_draft", etrago.engine)
-        from saio.model_draft import (
+        saio.register_schema("data", etrago.engine)
+        from saio.data import (
             edut_00_056 as egon_etrago_bus,
         )
     else:
@@ -2699,24 +2699,6 @@ def check_args(etrago):
             )
             etrago.args["method"]["formulation"] = "pyomo"
 
-    if etrago.args["method"]["formulation"] != "pyomo":
-        try:
-            # The import isn't used, but just here to test for Gurobi.
-            # So we can make `flake8` stop complaining about the "unused
-            # import" via the appropriate `noqa` comment.
-            import gurobipy  # noqa: F401
-        except ModuleNotFoundError:
-            print(
-                "If you want to use nomopyomo you need to use the"
-                " solver gurobi and the package gurobipy."
-                " You can find more information and installation"
-                " instructions for gurobi here:"
-                " https://support.gurobi.com/hc/en-us/articles"
-                "/360044290292-How-do-I-install-Gurobi-for-Python-"
-                " For installation of gurobipy use pip."
-            )
-            raise
-
     if (etrago.args["method"]["formulation"] != "pyomo") & (
         etrago.args["temporal_disaggregation"]["active"]
     ):
@@ -2871,8 +2853,8 @@ def adjust_CH4_gen_carriers(self):
 
         try:
             if "toep.iks.cs.ovgu.de" in str(engine.url):
-                saio.register_schema("model_draft", engine)
-                from saio.model_draft import (
+                saio.register_schema("data", engine)
+                from saio.data import (
                     edut_00_137 as egon_scenario_parameters,
                 )
             else:
