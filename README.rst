@@ -79,4 +79,4 @@ Code licensed under "GNU Affero General Public License Version 3 (AGPL-3.0)"
 It is a collaborative work with several copyright owners:
 Cite as "eTraGo" © Flensburg University of Applied Sciences, Centre for
 Sustainable Energy Systems © Europa-Universität Flensburg, Centre for
-Sustainable Energy Systems © DLR Institute for Networked Energy Systems"
+Sustainable Energy Systems © DLR Institute for Networked Energy Systems

@@ -27,13 +27,11 @@ Once the calculation has finished, the ``Etrago object`` will contain all of the
 Examples and Tutorial Notebooks
 ===============================
 
-The following links provide examples and tutorial notebooks:
+On the `Github-Repository <https://github.com/openego/eTraGo>`_  you can find example workflows demonstrating how to use *eTraGo*:
 
-**eTraGo version 0.5.1:**
-`etrago_OpenMod_Zuerich18 <https://github.com/openego/eGo/blob/master/ego/examples/tutorials/etrago_OpenMod_Zuerich18.ipynb>`_.
+- **minimal_example** provides a basic introduction to the core handling and functionalities of *eTraGo*.
 
-**eTraGo version 0.9:**
-`eTraGo_eGon_final_workshop <https://github.com/openego/eTraGo/blob/master/doc/eTraGo_tutorial_release0.9.ipynb>`_.
+- **analysis_example** uses publicly available results from a published study to illustrate how to analyse *eTraGo* outputs.
 
 
 .. _Troubleshooting:

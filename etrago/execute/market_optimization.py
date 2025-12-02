@@ -62,14 +62,22 @@ def market_optimization(self):
             solver_name=self.args["solver"],
             solver_options=self.args["solver_options"],
             pyomo=True,
-            extra_functionality=Constraints(self.args, False).functionality,
+            extra_functionality=Constraints(
+                self.args,
+                False,
+                apply_on="pre_market_model",
+            ).functionality,
             formulation=self.args["model_formulation"],
         )
     elif self.args["method"]["formulation"] == "linopy":
         status, condition = self.pre_market_model.optimize(
             solver_name=self.args["solver"],
             solver_options=self.args["solver_options"],
-            extra_functionality=Constraints(self.args, False).functionality,
+            extra_functionality=Constraints(
+                self.args,
+                False,
+                apply_on="pre_market_model",
+            ).functionality,
             linearized_unit_commitment=True,
         )
 
@@ -317,6 +325,9 @@ def build_market_model(self, unit_commitment=False):
     None.
 
     """
+    # Save network in full resolution if not copied before
+    if self.network_tsa.buses.empty:
+        self.network_tsa = self.network.copy()
 
     # use existing preprocessing to get only the electricity system
     net, weight, n_clusters, busmap_foreign = preprocessing(
@@ -525,7 +536,6 @@ def build_shortterm_market_model(self, unit_commitment=False):
         .reset_index()
     )
     for link in grouped_links.index:
-        print(link)
         bus0 = grouped_links.loc[link, "bus0"]
         bus1 = grouped_links.loc[link, "bus1"]
         carrier = grouped_links.loc[link, "carrier"]

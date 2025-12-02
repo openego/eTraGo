@@ -141,15 +141,11 @@ Integrated Optimization with Nodal Pricing
 The objective is to minimize marginal costs of energy generation and investments in grid infrastructure, storage units and different flexibility options in one optimization problem. Various constrains are added to model the physical and electrical behavior.
 The following objective function is applied: 
 
-.. math::
-  :nowrap:
+.. figure:: images/lopf.png
+   :align: center
+   :width: 800
 
-    \begin{gather*}
-    \sum_{n,s} c_{n,s} \bar{g}_{n,s} + \sum_{n,s} c_{n,s} \bar{h}_{n,s} + \sum_{l} c_{l} F_l \\
-    + \sum_{t} w_t \left[\sum_{n,s} o_{n,s,t} g_{n,s,t} + \sum_{n,s} o_{n,s,t} h_{n,s,t} \right]
-    + \sum_{t} \left[suc_{n,s,t} + sdc_{n,s,t} \right]
-    \end{gather*}
-
+|
 
 This implies a nodal pricing approach with optimal dispatch and redispatch. Redispatch and curtailment of renewable energy are possible without incurring additional redispatch costs. Investments and expanded capacities of grid infrastructure, storage units, and various flexibility options are key outcomes. It should be noted that expansion is applied continuously. The expanded capacities do not always reflect existing technical constraints, which allows the optimization problem to remain linear and feasible for the complex model described.
 

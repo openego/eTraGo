@@ -154,7 +154,7 @@ def dispatch_disaggregation(self):
         )
         self.network.stores.e_cyclic = self.network_tsa.stores.e_cyclic
 
-        if not self.args["csv_export"]:
+        if self.args["csv_export"]:
             path = self.args["csv_export"]
             self.export_to_csv(path)
             self.export_to_csv(path + "/temporal_disaggregaton")
