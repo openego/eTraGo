@@ -874,13 +874,21 @@ def focus_weighting(
     mask = buses_gdf.geometry.within(focus_polygon)
     indizes = buses_gdf[mask].index
     dist.loc[indizes] = 0
+    
+    # also set distances to 0 for buses directly connected to buses within focus region
+    # to avoid that buses are clustered into the focus region
+    lines_cross = network.lines[
+    (network.lines.bus0.isin(indizes)) ^ (network.lines.bus1.isin(indizes))]
+    dist.loc[lines_cross.bus0.values]=0
+    dist.loc[lines_cross.bus1.values]=0
+    indizes = dist[dist==0].index
 
     # to m
     dist = dist * 1000
     # do not allow 0
     dist[dist == 0] = 1
 
-    # 1/dist
+    '''# 1/dist
     if func == "1-dist":
         factor = 1 / dist
 
@@ -902,17 +910,49 @@ def focus_weighting(
     # Sigmoid-Abklingfunktion mit 100 km
     elif func == "sigmoid-100":
         sigma = 100000
-        factor = 1 / (1 + (dist / sigma) ** 2)
+        factor = 1 / (1 + (dist / sigma) ** 2)'''
+        
+    # 1/dist
+    factor0 = 1 / dist
+
+    # Gaußsche Abklingfunktion mit 20 km
+    sigma = 20000  # z. B. 20 km
+    factor1 = np.exp(-(dist**2) / (2 * sigma**2))
+
+    # Gaußsche Abklingfunktion mit 100 km
+    sigma = 100000  # z. B. 100 km
+    factor2 = np.exp(-(dist**2) / (2 * sigma**2))
+
+    # Sigmoid-Abklingfunktion mit 20 km
+    sigma = 20000
+    factor3 = 1 / (1 + (dist / sigma) ** 2)
+
+    # Sigmoid-Abklingfunktion mit 100 km
+    sigma = 100000
+    factor = 1 / (1 + (dist / sigma) ** 2)
+        
+    weight2 = weight.to_frame()
+    weight2.columns=['original']
 
     # apply to normal weighting (based on generation capacities and loads)
+    weight2['sig-100'] = weight2['original'] * factor
+    weight2['1/dist'] = weight2['original'] * factor0
+    weight2['gauss-20'] = weight2['original'] * factor1
+    weight2['gauss-100'] = weight2['original'] * factor2
+    weight2['sig-20'] = weight2['original'] * factor3
+    weight2 = weight2.apply(np.ceil)
+    
     weight = weight * factor
     weight = weight.apply(np.ceil)
 
     if cluster_within == False:
-        weight.loc[indizes] = 100000
+        weight2['sig-100-2']=weight2['sig-100']
+        weight2['sig-100-2'].loc[indizes] = 100000
+        weight2['gauss-100-2']=weight2['gauss-100']
+        weight2['gauss-100-2'].loc[indizes] = 100000
+        weight.loc[indizes]=100000
 
-    if save:
-        weight.to_csv(save)
+    weight2.to_csv('/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming/tests/sig-100-neu-cluster/weighting_tests.csv')
 
     return weight
 
