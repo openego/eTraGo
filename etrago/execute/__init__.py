@@ -225,9 +225,7 @@ def run_lopf(etrago, extra_functionality, method):
                     and condition {condition}"""
                 )
                 etrago.network.model.print_infeasibilities()
-                import pdb
 
-                pdb.set_trace()
         else:
             status, termination_condition = network_lopf(
                 etrago.network,
