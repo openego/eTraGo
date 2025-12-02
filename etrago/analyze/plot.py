@@ -3166,6 +3166,7 @@ if __name__ == "__main__":
 
 def plot_clusters(
     self,
+    focus_gdf=None, 
     carrier="AC",
     save_path=False,
     transmission_lines=False,
@@ -3224,6 +3225,34 @@ def plot_clusters(
         plt.rcParams["figure.autolayout"] = True
         fig, ax = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()})
         draw_map_cartopy(ax, color_geomap=True)
+        
+        if focus_gdf is not None:
+                
+            # Berechne die Begrenzungen deiner Fokusregion
+            bounds = focus_gdf.total_bounds  # [minx, miny, maxx, maxy]
+            
+            # Definiere Puffer (z. B. 10 % vom Ausmaß)
+            x_buffer = (bounds[2] - bounds[0]) * 0.8
+            y_buffer = (bounds[3] - bounds[1]) * 0.8
+            
+            # Erweitere die Grenzen
+            xmin = bounds[0] - x_buffer
+            xmax = bounds[2] + x_buffer
+            ymin = bounds[1] - y_buffer
+            ymax = bounds[3] + y_buffer
+    
+            ax.set_extent([xmin, xmax, ymin, ymax], crs=ccrs.PlateCarree())
+            
+            # Fokusregion als leicht transparente rote Fläche zeichnen
+            focus_gdf.plot(
+                ax=ax,
+                facecolor="red",     # rote Fläche
+                alpha=0.25,          # Transparenz (0 = durchsichtig, 1 = deckend)
+                edgecolor="darkred", # optional dunkler Rand
+                linewidth=0.8,
+                zorder=1,
+            )
+        
     else:
         fig, ax = plt.subplots()
 
@@ -3318,7 +3347,7 @@ def plot_clusters(
         zorder=3,
     )
 
-    # Draw focus_region
+    '''# Draw focus_region
     focus_region = self.args["network_clustering"]["method"]["focus_region"]
     try:
         if focus_region:
@@ -3336,11 +3365,12 @@ def plot_clusters(
                 ax=ax,
                 zorder=1,
             )
-
-        if save_path:
-            plt.savefig(save_path, dpi=800)
     except:
-        print("focus reagion could not be read")
+        print("focus reagion could not be read")'''
+    
+    if save_path:
+        plt.savefig(save_path, dpi=800)
+        plt.close()
 
     return
 

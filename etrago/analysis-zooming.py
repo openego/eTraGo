@@ -6,6 +6,9 @@ from shapely.geometry import Point
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
+import cartopy.crs as ccrs
 
 '''focus_region = ["Region Hannover"]
 con = create_engine("postgresql+psycopg2://egon:data@127.0.0.1:59732/egon-data")
@@ -26,10 +29,108 @@ ac_buses_original_area = len(buses_area_orig)'''
 # 104 buses in focus region
 # 56 davon ohne load and generation (ohne load shedding)
 
-def get_results(path, calc):
+focus_gdf = gpd.read_file("/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming-Tests/focus-region/hannover.gpkg")
+focus_gdf = focus_gdf.to_crs(epsg=4326)
 
-    focus_gdf = gpd.read_file("/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming-Tests/focus-region/hannover.gpkg")
-    focus_gdf = focus_gdf.to_crs(epsg=4326)
+### only clustering - local tests #############################################
+
+path = '/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming/tests/sig-100-neu-cluster/'
+calcs= [300] # [50, 100, 150, 200, 250, 300]
+
+def plot_clusters_row(path, calcs, focus_gdf):
+    
+    for i in range(0, len(calcs)):
+    
+        npath = path+str(calcs[i])
+        e = Etrago(csv_folder_name=npath)
+        e.plot_clusters(focus_gdf=focus_gdf, transmission_lines=True, save_path=npath+'/clusters.png')
+        
+#plot_clusters_row(path, calcs, focus_gdf)
+
+def plot_weight_distr(weights):
+    
+    # Bus-Spalte entfernen
+    weight_columns = [col for col in weights.columns if col != "bus"]
+
+    # Histogramme überlagern
+    plt.figure(figsize=(8,5))
+    #for col in weight_columns:
+        #plt.hist(weights[col], bins=30, alpha=0.5, label=col)
+    weights[weight_columns].plot(kind="box")
+
+    plt.xlabel("Funktion für Fokusregion")
+    plt.ylabel("finale Gewichtung")
+    plt.title("Vergleich der Gewichtungsverteilungen")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+path = '/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming/tests/sig-100-neu-cluster/weighting_tests.csv'
+weights = pd.read_csv(path)
+#weights.set_index('Bus', inplace=True)
+
+#plot_weight_distr(weights)
+
+def network_weights(n, weights, path):
+    weight_columns = [col for col in weights.columns if col != "bus"]
+    
+    for col in weight_columns:
+        descr = '1-durch-dist' if col == '1/dist' else col
+
+        # Werte übernehmen und Index als String
+        values = weights[col].copy()
+        values.index = values.index.astype(str)
+
+        # Nur AC-Busse auswählen
+        ac_buses = n.buses[n.buses['carrier'] == 'AC'].index.astype(str)
+
+        # Bus-Werte vorbereiten: AC-Busse behalten, andere NaN
+        bus_values = []
+        for bus in n.buses.index.astype(str):
+            if bus in values.index:
+                bus_values.append(values[bus])
+            else:
+                bus_values.append(np.nan)
+        bus_values = np.array(bus_values)
+
+        # Größen: nur AC-Busse sichtbar
+        bus_sizes = np.array([0.001 if bus in ac_buses else 0 for bus in n.buses.index.astype(str)])
+
+        # GeoAxes
+        fig, ax = plt.subplots(figsize=(8, 10), subplot_kw={"projection": ccrs.PlateCarree()})
+
+        n.plot(
+            ax=ax,
+            bus_colors=bus_values,
+            bus_sizes=bus_sizes,
+            line_widths=0,
+            link_widths=0,
+            bus_cmap="viridis",
+            title=f"Gewichtung der Knoten: {col}"
+        )
+
+        ax.set_extent([5, 16, 47, 56], crs=ccrs.PlateCarree())
+        ax.coastlines(color="gray", linewidth=0.5)
+
+        # Farblegende
+        sm = plt.cm.ScalarMappable(cmap="viridis", norm=plt.Normalize(vmin=np.nanmin(bus_values), vmax=np.nanmax(bus_values)))
+        sm.set_array([])
+        cbar = plt.colorbar(sm, ax=ax, fraction=0.035, pad=0.02)
+        cbar.set_label('Gewichtung', fontsize=10)
+
+        plt.tight_layout()
+        plt.savefig(f"{path}{descr}.png", dpi=200)
+        plt.close(fig)
+        
+network = pypsa.Network('/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming/tests/pypsa-original')
+path = '/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming/tests/sig-100-neu-cluster'
+weights = pd.read_csv(path+'/weighting_tests.csv')        
+#weights.set_index('Bus', inplace=True)
+#network_weights(network, weights, path+'/weighting_analysis/')
+
+### optimization calcs server #################################################
+
+def get_results(path, calc, descr, focus_gdf=focus_gdf):
     
     results = pd.DataFrame(columns = ["n_buses", "n_buses_de", "n_buses_area", "total_system_costs", "marginal_costs", "investment_costs", 
                                       "ac_grid_investment_costs", "dc_grid_investment_costs", "other_link_expansion_costs",
@@ -38,8 +139,9 @@ def get_results(path, calc):
     for r in calc:
         
         e = Etrago(csv_folder_name=path + "/" + r)
-        #e.plot_clusters(transmission_lines=True, save_path=f"/home/carlos/Documents/Zooming-paper/plot_clusters/{r}")
         e.calc_results()
+        
+        e.plot_clusters(focus_gdf, transmission_lines=True, save_path="/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming-Tests/plot_clusters/"+descr+r)
         
         buses = e.network.buses[e.network.buses.carrier=="AC"]
         buses["geom"] =  buses.apply(lambda x: Point(x["x"], x["y"]), axis=1)
@@ -77,7 +179,7 @@ def get_results(path, calc):
     
     return e, results
 
-def get_results_de(path, calc):
+def get_results_de(path, calc, focus_gdf=focus_gdf):
     
     def marginal_costs_de(network):
         
@@ -126,9 +228,6 @@ def get_results_de(path, calc):
         costs = gen_res + link_res + stor_res
         
         return costs
-
-    focus_gdf = gpd.read_file("/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming-Tests/focus-region/hannover.gpkg")
-    focus_gdf = focus_gdf.to_crs(epsg=4326)
     
     results = pd.DataFrame(columns = ["n_buses", "n_buses_de", "n_buses_area", "total_system_costs", "marginal_costs", "investment_costs", 
                                       "ac_grid_investment_costs", "dc_grid_investment_costs", "other_link_expansion_costs",
@@ -173,7 +272,7 @@ def get_results_de(path, calc):
     
     return results
 
-def get_results_focus(path, calc):
+def get_results_focus(path, calc, focus_gdf=focus_gdf):
     
     def marginal_costs_focus(network):
         
@@ -225,9 +324,6 @@ def get_results_focus(path, calc):
         costs = gen_res + link_res + stor_res
         
         return costs
-
-    focus_gdf = gpd.read_file("/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming-Tests/focus-region/hannover.gpkg")
-    focus_gdf = focus_gdf.to_crs(epsg=4326)
     
     results = pd.DataFrame(columns = ["n_buses", "n_buses_de", "n_buses_area", "total_system_costs", "marginal_costs", "investment_costs", 
                                       "ac_grid_investment_costs", "dc_grid_investment_costs", "other_link_expansion_costs",
@@ -270,7 +366,7 @@ def get_results_focus(path, calc):
     
     return results
 
-def plot_no_buses(results1, label1, results2, label2, path):
+def plot_no_buses(results1, label1, results2, label2, results3, label3, path):
     
     # Plot
     plt.figure(figsize=(8, 5))
@@ -278,6 +374,8 @@ def plot_no_buses(results1, label1, results2, label2, path):
     plt.plot(results1.index, results1["n_buses_area"], 'x--', label=label1)
     common_index = results1.index.intersection(results2.index)
     plt.plot(common_index, results2.loc[common_index, "n_buses_area"], 'x--', label=label2)
+    common_index = results1.index.intersection(results3.index)
+    plt.plot(common_index, results3.loc[common_index, "n_buses_area"], 'x--', label=label3)
     
     plt.axhline(y=48, color='red', linestyle='-', linewidth=1.5, label='focus buses with cap.')
     
@@ -286,8 +384,9 @@ def plot_no_buses(results1, label1, results2, label2, path):
     plt.legend()
     plt.tight_layout()
     plt.savefig(path, dpi=300)
+    plt.close()
 
-def plot_costs(results1, label1, results2, label2, path):
+def plot_costs(results1, label1, results2, label2, results3, label3, path):
     
     # Drei Diagramme untereinander, gemeinsame x-Achse
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True, figsize=(8, 8))
@@ -297,18 +396,26 @@ def plot_costs(results1, label1, results2, label2, path):
     ax1.plot(results1.index, results1.total_system_costs, marker='x', linestyle='--', label=label1)
     common_index = results1.index.intersection(results2.index)
     ax1.plot(common_index, results2.loc[common_index, "total_system_costs"], marker='x', linestyle='--', label=label2)
+    common_index = results1.index.intersection(results3.index)
+    ax1.plot(common_index, results3.loc[common_index, "total_system_costs"], 'x--', label=label3)
     ax1.legend()
     ax1.grid(True)
 
     # Plot 2
     ax2.plot(results1.index, results1.marginal_costs, marker='x', linestyle='--', label=label1)
+    common_index = results1.index.intersection(results2.index)
     ax2.plot(common_index, results2.loc[common_index, "marginal_costs"], marker='x', linestyle='--', label=label2)
+    common_index = results1.index.intersection(results3.index)
+    ax2.plot(common_index, results3.loc[common_index, "marginal_costs"], 'x--', label=label3)
     ax2.legend()
     ax2.grid(True)
 
     # Plot 3
     ax3.plot(results1.index, results1.investment_costs, marker='x', linestyle='--', label=label1)
+    common_index = results1.index.intersection(results2.index)
     ax3.plot(common_index, results2.loc[common_index, "investment_costs"], marker='x', linestyle='--', label=label2)
+    common_index = results1.index.intersection(results3.index)
+    ax3.plot(common_index, results3.loc[common_index, "investment_costs"], 'x--', label=label3)
     ax3.legend()
     ax3.grid(True)
 
@@ -318,8 +425,9 @@ def plot_costs(results1, label1, results2, label2, path):
     
     plt.tight_layout()
     plt.savefig(path, dpi=300)
+    plt.close()
     
-def plot_investment_costs(results1, label1, results2, label2, path):
+def plot_investment_costs(results1, label1, results2, label2, results3, label3, path):
     
     # Drei Diagramme untereinander, gemeinsame x-Achse
     fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, sharex=True, figsize=(8, 8))
@@ -329,30 +437,44 @@ def plot_investment_costs(results1, label1, results2, label2, path):
     ax1.plot(results1.index, results1.ac_grid_investment_costs, marker='x', linestyle='--', label=label1)
     common_index = results1.index.intersection(results2.index)
     ax1.plot(common_index, results2.loc[common_index, "ac_grid_investment_costs"], marker='x', linestyle='--', label=label2)
+    common_index = results1.index.intersection(results3.index)
+    ax1.plot(common_index, results3.loc[common_index, "ac_grid_investment_costs"], 'x--', label=label3)
     ax1.legend()
     ax1.grid(True)
 
     # Plot 2
     ax2.plot(results1.index, results1.dc_grid_investment_costs, marker='x', linestyle='--', label=label1)
+    common_index = results1.index.intersection(results2.index)
     ax2.plot(common_index, results2.loc[common_index, "dc_grid_investment_costs"], marker='x', linestyle='--', label=label2)
+    common_index = results1.index.intersection(results3.index)
+    ax3.plot(common_index, results3.loc[common_index, "dc_grid_investment_costs"], 'x--', label=label3)
     ax2.legend()
     ax2.grid(True)
 
     # Plot 3
     ax3.plot(results1.index, results1.battery_expansion_costs, marker='x', linestyle='--', label=label1)
+    common_index = results1.index.intersection(results2.index)
     ax3.plot(common_index, results2.loc[common_index, "battery_expansion_costs"], marker='x', linestyle='--', label=label2)
+    common_index = results1.index.intersection(results3.index)
+    ax1.plot(common_index, results3.loc[common_index, "battery_expansion_costs"], 'x--', label=label3)
     ax3.legend()
     ax3.grid(True)
 
     # Plot 4
     ax4.plot(results1.index, results1.other_link_expansion_costs, marker='x', linestyle='--', label=label1)
+    common_index = results1.index.intersection(results2.index)
     ax4.plot(common_index, results2.loc[common_index, "other_link_expansion_costs"], marker='x', linestyle='--', label=label2)
+    common_index = results1.index.intersection(results3.index)
+    ax4.plot(common_index, results3.loc[common_index, "other_link_expansion_costs"], 'x--', label=label3)
     ax4.legend()
     ax4.grid(True)
     
     # Plot 5
     ax5.plot(results1.index, results1.H2_overground_expansion_costs, marker='x', linestyle='--', label=label1)
+    common_index = results1.index.intersection(results2.index)
     ax5.plot(common_index, results2.loc[common_index, "H2_overground_expansion_costs"], marker='x', linestyle='--', label=label2)
+    common_index = results1.index.intersection(results3.index)
+    ax5.plot(common_index, results3.loc[common_index, "H2_overground_expansion_costs"], 'x--', label=label3)
     ax5.legend()
     ax5.grid(True)
 
@@ -364,41 +486,43 @@ def plot_investment_costs(results1, label1, results2, label2, path):
 
     plt.tight_layout()
     plt.savefig(path, dpi=300)
+    plt.close()
 
-# sig-100
+# sig100
 path="/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming-Tests/sig-100/"
 calc = ["AC-50", "AC-100", "AC-150", "AC-200", "AC-250", "AC-300"]
-e_sig100, results_sig100 = get_results(path, calc)
+e_sig100, results_sig100 = get_results(path, calc, "sig-100_")
 results_sig100_de = get_results_de(path, calc)
 results_sig100_focus = get_results_focus(path, calc)
 
-'''# sig20
+# sig20
 path="/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming-Tests/sig-20/"
-calc = ["AC-50", "AC-100", "AC-150", "AC-200", "AC-250", "AC-300"]
-e_sig20, results_sig20 = get_results(path, calc)
-results_sig20_de = get_results_de(path, calc)'''
+calc = ["AC-50", "AC-150", "AC-250"]
+e_sig20, results_sig20 = get_results(path, calc, "sig-20_")
+results_sig20_de = get_results_de(path, calc)
+results_sig20_focus = get_results_focus(path, calc)
 
 # no Zooming
 path="/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming-Tests/no-zooming/"
 calc = ["AC-50", "AC-100", "AC-200", "AC-300"]
-e_ohne, results_ohne = get_results(path, calc)
+e_ohne, results_ohne = get_results(path, calc, "ohne_")
 results_ohne_de = get_results_de(path, calc)
 results_ohne_focus = get_results_focus(path, calc)
 
 plot_path = "/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming-Tests/"
-plot_no_buses(results_sig100, "sig100", results_ohne, "no-zooming", plot_path+'no_buses.png')
-plot_costs(results_sig100, "sig100", results_ohne, "no-zooming", plot_path+'costs.png')
-plot_investment_costs(results_sig100, "sig100", results_ohne, "no-zooming", plot_path+'invest_costs.png')
+plot_no_buses(results_sig100, "sig100", results_sig20, "sig20", results_ohne, "no-zooming", plot_path+'no_buses.png')
+plot_costs(results_sig100, "sig100", results_sig20, "sig20", results_ohne, "no-zooming", plot_path+'costs.png')
+plot_investment_costs(results_sig100, "sig100", results_sig20, "sig20", results_ohne, "no-zooming", plot_path+'invest_costs.png')
 
 plot_path = "/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming-Tests/de_"
-plot_no_buses(results_sig100_de, "sig100", results_ohne_de, "no-zooming", plot_path+'no_buses.png')
-plot_costs(results_sig100_de, "sig100", results_ohne_de, "no-zooming", plot_path+'costs.png')
-plot_investment_costs(results_sig100_de, "sig100", results_ohne_de, "no-zooming", plot_path+'invest_costs.png')
+plot_no_buses(results_sig100_de, "sig100", results_sig20_de, "sig20", results_ohne_de, "no-zooming", plot_path+'no_buses.png')
+plot_costs(results_sig100_de, "sig100", results_sig20_de, "sig20", results_ohne_de, "no-zooming", plot_path+'costs.png')
+plot_investment_costs(results_sig100_de, "sig100", results_sig20_de, "sig20", results_ohne_de, "no-zooming", plot_path+'invest_costs.png')
 
 plot_path = "/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming-Tests/focus_"
-plot_no_buses(results_sig100_focus, "sig100", results_ohne_focus, "no-zooming", plot_path+'no_buses.png')
-plot_costs(results_sig100_focus, "sig100", results_ohne_focus, "no-zooming", plot_path+'costs.png')
-plot_investment_costs(results_sig100_focus, "sig100", results_ohne_focus, "no-zooming", plot_path+'invest_costs.png')
+plot_no_buses(results_sig100_focus, "sig100", results_sig20_focus, "sig20", results_ohne_focus, "no-zooming", plot_path+'no_buses.png')
+plot_costs(results_sig100_focus, "sig100", results_sig20_focus, "sig20", results_ohne_focus, "no-zooming", plot_path+'costs.png')
+plot_investment_costs(results_sig100_focus, "sig100", results_sig20_focus, "sig20", results_ohne_focus, "no-zooming", plot_path+'invest_costs.png')
 
 
 
