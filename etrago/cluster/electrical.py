@@ -164,15 +164,21 @@ def adjust_no_electric_network(
             "O2": "PtH2_O2",
         }
     else:
-        map_carrier = {
-            "H2_saltcavern": "power_to_H2",
-            "dsm": "dsm",
-            "Li ion": "BEV charger",
-            "Li_ion": "BEV_charger",
-            "O2": "PtH2_O2",
-            #"rural_heat": "rural_heat_pump",
-            "distribution_grid": "distribution_grid",
-        }
+        if etrago.args["method"]["distribution_grids"]:
+            map_carrier = {
+                "H2_saltcavern": "power_to_H2",
+                "dsm": "dsm",
+                #"distribution_grid": "distribution_grid",
+            }
+        else:
+            map_carrier = {
+                "H2_saltcavern": "power_to_H2",
+                "dsm": "dsm",
+                "Li ion": "BEV charger",
+                "Li_ion": "BEV_charger",
+                "O2": "PtH2_O2",
+                "rural_heat": "rural_heat_pump",
+            }
 
     # network2 contains all busses that will be clustered only based on AC
     # connection
