@@ -287,8 +287,8 @@ def buses_by_country(self, apply_on="grid_model"):
     }
 
     if "oep.iks.cs.ovgu.de" in str(self.engine.url):
-        saio.register_schema("draft", self.engine)
-        from saio.draft import edut_00_013 as vg250_lan
+        saio.register_schema("tables", self.engine)
+        from saio.tables import edut_00_013 as vg250_lan
     else:
         saio.register_schema("boundaries", self.engine)
         from saio.boundaries import vg250_lan
@@ -2530,8 +2530,8 @@ def check_args(etrago):
     """
 
     if "oep.iks.cs.ovgu.de" in str(etrago.engine.url):
-        saio.register_schema("draft", etrago.engine)
-        from saio.draft import (
+        saio.register_schema("tables", etrago.engine)
+        from saio.tables import (
             edut_00_056 as egon_etrago_bus,
         )
     else:
