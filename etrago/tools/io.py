@@ -127,13 +127,13 @@ class NetworkScenario(ScenarioBase):
         # network: pypsa.Network
         self.network = None
 
-        if "toep.iks.cs.ovgu.de" in str(engine.url):
-            self.test_oep_active = True
+        if "oep.iks.cs.ovgu.de" in str(engine.url):
+            self.oep_active = True
         else:
-            self.test_oep_active = False
+            self.oep_active = False
 
-        if self.test_oep_active:
-            saio.register_schema("data", engine)
+        if self.oep_active:
+            saio.register_schema("draft", engine)
         else:
             saio.register_schema("grid", engine)
 
@@ -153,8 +153,8 @@ class NetworkScenario(ScenarioBase):
         """Construct a DateTimeIndex with the queried temporal resolution,
         start- and end_snapshot."""
 
-        if self.test_oep_active:
-            from saio.data import (
+        if self.oep_active:
+            from saio.draft import (
                 edut_00_073 as egon_etrago_temp_resolution,
             )
         else:
@@ -213,8 +213,8 @@ class NetworkScenario(ScenarioBase):
             Component data.
         """
 
-        if self.test_oep_active:
-            from saio.data import (  # noqa: F401
+        if self.oep_active:
+            from saio.draft import (  # noqa: F401
                 edut_00_056 as egon_etrago_bus,
                 edut_00_060 as egon_etrago_generator,
                 edut_00_063 as egon_etrago_line,
@@ -302,8 +302,8 @@ class NetworkScenario(ScenarioBase):
             Component data.
         """
 
-        if self.test_oep_active:
-            from saio.data import (  # noqa: F401
+        if self.oep_active:
+            from saio.draft import (  # noqa: F401
                 edut_00_057 as egon_etrago_bus_timeseries,
                 edut_00_061 as egon_etrago_generator_timeseries,
                 edut_00_064 as egon_etrago_line_timeseries,

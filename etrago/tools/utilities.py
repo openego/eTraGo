@@ -286,9 +286,9 @@ def buses_by_country(self, apply_on="grid_model"):
         "Russia": "RU",
     }
 
-    if "toep.iks.cs.ovgu.de" in str(self.engine.url):
-        saio.register_schema("data", self.engine)
-        from saio.data import edut_00_013 as vg250_lan
+    if "oep.iks.cs.ovgu.de" in str(self.engine.url):
+        saio.register_schema("draft", self.engine)
+        from saio.draft import edut_00_013 as vg250_lan
     else:
         saio.register_schema("boundaries", self.engine)
         from saio.boundaries import vg250_lan
@@ -2529,9 +2529,9 @@ def check_args(etrago):
 
     """
 
-    if "toep.iks.cs.ovgu.de" in str(etrago.engine.url):
-        saio.register_schema("data", etrago.engine)
-        from saio.data import (
+    if "oep.iks.cs.ovgu.de" in str(etrago.engine.url):
+        saio.register_schema("draft", etrago.engine)
+        from saio.draft import (
             edut_00_056 as egon_etrago_bus,
         )
     else:
@@ -2852,7 +2852,7 @@ def adjust_CH4_gen_carriers(self):
         engine = db.connection(section=self.args["db"])
 
         try:
-            if "toep.iks.cs.ovgu.de" in str(engine.url):
+            if "oep.iks.cs.ovgu.de" in str(engine.url):
                 saio.register_schema("data", engine)
                 from saio.data import (
                     edut_00_137 as egon_scenario_parameters,
