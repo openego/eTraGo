@@ -42,8 +42,7 @@ Open Energy Platform
 The `Open Energy Platform <https://openenergy-platform.org/>`_ has been developed within the *open_eGo* project.
 It addresses students and researchers as well as interested people in the field of energy modelling and analytics and provides tools to make energy system modelling process transparent.
 
-All data of the *open_eGo* and *eGon* project are stored at the *Open Energy Platform*. *eTraGo* retrieves the input data from the *Open Energ Platform* and enables to store back the results.
-For access to the coresponding data models, registration and login are necessary. Learn more about the database access `here  <https://oep-data-interface.readthedocs.io>`_.
+All data of the *open_eGo* and *eGon* project are stored at the *Open Energy Platform*. *eTraGo* retrieves the input data from the *Open Energy Platform* and enables to store back the results.
 
 Data Model Creation
 -------------------
