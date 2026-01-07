@@ -1929,9 +1929,9 @@ def read_max_gas_generation(self):
     }
     engine = db.connection(section=self.args["db"])
     try:
-        if "toep.iks.cs.ovgu.de" in str(engine.url):
-            saio.register_schema("model_draft", self.engine)
-            from saio.model_draft import (
+        if "oep.iks.cs.ovgu.de" in str(engine.url):
+            saio.register_schema("tables", self.engine)
+            from saio.tables import (
                 edut_00_137 as egon_scenario_parameters
                 )
         else:

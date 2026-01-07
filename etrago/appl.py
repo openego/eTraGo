@@ -85,7 +85,7 @@ args = {
         "BarHomogeneous": 1,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
-    "scn_name": "eGon2035_lowflex",  # scenario: eGon2035 or eGon100RE
+    "scn_name": "eGon2035",  # scenario, e.g. eGon2035, eGon2035_lowflex or status2019
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     # Export options:
