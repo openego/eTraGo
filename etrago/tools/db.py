@@ -168,8 +168,8 @@ def connection(filepath=None, section="oep"):
         SQLalchemy engine object containing the connection details
     """
 
-    if section == "test-oep":
-        conn = create_engine("postgresql+oedialect://toep.iks.cs.ovgu.de")
+    if section == "oep":
+        conn = create_engine("postgresql+oedialect://oep.iks.cs.ovgu.de")
 
     else:
         # define default filepath if not provided
