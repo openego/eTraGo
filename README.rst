@@ -52,7 +52,7 @@ If you want to display geographical features in the background of network plots,
 
    $ pip3 install cartopy
   
-For a more detailed guide on the installation, please refer to the `readthedocs <https://etrago.readthedocs.io/en/latest/installation.html>`_.
+For a more detailed guide on the installation, please refer to the readthedocs section `Installation <https://etrago.readthedocs.io/en/latest/installation.html>`_.
 
 Input Data
 ==========
