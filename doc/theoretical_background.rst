@@ -23,9 +23,9 @@ The model covers the coupling of electricity grid models on different voltage le
 
 |
 
-*eTraGo* fetches the input data from the `Open Energy Platform <https://openenergy-platform.org/>`_  with `'oep'` in the
+*eTraGo* fetches the input data from the `Open Energy Platform <https://openenergy-platform.org/>`_  when the the
 `db <https://github.com/openego/eTraGo/blob/7e6719b8f71c78ea8f8312d74558e59c96c1b3a2/etrago/appl.py#L51>`_
-argument of the `'args'` parameter of the :func:`etrago.appl.etrago` function. Alternatively, different scenarios of the data models are available through `zenodo <https://zenodo.org/>`_. The data needs to be downloaded and locally stored as a *PostgreSQL* database to be accessable for *eTraGo*. More explanations can be found in this `zenodo upload <https://zenodo.org/records/8376714>`_. The following scenarios are available:
+argument is set to `'oep'`. Alternatively, different scenarios of the data models are available through `zenodo <https://zenodo.org/>`_. The data needs to be downloaded and locally stored as a *PostgreSQL* database to be accessable for *eTraGo*. More explanations can be found in this `zenodo upload <https://zenodo.org/records/8376714>`_. The following scenarios are available:
 
 
 .. list-table::
