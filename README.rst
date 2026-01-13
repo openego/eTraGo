@@ -59,10 +59,7 @@ Input Data
 
 The grid model data for *eTraGo* was created using the open-source tool
 `eGon-data <https://github.com/openego/eGon-data>`_.
-The resulting data is currently available in a test environment of the
-*OpenEnergyPlatform*.
-In the future, it will be published on the main
-`OpenEnergyPlatform <https://openenergy-platform.org/>`_.
+The resulting data is available on the `OpenEnergyPlatform <https://openenergy-platform.org/>`_.
 
 As an alternative, a local database can be used.
 We have published the scenarios as backups of the required tables,

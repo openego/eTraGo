@@ -17,6 +17,7 @@ e.g. `PoWerD <https://www.h2-powerd.de/>`_ and `reGon <https://rego-n.org/>`_.
 
 Publications:
 
+* *Challenges of top–down flexibility deployment for grid expansion across all voltage levels* [Buettner2025]_
 * *The impact of redispatch on grid and storage expansion planning in the German energy system* [Buettner20242]_
 * *Avoiding False Inter-Zonal Meshing in the Clustering of a Large-Scale German Power Grid* [Esterl2024]_
 * *Influence of flexibility options on the German transmission grid — A sector-coupled mid-term scenario* [Buettner2024]_
@@ -42,8 +43,7 @@ Open Energy Platform
 The `Open Energy Platform <https://openenergy-platform.org/>`_ has been developed within the *open_eGo* project.
 It addresses students and researchers as well as interested people in the field of energy modelling and analytics and provides tools to make energy system modelling process transparent.
 
-All data of the *open_eGo* and *eGon* project are stored at the *Open Energy Platform*. *eTraGo* retrieves the input data from the *Open Energ Platform* and enables to store back the results.
-For access to the coresponding data models, registration and login are necessary. Learn more about the database access `here  <https://oep-data-interface.readthedocs.io>`_.
+All data of the *open_eGo* and *eGon* project are stored at the *Open Energy Platform*. *eTraGo* retrieves the input data from the *Open Energy Platform* and enables to store back the results.
 
 Data Model Creation
 -------------------
@@ -70,7 +70,7 @@ Cross-Grid Level Optimization
 License
 =======
 
-© Copyright 2015-2025
+© Copyright 2015-2026
 Flensburg University of Applied Sciences,
 Europa-Universität Flensburg,
 Centre for Sustainable Energy Systems and
