@@ -17,6 +17,7 @@ e.g. `PoWerD <https://www.h2-powerd.de/>`_ and `reGon <https://rego-n.org/>`_.
 
 Publications:
 
+* *Challenges of top–down flexibility deployment for grid expansion across all voltage levels* [Buettner2025]_
 * *The impact of redispatch on grid and storage expansion planning in the German energy system* [Buettner20242]_
 * *Avoiding False Inter-Zonal Meshing in the Clustering of a Large-Scale German Power Grid* [Esterl2024]_
 * *Influence of flexibility options on the German transmission grid — A sector-coupled mid-term scenario* [Buettner2024]_
@@ -69,7 +70,7 @@ Cross-Grid Level Optimization
 License
 =======
 
-© Copyright 2015-2025
+© Copyright 2015-2026
 Flensburg University of Applied Sciences,
 Europa-Universität Flensburg,
 Centre for Sustainable Energy Systems and
