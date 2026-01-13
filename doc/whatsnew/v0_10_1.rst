@@ -6,4 +6,4 @@ Added features
 
 * eTraGo now supports fetching scenario-specific input data from the OEP without the need for user accounts.
 * Corresponding updates to documentation
-* Moved definitions of unit comitment parameters to avoid problems when installing via pypi
+* Moved definitions of unit commitment parameters to avoid problems when installing via pypi
