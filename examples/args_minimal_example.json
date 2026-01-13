@@ -1,5 +1,5 @@
 {
-    "db": "test-oep",
+    "db": "oep",
     "gridversion": null,
     "method": { 
         "type": "lopf",  
