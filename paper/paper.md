@@ -24,7 +24,7 @@ affiliations:
    index: 1
  - name: Europa-Universität Flensburg, Germany
    index: 2
-date: 28 November 2025
+date: 15 January 2026
 bibliography: paper.bib
 ---
 
