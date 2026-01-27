@@ -757,36 +757,246 @@ def run_etrago(args, json_path):
                 tg_generators_carrier.bus_id.astype(str)
                 + "_" + tg_generators_carrier.carrier] = p_max_pu_ts[c][
                     tg_generators_carrier.bus_id.astype(str).values].values
-    
+
+        ## CHP plants
+        # Drop current CHP plants in Germany
+        etrago.network.mremove(
+            "Generator", 
+            etrago.network.generators[
+                (etrago.network.generators.bus.isin(ac_nodes_germany))
+                & (etrago.network.generators.carrier.str.endswith("CHP"))].index)
+        etrago.network.mremove(
+            "Generator", 
+            etrago.network.generators[
+                (etrago.network.generators.carrier.str.endswith("CHP_heat"))].index)
+        etrago.network.mremove(
+            "Link", 
+            etrago.network.links[
+                (etrago.network.links.bus1.isin(ac_nodes_germany))
+                & (etrago.network.links.carrier.str.endswith("CHP"))].index)
+        etrago.network.mremove(
+            "Link", 
+            etrago.network.links[
+                (etrago.network.links.carrier.str.endswith("CHP_heat"))].index)
+
+        chp_plants = saio.as_pandas(
+            query = etrago.session.query(
+                egon_chp_plants).filter(
+                    egon_chp_plants.scenario == "eGon2035")
+            )
+                    
+        from sqlalchemy import func
+        from shapely.geometry import Point
+        import geopandas as gpd
+        areas = saio.as_pandas(
+            etrago.session.query(
+                egon_district_heating_areas.area_id,
+                func.ST_X(
+                    func.ST_Transform(func.ST_Centroid(egon_district_heating_areas.geom_polygon), 4326)
+                ).label("centroid_x"),
+                func.ST_Y(
+                    func.ST_Transform(func.ST_Centroid(egon_district_heating_areas.geom_polygon), 4326)
+                ).label("centroid_y"),
+            ).filter(
+                egon_district_heating_areas.scenario == "eGon2035"
+            )
+        )
+        areas["geometry"] = areas.apply(lambda row: Point(row.centroid_x, row.centroid_y), axis=1)
         
-        ## Split demands
-        # First draft: 80% DG, 20% TG
+        areas_gdf = gpd.GeoDataFrame(
+            areas,
+            geometry="geometry",
+            crs="EPSG:4326"  # match your bus coordinates
+        )               
+        # Only central_heat buses
+        buses = etrago.network.buses[etrago.network.buses.carrier=="central_heat"].copy()
+        buses["bus_id"] = buses.index
+        # Create Shapely geometry
+        buses["geom"] = buses.apply(lambda row: Point(row.x, row.y), axis=1)
+        
+        buses_gdf = gpd.GeoDataFrame(
+            buses,
+            geometry="geom",
+            crs="EPSG:4326"  # match your bus coordinates
+        )
+        
+        areas_gdf["geometry"] = areas_gdf["geometry"].buffer(0.0001)
+
+        district_heating_mapping = areas_gdf.sjoin(
+            buses_gdf)[["area_id", "bus_id"]].set_index("area_id")
+        
+        chp_plants["heating_bus"] = 0
+        chp_plants.loc[
+            chp_plants.district_heating_area_id.notnull(),"heating_bus"] = district_heating_mapping.loc[
+                chp_plants[chp_plants.district_heating_area_id.notnull()].district_heating_area_id.astype(int).values].bus_id.astype(int).values
+
+        chp_plants_tg_gen = chp_plants[(chp_plants.voltage_level < 4)
+                                       &(chp_plants.ch4_bus_id.isnull())]
+        chp_plants_tg_link = chp_plants[(chp_plants.voltage_level < 4)
+                                       &(chp_plants.ch4_bus_id.notnull())]
+        chp_plants_dg_gen = chp_plants[(chp_plants.voltage_level >= 4)
+                                       &(chp_plants.ch4_bus_id.isnull())]
+        chp_plants_dg_link = chp_plants[(chp_plants.voltage_level >= 4)
+                                       &(chp_plants.ch4_bus_id.notnull())]
+        
         etrago.network.madd(
-            "Load",
-            names = mv_grids.bus_id.astype(str) + "_distribution_grid",
-            bus = (mv_grids.bus_id.astype(str) + "_distribution_grid").values
+            "Generator",
+            names=(
+                chp_plants_tg_gen.index.astype(str) + "_chp").values,
+            bus = chp_plants_tg_gen.electrical_bus_id.astype(str).values,
+            carrier = "central_biomass_CHP",
+            p_nom = chp_plants_tg_gen.el_capacity,
+            marginal_cost = 42.1       
             )
         
-        loads_per_bus = etrago.network.loads_t.p_set[
-            etrago.network.loads[etrago.network.loads.carrier=="AC"].index].copy()
+        etrago.network.madd(
+            "Generator",
+            names=(
+                chp_plants_tg_gen[
+                    chp_plants_tg_gen.district_heating_area_id.notnull()
+                    ].index.astype(str) + "_chp_heat").values,
+            bus = chp_plants_tg_gen[
+                chp_plants_tg_gen.district_heating_area_id.notnull()
+                ].heating_bus.astype(str).values,
+            carrier = "central_biomass_CHP_heat",
+            p_nom = chp_plants_tg_gen[
+                chp_plants_tg_gen.district_heating_area_id.notnull()
+                ].th_capacity,
+            marginal_cost = 0.0  
+            )
+
+        etrago.network.madd(
+            "Generator",
+            names=(
+                chp_plants_dg_gen.index.astype(str) + "_chp").values,
+            bus = ((chp_plants_dg_gen.electrical_bus_id).astype(str) + "_distribution_grid").values,
+            carrier = "central_biomass_CHP",
+            p_nom = chp_plants_dg_gen.el_capacity,
+            marginal_cost = 42.1       
+            )
         
-        loads_per_bus.rename(etrago.network.loads.bus, axis= "columns", inplace=True)
+        etrago.network.madd(
+            "Generator",
+            names=(
+                chp_plants_dg_gen[
+                    chp_plants_dg_gen.district_heating_area_id.notnull()
+                    ].index.astype(str) + "_chp_heat").values,
+            bus = chp_plants_dg_gen[
+                chp_plants_dg_gen.district_heating_area_id.notnull()
+                ].heating_bus.astype(str).values,
+            carrier = "central_biomass_CHP_heat",
+            p_nom = chp_plants_dg_gen[
+                chp_plants_dg_gen.district_heating_area_id.notnull()
+                ].th_capacity,
+            marginal_cost = 0.0  
+            )
         
-        # Add AC loads in distribution grids
+        etrago.network.madd(
+            "Link",
+            names=(
+                chp_plants_tg_link.index.astype(str) + "_chp").values,
+            bus0 = chp_plants_tg_link.ch4_bus_id.astype(int).astype(str).values,
+            bus1 = chp_plants_tg_link.electrical_bus_id.astype(int).astype(str).values,
+            carrier = "central_gas_CHP",
+            p_nom = chp_plants_tg_link.el_capacity,
+            marginal_cost = 4.15       
+            )
+        etrago.network.madd(
+            "Link",
+            names=(
+                chp_plants_tg_link[chp_plants_tg_link.district_heating_area_id.notnull()
+                                   ].index.astype(str) +"_chp_heat").values,
+            bus0 = chp_plants_tg_link[chp_plants_tg_link.district_heating_area_id.notnull()
+                               ].ch4_bus_id.astype(int).astype(str).values,
+            bus1 = chp_plants_tg_link[chp_plants_tg_link.district_heating_area_id.notnull()
+                               ].heating_bus.astype(str).values,
+            carrier = "central_gas_CHP_heat",
+            p_nom = chp_plants_tg_link[chp_plants_tg_link.district_heating_area_id.notnull()
+                               ].th_capacity,
+            marginal_cost = 0.0    
+            )
+        
+        etrago.network.madd(
+            "Link",
+            names=(
+                chp_plants_dg_link.index.astype(str)+ "_chp").values,
+            bus0 = chp_plants_dg_link.ch4_bus_id.astype(int).astype(str).values,
+            bus1 = (chp_plants_dg_link.electrical_bus_id.astype(int).astype(str)+ "_distribution_grid").values,
+            carrier = "central_gas_CHP",
+            p_nom = chp_plants_dg_link.el_capacity,
+            marginal_cost = 4.15       
+            )
+        etrago.network.madd(
+            "Link",
+            names=(
+                chp_plants_dg_link[chp_plants_dg_link.district_heating_area_id.notnull()
+                               ].index.astype(str) + "_chp_heat").values,
+            bus0 = chp_plants_dg_link[chp_plants_dg_link.district_heating_area_id.notnull()
+                               ].ch4_bus_id.astype(int).astype(str).values,
+            bus1 = chp_plants_dg_link[chp_plants_dg_link.district_heating_area_id.notnull()
+                               ].heating_bus.astype(int).astype(str).values,
+            carrier = "central_gas_CHP_heat",
+            p_nom = chp_plants_dg_link[chp_plants_dg_link.district_heating_area_id.notnull()
+                               ].th_capacity,
+            marginal_cost = 0.0    
+            )
+        
+        ## Split demands     
+        
+        # Import industrial demands attached to transmission grid
+        hv_ind_loads = pd.concat(
+            [saio.as_pandas(
+                    query = etrago.session.query(
+                        egon_sites_ind_load_curves_individual.bus_id, 
+                        egon_sites_ind_load_curves_individual.p_set).filter(
+                            egon_sites_ind_load_curves_individual.scn_name == "eGon2035",
+                            egon_sites_ind_load_curves_individual.voltage_level < 4
+                            )
+                    ),
+                saio.as_pandas(
+                    query = etrago.session.query(
+                        egon_osm_ind_load_curves_individual.bus_id, 
+                        egon_osm_ind_load_curves_individual.p_set).filter(
+                            egon_osm_ind_load_curves_individual.scn_name == "eGon2035",
+                            egon_osm_ind_load_curves_individual.voltage_level < 4
+                            )
+                    )])
+
+        # Slice industrail loads to selected snapshots and group by bus
+        hv_ind_loads_p = hv_ind_loads.set_index("bus_id")["p_set"].apply(
+            pd.Series).transpose()[
+                etrago.args["start_snapshot"]-1:etrago.args["end_snapshot"]]
+            
+        hv_ind_loads_p = hv_ind_loads_p.transpose(
+            ).reset_index().groupby("bus_id").sum().transpose()
+        
+        hv_ind_loads_p.index = etrago.network.loads_t.p_set.index
+
+        # Reduce current load
+        for c in hv_ind_loads_p.columns:
+            dg_load = etrago.network.loads[
+                (etrago.network.loads.bus==str(c))
+                 &(etrago.network.loads.carrier=="AC")].index[0]
+            etrago.network.loads_t.p_set.loc[:, dg_load] -= hv_ind_loads_p.loc[:,c]
+        
+        # Connect existing load to distribution grid
+        etrago.network.loads.loc[
+            (etrago.network.loads.carrier=="AC")
+            & etrago.network.loads.bus.isin(mv_grids.bus_id.astype(str)),
+            "bus"] += "_distribution_grid"
+
+        # Add loads at transmission grid
+        etrago.network.madd(
+            "Load",
+            names = hv_ind_loads_p.columns.astype(str) + "_transmission_grid",
+            bus = hv_ind_loads_p.columns.values,
+            carrier="AC"
+            )
+
         etrago.network.loads_t.p_set.loc[:,
-            mv_grids[
-                mv_grids.bus_id.astype(str).isin(loads_per_bus.columns)
-                ].bus_id.astype(str) + "_distribution_grid"] = (
-                loads_per_bus[mv_grids[
-                    mv_grids.bus_id.astype(str).isin(loads_per_bus.columns)
-                    ].bus_id.astype(str)]
-                ).mul(0.8).values
-        
-        # Reduce AC loads in transmission grid
-        etrago.network.loads_t.p_set[
-            etrago.network.loads[etrago.network.loads
-                                 .bus.isin(ac_nodes_germany)].index] *= 0.2
-    
+            hv_ind_loads_p.columns.astype(str) + "_transmission_grid"] = (
+               hv_ind_loads_p).values
+
     
         ## Connect rural heat and BEV charger to distribution grids
         etrago.network.links.loc[
