@@ -653,6 +653,10 @@ def run_etrago(args, json_path):
             y = etrago.network.buses.loc[mv_grids.bus_id.astype(str), "y"].values
             )
         
+        edisgo_results = pd.read_csv(
+            "/home/clara/Documents/regon/bottom_up/distribution_grid_results_mv_clustering_sq.csv"
+            ).set_index("bus_id")
+
         # Create link between transmission an distribution grid
         etrago.network.madd(
             "Link",
@@ -660,24 +664,22 @@ def run_etrago(args, json_path):
             carrier = "distribution_grid",
             bus0 = mv_grids.bus_id.astype(str).values,
             bus1 = (mv_grids.bus_id.astype(str) + "_distribution_grid").values,
-            p_nom_min = 100,
+            p_nom_min = edisgo_results.loc[mv_grids.bus_id, "p_nom"].values,
             p_nom_extendable = True,
-            capital_cost = 500,
+            capital_cost = edisgo_results.loc[mv_grids.bus_id, "capital_cost"].values,
             p_min_pu = -1
             )
-        
+
         # Import power plants table
-        saio.register_schema("supply", etrago.engine)
-        from saio.supply import (egon_power_plants, egon_chp_plants)
         power_plants = saio.as_pandas(
-            query = etrago.session.query(egon_power_plants),
+            query=(
+                etrago.session
+                .query(egon_power_plants)
+                .filter(egon_power_plants.scenario == "eGon2035")
+                .filter(egon_power_plants.carrier != "gas")
             )
-        power_plants = power_plants[
-            (power_plants.scenario == "eGon2035") &
-            (power_plants.carrier != "gas")]
-        
-        # Drop power plants in Germany   
-        
+        )
+        # Drop power plants in Germany           
         etrago.network.mremove(
             "Generator", 
             etrago.network.generators[
