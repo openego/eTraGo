@@ -1007,9 +1007,10 @@ def run_etrago(args, json_path):
             etrago.network.links.carrier=="BEV_charger", "bus0"] = etrago.network.links.loc[
         etrago.network.links.carrier=="BEV_charger", "bus0"] + "_distribution_grid"
 
-        etrago.network.loads.loc[
-            etrago.network.loads.carrier=="land_transport_EV", "bus"] = etrago.network.loads.loc[
-                etrago.network.loads.carrier=="land_transport_EV", "bus"] + "_distribution_grid"
+        if "lowflex" in etrago.args["scn_name"]:
+            etrago.network.loads.loc[
+                etrago.network.loads.carrier=="land_transport_EV", "bus"] = etrago.network.loads.loc[
+                    etrago.network.loads.carrier=="land_transport_EV", "bus"] + "_distribution_grid"
 
         # Add PV home storage units to distribution grid
         battery_storages = etrago.network.storage_units[
