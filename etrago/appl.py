@@ -49,7 +49,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "oep",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
@@ -609,9 +609,30 @@ def run_etrago(args, json_path):
     
     if args["method"]["distribution_grids"]:
         import saio
-        from saio.grid import (
-            egon_mv_grid_district
-        )
+        if "oep.iks.cs.ovgu.de" in str(etrago.engine.url):
+            from saio.tables import (
+                edut_00_080 as egon_mv_grid_district,
+                edut_00_153 as egon_power_plants,
+                edut_00_146 as egon_chp_plants,
+                edut_00_168 as egon_district_heating_areas,
+                edut_00_042 as egon_osm_ind_load_curves_individual,
+                edut_00_047 as egon_sites_ind_load_curves_individual,
+                )
+        else:
+            saio.register_schema("supply", etrago.engine)
+            saio.register_schema("demand", etrago.engine)
+            from saio.grid import (
+                egon_mv_grid_district
+            )
+            from saio.supply import (
+                egon_power_plants,
+                egon_chp_plants)
+            from saio.demand import (
+                egon_district_heating_areas,
+                egon_osm_ind_load_curves_individual,
+                egon_sites_ind_load_curves_individual
+                )
+
         old_network = etrago.network.copy()
         ac_nodes_germany = etrago.network.buses[
             (etrago.network.buses.carrier=='AC')
