@@ -974,7 +974,7 @@ def run_etrago(args, json_path):
         add_generators(
             groups["dg_gen_wo"],
             "industrial_biomass_CHP",
-            dg_bus(groups["dg_gen_wo"].electrical_bus_id),
+            dg_bus(groups["dg_gen_wo"].electrical_bus_id).values,
             groups["dg_gen_wo"].el_capacity,
             42.1,
             "_chp",
@@ -983,7 +983,7 @@ def run_etrago(args, json_path):
         add_generators(
             groups["dg_gen_heat"],
             "central_biomass_CHP",
-            dg_bus(groups["dg_gen_heat"].electrical_bus_id),
+            dg_bus(groups["dg_gen_heat"].electrical_bus_id).values,
             groups["dg_gen_heat"].el_capacity,
             42.1,
             "_chp",
@@ -1001,7 +1001,7 @@ def run_etrago(args, json_path):
         add_links(
             groups["tg_link_wo"],
             "industrial_gas_CHP",
-            groups["tg_link_wo"].ch4_bus_id.astype(str).values,
+            groups["tg_link_wo"].ch4_bus_id.astype(int).astype(str).values,
             groups["tg_link_wo"].electrical_bus_id.astype(str).values,
             groups["tg_link_wo"].el_capacity,
             4.15,
@@ -1011,7 +1011,7 @@ def run_etrago(args, json_path):
         add_links(
             groups["tg_link_heat"],
             "central_gas_CHP",
-            groups["tg_link_heat"].ch4_bus_id.astype(str).values,
+            groups["tg_link_heat"].ch4_bus_id.astype(int).astype(str).values,
             groups["tg_link_heat"].electrical_bus_id.astype(str).values,
             groups["tg_link_heat"].el_capacity,
             4.15,
@@ -1021,7 +1021,7 @@ def run_etrago(args, json_path):
         add_links(
             groups["tg_link_heat"],
             "central_gas_CHP_heat",
-            groups["tg_link_heat"].ch4_bus_id.astype(str).values,
+            groups["tg_link_heat"].ch4_bus_id.astype(int).astype(str).values,
             groups["tg_link_heat"].heating_bus.astype(str).values,
             groups["tg_link_heat"].th_capacity,
             0.0,
@@ -1031,8 +1031,8 @@ def run_etrago(args, json_path):
         add_links(
             groups["dg_link_wo"],
             "industrial_gas_CHP",
-            groups["dg_link_wo"].ch4_bus_id.astype(str).values,
-            dg_bus(groups["dg_link_wo"].electrical_bus_id),
+            groups["dg_link_wo"].ch4_bus_id.astype(int).astype(str).values,
+            dg_bus(groups["dg_link_wo"].electrical_bus_id).values,
             groups["dg_link_wo"].el_capacity,
             4.15,
             "_chp",
@@ -1041,8 +1041,8 @@ def run_etrago(args, json_path):
         add_links(
             groups["dg_link_heat"],
             "central_gas_CHP",
-            groups["dg_link_heat"].ch4_bus_id.astype(str).values,
-            dg_bus(groups["dg_link_heat"].electrical_bus_id),
+            groups["dg_link_heat"].ch4_bus_id.astype(int).astype(str).values,
+            dg_bus(groups["dg_link_heat"].electrical_bus_id).values,
             groups["dg_link_heat"].el_capacity,
             4.15,
             "_chp",
@@ -1051,7 +1051,7 @@ def run_etrago(args, json_path):
         add_links(
             groups["dg_link_heat"],
             "central_gas_CHP_heat",
-            groups["dg_link_heat"].ch4_bus_id.astype(str).values,
+            groups["dg_link_heat"].ch4_bus_id.astype(int).astype(str).values,
             groups["dg_link_heat"].heating_bus.astype(str).values,
             groups["dg_link_heat"].th_capacity,
             0.0,
