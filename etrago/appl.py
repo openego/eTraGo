@@ -796,287 +796,267 @@ def run_etrago(args, json_path):
 
         ## CHP plants
         # Drop current CHP plants in Germany
-        etrago.network.mremove(
-            "Generator",
-            etrago.network.generators[
-                (etrago.network.generators.bus.isin(ac_nodes_germany))
-                & (etrago.network.generators.carrier.str.endswith("CHP"))
-            ].index,
-        )
-        etrago.network.mremove(
-            "Generator",
-            etrago.network.generators[
-                (etrago.network.generators.carrier.str.endswith("CHP_heat"))
-            ].index,
-        )
-        etrago.network.mremove(
-            "Link",
-            etrago.network.links[
-                (etrago.network.links.bus1.isin(ac_nodes_germany))
-                & (etrago.network.links.carrier.str.endswith("CHP"))
-            ].index,
-        )
-        etrago.network.mremove(
-            "Link",
-            etrago.network.links[
-                (etrago.network.links.carrier.str.endswith("CHP_heat"))
-            ].index,
-        )
-
-        chp_plants = saio.as_pandas(
-            query=etrago.session.query(egon_chp_plants).filter(
-                egon_chp_plants.scenario == "eGon2035"
+        def drop_chp(network, ac_nodes):
+            gen = network.generators
+            link = network.links
+        
+            network.mremove(
+                "Generator",
+                gen[
+                    (gen.bus.isin(ac_nodes) & gen.carrier.str.endswith("CHP"))
+                    | gen.carrier.str.endswith("CHP_heat")
+                ].index,
             )
-        )
+        
+            network.mremove(
+                "Link",
+                link[
+                    (link.bus1.isin(ac_nodes) & link.carrier.str.endswith("CHP"))
+                    | link.carrier.str.endswith("CHP_heat")
+                ].index,
+            )
+
+        drop_chp(etrago.network, ac_nodes_germany)
+
+        def dg_bus(bus_id):
+            return bus_id.astype(str) + "_distribution_grid"
+        
+        def add_generators(df, carrier, bus, p_nom, mc, suffix):
+            if df.empty:
+                return
+            etrago.network.madd(
+                "Generator",
+                names=(df.index.astype(str) + suffix).values,
+                bus=bus,
+                carrier=carrier,
+                p_nom=p_nom,
+                marginal_cost=mc,
+            )
+
+        def add_links(df, carrier, bus0, bus1, p_nom, mc, suffix):
+            if df.empty:
+                return
+            etrago.network.madd(
+                "Link",
+                names=(df.index.astype(str) + suffix).values,
+                bus0=bus0,
+                bus1=bus1,
+                carrier=carrier,
+                p_nom=p_nom,
+                marginal_cost=mc,
+            )
 
         from sqlalchemy import func
         from shapely.geometry import Point
         import geopandas as gpd
 
-        areas = saio.as_pandas(
-            etrago.session.query(
-                egon_district_heating_areas.area_id,
-                func.ST_X(
-                    func.ST_Transform(
-                        func.ST_Centroid(
-                            egon_district_heating_areas.geom_polygon
-                        ),
-                        4326,
-                    )
-                ).label("centroid_x"),
-                func.ST_Y(
-                    func.ST_Transform(
-                        func.ST_Centroid(
-                            egon_district_heating_areas.geom_polygon
-                        ),
-                        4326,
-                    )
-                ).label("centroid_y"),
-            ).filter(egon_district_heating_areas.scenario == "eGon2035")
-        )
-        areas["geometry"] = areas.apply(
-            lambda row: Point(row.centroid_x, row.centroid_y), axis=1
-        )
-
-        areas_gdf = gpd.GeoDataFrame(
-            areas,
-            geometry="geometry",
-            crs="EPSG:4326",  # match your bus coordinates
-        )
-        # Only central_heat buses
-        buses = etrago.network.buses[
-            etrago.network.buses.carrier == "central_heat"
-        ].copy()
-        buses["bus_id"] = buses.index
-        # Create Shapely geometry
-        buses["geom"] = buses.apply(lambda row: Point(row.x, row.y), axis=1)
-
-        buses_gdf = gpd.GeoDataFrame(
-            buses,
-            geometry="geom",
-            crs="EPSG:4326",  # match your bus coordinates
-        )
-
-        areas_gdf["geometry"] = areas_gdf["geometry"].buffer(0.0001)
-
-        district_heating_mapping = areas_gdf.sjoin(buses_gdf)[
-            ["area_id", "bus_id"]
-        ].set_index("area_id")
-
-        chp_plants["heating_bus"] = 0
-        chp_plants.loc[
-            chp_plants.district_heating_area_id.notnull(), "heating_bus"
-        ] = (
-            district_heating_mapping.loc[
-                chp_plants[chp_plants.district_heating_area_id.notnull()]
-                .district_heating_area_id.astype(int)
+        def select_chp(scenario):
+            chp_plants = saio.as_pandas(
+                query=etrago.session.query(egon_chp_plants).filter(
+                    egon_chp_plants.scenario == scenario
+                )
+            )
+            
+    
+            areas = saio.as_pandas(
+                etrago.session.query(
+                    egon_district_heating_areas.area_id,
+                    func.ST_X(
+                        func.ST_Transform(
+                            func.ST_Centroid(
+                                egon_district_heating_areas.geom_polygon
+                            ),
+                            4326,
+                        )
+                    ).label("centroid_x"),
+                    func.ST_Y(
+                        func.ST_Transform(
+                            func.ST_Centroid(
+                                egon_district_heating_areas.geom_polygon
+                            ),
+                            4326,
+                        )
+                    ).label("centroid_y"),
+                ).filter(egon_district_heating_areas.scenario == "eGon2035")
+            )
+            areas["geometry"] = areas.apply(
+                lambda row: Point(row.centroid_x, row.centroid_y), axis=1
+            )
+    
+            areas_gdf = gpd.GeoDataFrame(
+                areas,
+                geometry="geometry",
+                crs="EPSG:4326",  # match your bus coordinates
+            )
+            # Only central_heat buses
+            buses = etrago.network.buses[
+                etrago.network.buses.carrier == "central_heat"
+            ].copy()
+            buses["bus_id"] = buses.index
+    
+            # Create Shapely geometry
+            buses["geom"] = buses.apply(lambda row: Point(row.x, row.y), axis=1)
+    
+            buses_gdf = gpd.GeoDataFrame(
+                buses,
+                geometry="geom",
+                crs="EPSG:4326",  # match your bus coordinates
+            )
+    
+            areas_gdf["geometry"] = areas_gdf["geometry"].buffer(0.0001)
+    
+            district_heating_mapping = areas_gdf.sjoin(buses_gdf)[
+                ["area_id", "bus_id"]
+            ].set_index("area_id")
+    
+            chp_plants["heating_bus"] = 0
+            chp_plants.loc[
+                chp_plants.district_heating_area_id.notnull(), "heating_bus"
+            ] = (
+                district_heating_mapping.loc[
+                    chp_plants[chp_plants.district_heating_area_id.notnull()]
+                    .district_heating_area_id.astype(int)
+                    .values
+                ]
+                .bus_id.astype(int)
                 .values
-            ]
-            .bus_id.astype(int)
-            .values
-        )
+            )
+            return chp_plants
+    
+        # Select CHP plants from database and add heating bus
+        chp_plants = select_chp("eGon2035")
 
-        chp_plants_tg_gen_heat = chp_plants[
-            (chp_plants.voltage_level < 4) & (chp_plants.ch4_bus_id.isnull())
-            & (chp_plants.heating_bus!=0)
-        ]
-        chp_plants_tg_link_heat = chp_plants[
-            (chp_plants.voltage_level < 4) & (chp_plants.ch4_bus_id.notnull())
-            & (chp_plants.heating_bus!=0)
-        ]
-        chp_plants_dg_gen_heat = chp_plants[
-            (chp_plants.voltage_level >= 4) & (chp_plants.ch4_bus_id.isnull())
-            & (chp_plants.heating_bus!=0)
-        ]
-        chp_plants_dg_link_heat = chp_plants[
-            (chp_plants.voltage_level >= 4) & (chp_plants.ch4_bus_id.notnull())
-            & (chp_plants.heating_bus!=0)
-        ]
-        chp_plants_tg_gen_woheat = chp_plants[
-            (chp_plants.voltage_level < 4) & (chp_plants.ch4_bus_id.isnull())
-            & (chp_plants.heating_bus==0)
-        ]
-        chp_plants_tg_link_woheat = chp_plants[
-            (chp_plants.voltage_level < 4) & (chp_plants.ch4_bus_id.notnull())
-            & (chp_plants.heating_bus==0)
-        ]
-        chp_plants_dg_gen_woheat = chp_plants[
-            (chp_plants.voltage_level >= 4) & (chp_plants.ch4_bus_id.isnull())
-            & (chp_plants.heating_bus==0)
-        ]
-        chp_plants_dg_link_woheat = chp_plants[
-            (chp_plants.voltage_level >= 4) & (chp_plants.ch4_bus_id.notnull())
-            & (chp_plants.heating_bus==0)
-        ]
+        # Group CHPs into all different categories
+        is_tg = chp_plants.voltage_level < 4
+        is_dg = ~is_tg
+        is_gas = chp_plants.ch4_bus_id.notnull()
+        has_heat = chp_plants.heating_bus != 0
+        
+        groups = {
+            "tg_gen_heat":  chp_plants[ is_tg & ~is_gas &  has_heat],
+            "tg_gen_wo":    chp_plants[ is_tg & ~is_gas & ~has_heat],
+            "dg_gen_heat":  chp_plants[ is_dg & ~is_gas &  has_heat],
+            "dg_gen_wo":    chp_plants[ is_dg & ~is_gas & ~has_heat],
+            "tg_link_heat": chp_plants[ is_tg &  is_gas &  has_heat],
+            "tg_link_wo":   chp_plants[ is_tg &  is_gas & ~has_heat],
+            "dg_link_heat": chp_plants[ is_dg &  is_gas &  has_heat],
+            "dg_link_wo":   chp_plants[ is_dg &  is_gas & ~has_heat],
+        }
 
-        etrago.network.madd(
-            "Generator",
-            names=(chp_plants_tg_gen_woheat.index.astype(str) + "_chp").values,
-            bus=chp_plants_tg_gen_woheat.electrical_bus_id.astype(str).values,
-            carrier="industrial_biomass_CHP",
-            p_nom=chp_plants_tg_gen_woheat.el_capacity,
-            marginal_cost=42.1,
+        # Add all kinds of CHP plants
+        add_generators(
+            groups["tg_gen_wo"],
+            "industrial_biomass_CHP",
+            groups["tg_gen_wo"].electrical_bus_id.astype(str).values,
+            groups["tg_gen_wo"].el_capacity,
+            42.1,
+            "_chp",
         )
         
-        etrago.network.madd(
-            "Generator",
-            names=(chp_plants_tg_gen_heat.index.astype(str) + "_chp").values,
-            bus=chp_plants_tg_gen_heat.electrical_bus_id.astype(str).values,
-            carrier="central_biomass_CHP",
-            p_nom=chp_plants_tg_gen_heat.el_capacity,
-            marginal_cost=42.1,
-        )
-
-        etrago.network.madd(
-            "Generator",
-            names=(
-                chp_plants_tg_gen_heat.index.astype(str)
-                + "_chp_heat"
-            ).values,
-            bus=chp_plants_tg_gen_heat
-            .heating_bus.astype(str)
-            .values,
-            carrier="central_biomass_CHP_heat",
-            p_nom=chp_plants_tg_gen_heat.th_capacity,
-            marginal_cost=0.0,
-        )
-
-        etrago.network.madd(
-            "Generator",
-            names=(chp_plants_dg_gen_woheat.index.astype(str) + "_chp").values,
-            bus=(
-                (chp_plants_dg_gen_woheat.electrical_bus_id).astype(str)
-                + "_distribution_grid"
-            ).values,
-            carrier="industrial_biomass_CHP",
-            p_nom=chp_plants_dg_gen_woheat.el_capacity,
-            marginal_cost=42.1,
-        )
-
-        etrago.network.madd(
-            "Generator",
-            names=(chp_plants_dg_gen_heat.index.astype(str) + "_chp").values,
-            bus=(
-                (chp_plants_dg_gen_heat.electrical_bus_id).astype(str)
-                + "_distribution_grid"
-            ).values,
-            carrier="central_biomass_CHP",
-            p_nom=chp_plants_dg_gen_heat.el_capacity,
-            marginal_cost=42.1,
-        )
-
-        etrago.network.madd(
-            "Generator",
-            names=(
-                chp_plants_dg_gen_heat.index.astype(str)
-                + "_chp_heat"
-            ).values,
-            bus=chp_plants_dg_gen_heat.heating_bus.astype(str).values,
-            carrier="central_biomass_CHP_heat",
-            p_nom=chp_plants_dg_gen_heat.th_capacity,
-            marginal_cost=0.0,
-        )
-
-        etrago.network.madd(
-            "Link",
-            names=(chp_plants_tg_link_woheat.index.astype(str) + "_chp").values,
-            bus0=chp_plants_tg_link_woheat.ch4_bus_id.astype(int).astype(str).values,
-            bus1=chp_plants_tg_link_woheat.electrical_bus_id.astype(int)
-            .astype(str)
-            .values,
-            carrier="industrial_gas_CHP",
-            p_nom=chp_plants_tg_link_woheat.el_capacity,
-            marginal_cost=4.15,
+        add_generators(
+            groups["tg_gen_heat"],
+            "central_biomass_CHP",
+            groups["tg_gen_heat"].electrical_bus_id.astype(str).values,
+            groups["tg_gen_heat"].el_capacity,
+            42.1,
+            "_chp",
         )
         
-        etrago.network.madd(
-            "Link",
-            names=(chp_plants_tg_link_heat.index.astype(str) + "_chp").values,
-            bus0=chp_plants_tg_link_heat.ch4_bus_id.astype(int).astype(str).values,
-            bus1=chp_plants_tg_link_heat.electrical_bus_id.astype(int)
-            .astype(str)
-            .values,
-            carrier="central_gas_CHP",
-            p_nom=chp_plants_tg_link_heat.el_capacity,
-            marginal_cost=4.15,
+        add_generators(
+            groups["tg_gen_heat"],
+            "central_biomass_CHP_heat",
+            groups["tg_gen_heat"].heating_bus.astype(str).values,
+            groups["tg_gen_heat"].th_capacity,
+            0.0,
+            "_chp_heat",
         )
-        etrago.network.madd(
-            "Link",
-            names=(
-                chp_plants_tg_link_heat.index.astype(str)
-                + "_chp_heat"
-            ).values,
-            bus0=chp_plants_tg_link_heat.ch4_bus_id.astype(int)
-            .astype(str)
-            .values,
-            bus1=chp_plants_tg_link_heat.heating_bus.astype(str).values,
-            carrier="central_gas_CHP_heat",
-            p_nom=chp_plants_tg_link_heat.th_capacity,
-            marginal_cost=0.0,
+        
+        add_generators(
+            groups["dg_gen_wo"],
+            "industrial_biomass_CHP",
+            dg_bus(groups["dg_gen_wo"].electrical_bus_id),
+            groups["dg_gen_wo"].el_capacity,
+            42.1,
+            "_chp",
         )
-
-        etrago.network.madd(
-            "Link",
-            names=(chp_plants_dg_link_woheat.index.astype(str) + "_chp").values,
-            bus0=chp_plants_dg_link_woheat.ch4_bus_id.astype(int).astype(str).values,
-            bus1=(
-                chp_plants_dg_link_woheat.electrical_bus_id.astype(int).astype(str)
-                + "_distribution_grid"
-            ).values,
-            carrier="industrial_gas_CHP",
-            p_nom=chp_plants_dg_link_woheat.el_capacity,
-            marginal_cost=4.15,
+        
+        add_generators(
+            groups["dg_gen_heat"],
+            "central_biomass_CHP",
+            dg_bus(groups["dg_gen_heat"].electrical_bus_id),
+            groups["dg_gen_heat"].el_capacity,
+            42.1,
+            "_chp",
+        )
+        
+        add_generators(
+            groups["dg_gen_heat"],
+            "central_biomass_CHP_heat",
+            groups["dg_gen_heat"].heating_bus.astype(str).values,
+            groups["dg_gen_heat"].th_capacity,
+            0.0,
+            "_chp_heat",
         )
 
-        etrago.network.madd(
-            "Link",
-            names=(chp_plants_dg_link_heat.index.astype(str) + "_chp").values,
-            bus0=chp_plants_dg_link_heat.ch4_bus_id.astype(int).astype(str).values,
-            bus1=(
-                chp_plants_dg_link_heat.electrical_bus_id.astype(int).astype(str)
-                + "_distribution_grid"
-            ).values,
-            carrier="central_gas_CHP",
-            p_nom=chp_plants_dg_link_heat.el_capacity,
-            marginal_cost=4.15,
+        add_links(
+            groups["tg_link_wo"],
+            "industrial_gas_CHP",
+            groups["tg_link_wo"].ch4_bus_id.astype(str).values,
+            groups["tg_link_wo"].electrical_bus_id.astype(str).values,
+            groups["tg_link_wo"].el_capacity,
+            4.15,
+            "_chp",
         )
-        etrago.network.madd(
-            "Link",
-            names=(
-                chp_plants_dg_link_heat.index.astype(str)
-                + "_chp_heat"
-            ).values,
-            bus0=chp_plants_dg_link_heat.ch4_bus_id.astype(int)
-            .astype(str)
-            .values,
-            bus1=chp_plants_dg_link_heat.heating_bus.astype(int)
-            .astype(str)
-            .values,
-            carrier="central_gas_CHP_heat",
-            p_nom=chp_plants_dg_link_heat.th_capacity,
-            marginal_cost=0.0,
+        
+        add_links(
+            groups["tg_link_heat"],
+            "central_gas_CHP",
+            groups["tg_link_heat"].ch4_bus_id.astype(str).values,
+            groups["tg_link_heat"].electrical_bus_id.astype(str).values,
+            groups["tg_link_heat"].el_capacity,
+            4.15,
+            "_chp",
         )
-
+        
+        add_links(
+            groups["tg_link_heat"],
+            "central_gas_CHP_heat",
+            groups["tg_link_heat"].ch4_bus_id.astype(str).values,
+            groups["tg_link_heat"].heating_bus.astype(str).values,
+            groups["tg_link_heat"].th_capacity,
+            0.0,
+            "_chp_heat",
+        )
+        
+        add_links(
+            groups["dg_link_wo"],
+            "industrial_gas_CHP",
+            groups["dg_link_wo"].ch4_bus_id.astype(str).values,
+            dg_bus(groups["dg_link_wo"].electrical_bus_id),
+            groups["dg_link_wo"].el_capacity,
+            4.15,
+            "_chp",
+        )
+        
+        add_links(
+            groups["dg_link_heat"],
+            "central_gas_CHP",
+            groups["dg_link_heat"].ch4_bus_id.astype(str).values,
+            dg_bus(groups["dg_link_heat"].electrical_bus_id),
+            groups["dg_link_heat"].el_capacity,
+            4.15,
+            "_chp",
+        )
+        
+        add_links(
+            groups["dg_link_heat"],
+            "central_gas_CHP_heat",
+            groups["dg_link_heat"].ch4_bus_id.astype(str).values,
+            groups["dg_link_heat"].heating_bus.astype(str).values,
+            groups["dg_link_heat"].th_capacity,
+            0.0,
+            "_chp_heat",
+        )
         ## Split demands
 
         # Import industrial demands attached to transmission grid
