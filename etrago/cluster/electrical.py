@@ -168,7 +168,7 @@ def adjust_no_electric_network(
             map_carrier = {
                 "H2_saltcavern": "power_to_H2",
                 "dsm": "dsm",
-                #"distribution_grid": "distribution_grid",
+                "distribution_grid": "distribution_grid",
             }
         else:
             map_carrier = {
