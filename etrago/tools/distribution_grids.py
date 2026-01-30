@@ -28,11 +28,13 @@ from sqlalchemy import func
 from shapely.geometry import Point
 import geopandas as gpd
 
+
 def get_ac_nodes_germany(self):
     return self.network.buses[
         (self.network.buses.carrier == "AC")
         & (self.network.buses.country == "DE")
     ].index
+
 
 def distribution_grid_buses_and_links(self, mv_grids):
     # Create distribution grid (DG) nodes
@@ -41,12 +43,8 @@ def distribution_grid_buses_and_links(self, mv_grids):
         names=mv_grids.bus_id.astype(str) + "_distribution_grid",
         carrier="distribution_grid",
         country="DE",
-        x=self.network.buses.loc[
-            mv_grids.bus_id.astype(str), "x"
-        ].values,
-        y=self.network.buses.loc[
-            mv_grids.bus_id.astype(str), "y"
-        ].values,
+        x=self.network.buses.loc[mv_grids.bus_id.astype(str), "x"].values,
+        y=self.network.buses.loc[mv_grids.bus_id.astype(str), "y"].values,
     )
 
     edisgo_results = pd.read_csv(
@@ -67,6 +65,7 @@ def distribution_grid_buses_and_links(self, mv_grids):
         ].values,
         p_min_pu=-1,
     )
+
 
 def seperate_power_plants(self, egon_power_plants, old_network):
     ac_nodes_germany = get_ac_nodes_germany(self)
@@ -128,9 +127,7 @@ def seperate_power_plants(self, egon_power_plants, old_network):
             + "_"
             + dg_generators.carrier
         ).values,
-        bus=(
-            dg_generators.bus_id.astype(str) + "_distribution_grid"
-        ).values,
+        bus=(dg_generators.bus_id.astype(str) + "_distribution_grid").values,
         carrier=dg_generators.carrier.values,
         p_nom=dg_generators.el_capacity.values,
         marginal_cost=old_network.generators.groupby("carrier")
@@ -143,9 +140,7 @@ def seperate_power_plants(self, egon_power_plants, old_network):
         "Generator",
         self.network.generators[
             (self.network.generators.bus.isin(ac_nodes_germany))
-            & (
-                self.network.generators.carrier=="solar_rooftop"
-            )
+            & (self.network.generators.carrier == "solar_rooftop")
         ].index,
     )
 
@@ -172,9 +167,7 @@ def seperate_power_plants(self, egon_power_plants, old_network):
     p_max_pu_ts = {}
     for c in ["solar", "wind_onshore", "wind_offshore", "solar_rooftop"]:
         p_max_pu_ts[c] = old_network.generators_t.p_max_pu[
-            old_network.generators[
-                old_network.generators.carrier == c
-            ].index
+            old_network.generators[old_network.generators.carrier == c].index
         ]
         p_max_pu_ts[c].rename(
             old_network.generators.bus, axis="columns", inplace=True
@@ -201,6 +194,7 @@ def seperate_power_plants(self, egon_power_plants, old_network):
             tg_generators_carrier.bus_id.astype(str).values
         ].values
 
+
 def seperate_chp(self, egon_chp_plants, egon_district_heating_areas):
     ac_nodes_germany = get_ac_nodes_germany(self)
 
@@ -208,7 +202,7 @@ def seperate_chp(self, egon_chp_plants, egon_district_heating_areas):
     def drop_chp(network, ac_nodes):
         gen = network.generators
         link = network.links
-    
+
         network.mremove(
             "Generator",
             gen[
@@ -216,7 +210,7 @@ def seperate_chp(self, egon_chp_plants, egon_district_heating_areas):
                 | gen.carrier.str.endswith("CHP_heat")
             ].index,
         )
-    
+
         network.mremove(
             "Link",
             link[
@@ -229,7 +223,7 @@ def seperate_chp(self, egon_chp_plants, egon_district_heating_areas):
 
     def dg_bus(bus_id):
         return bus_id.astype(str) + "_distribution_grid"
-    
+
     def add_generators(df, carrier, bus, p_nom, mc, suffix):
         if df.empty:
             return
@@ -242,7 +236,7 @@ def seperate_chp(self, egon_chp_plants, egon_district_heating_areas):
             marginal_cost=mc,
         )
 
-    def add_links(df, carrier, bus0, bus1, p_nom, mc, suffix, efficiency=1.):
+    def add_links(df, carrier, bus0, bus1, p_nom, mc, suffix, efficiency=1.0):
         if df.empty:
             return
         self.network.madd(
@@ -262,7 +256,6 @@ def seperate_chp(self, egon_chp_plants, egon_district_heating_areas):
                 egon_chp_plants.scenario == scenario
             )
         )
-        
 
         areas = saio.as_pandas(
             self.session.query(
@@ -337,16 +330,16 @@ def seperate_chp(self, egon_chp_plants, egon_district_heating_areas):
     is_dg = ~is_tg
     is_gas = chp_plants.ch4_bus_id.notnull()
     has_heat = chp_plants.heating_bus != 0
-    
+
     groups = {
-        "tg_gen_heat":  chp_plants[ is_tg & ~is_gas &  has_heat],
-        "tg_gen_wo":    chp_plants[ is_tg & ~is_gas & ~has_heat],
-        "dg_gen_heat":  chp_plants[ is_dg & ~is_gas &  has_heat],
-        "dg_gen_wo":    chp_plants[ is_dg & ~is_gas & ~has_heat],
-        "tg_link_heat": chp_plants[ is_tg &  is_gas &  has_heat],
-        "tg_link_wo":   chp_plants[ is_tg &  is_gas & ~has_heat],
-        "dg_link_heat": chp_plants[ is_dg &  is_gas &  has_heat],
-        "dg_link_wo":   chp_plants[ is_dg &  is_gas & ~has_heat],
+        "tg_gen_heat": chp_plants[is_tg & ~is_gas & has_heat],
+        "tg_gen_wo": chp_plants[is_tg & ~is_gas & ~has_heat],
+        "dg_gen_heat": chp_plants[is_dg & ~is_gas & has_heat],
+        "dg_gen_wo": chp_plants[is_dg & ~is_gas & ~has_heat],
+        "tg_link_heat": chp_plants[is_tg & is_gas & has_heat],
+        "tg_link_wo": chp_plants[is_tg & is_gas & ~has_heat],
+        "dg_link_heat": chp_plants[is_dg & is_gas & has_heat],
+        "dg_link_wo": chp_plants[is_dg & is_gas & ~has_heat],
     }
 
     # Add all kinds of CHP plants
@@ -358,7 +351,7 @@ def seperate_chp(self, egon_chp_plants, egon_district_heating_areas):
         42.1,
         "_chp",
     )
-    
+
     add_generators(
         groups["tg_gen_heat"],
         "central_biomass_CHP",
@@ -367,7 +360,7 @@ def seperate_chp(self, egon_chp_plants, egon_district_heating_areas):
         42.1,
         "_chp",
     )
-    
+
     add_generators(
         groups["tg_gen_heat"],
         "central_biomass_CHP_heat",
@@ -376,7 +369,7 @@ def seperate_chp(self, egon_chp_plants, egon_district_heating_areas):
         0.0,
         "_chp_heat",
     )
-    
+
     add_generators(
         groups["dg_gen_wo"],
         "industrial_biomass_CHP",
@@ -385,7 +378,7 @@ def seperate_chp(self, egon_chp_plants, egon_district_heating_areas):
         42.1,
         "_chp",
     )
-    
+
     add_generators(
         groups["dg_gen_heat"],
         "central_biomass_CHP",
@@ -394,7 +387,7 @@ def seperate_chp(self, egon_chp_plants, egon_district_heating_areas):
         42.1,
         "_chp",
     )
-    
+
     add_generators(
         groups["dg_gen_heat"],
         "central_biomass_CHP_heat",
@@ -413,18 +406,18 @@ def seperate_chp(self, egon_chp_plants, egon_district_heating_areas):
         4.15,
         "_chp",
     )
-    
+
     add_links(
         groups["tg_link_heat"],
         "central_gas_CHP",
         groups["tg_link_heat"].ch4_bus_id.astype(int).astype(str).values,
         groups["tg_link_heat"].electrical_bus_id.astype(str).values,
-        groups["tg_link_heat"].el_capacity.mul(1/0.2794561726625968).values,
+        groups["tg_link_heat"].el_capacity.mul(1 / 0.2794561726625968).values,
         4.15,
         "_chp",
         efficiency=0.2794561726625968,
     )
-    
+
     add_links(
         groups["tg_link_heat"],
         "central_gas_CHP_heat",
@@ -434,7 +427,7 @@ def seperate_chp(self, egon_chp_plants, egon_district_heating_areas):
         0.0,
         "_chp_heat",
     )
-    
+
     add_links(
         groups["dg_link_wo"],
         "industrial_gas_CHP",
@@ -444,18 +437,18 @@ def seperate_chp(self, egon_chp_plants, egon_district_heating_areas):
         4.15,
         "_chp",
     )
-    
+
     add_links(
         groups["dg_link_heat"],
         "central_gas_CHP",
         groups["dg_link_heat"].ch4_bus_id.astype(int).astype(str).values,
         dg_bus(groups["dg_link_heat"].electrical_bus_id).values,
-        groups["dg_link_heat"].el_capacity.mul(1/0.2794561726625968).values,
+        groups["dg_link_heat"].el_capacity.mul(1 / 0.2794561726625968).values,
         4.15,
         "_chp",
         efficiency=0.2794561726625968,
     )
-    
+
     add_links(
         groups["dg_link_heat"],
         "central_gas_CHP_heat",
@@ -466,12 +459,13 @@ def seperate_chp(self, egon_chp_plants, egon_district_heating_areas):
         "_chp_heat",
     )
 
+
 def seperate_demands(
-        self,
-        mv_grids,
-        egon_osm_ind_load_curves_individual,
-        egon_sites_ind_load_curves_individual
-        ):
+    self,
+    mv_grids,
+    egon_osm_ind_load_curves_individual,
+    egon_sites_ind_load_curves_individual,
+):
     # Import industrial demands attached to transmission grid
     hv_ind_loads = pd.concat(
         [
@@ -482,8 +476,7 @@ def seperate_demands(
                 ).filter(
                     egon_sites_ind_load_curves_individual.scn_name
                     == "eGon2035",
-                    egon_sites_ind_load_curves_individual.voltage_level
-                    < 4,
+                    egon_sites_ind_load_curves_individual.voltage_level < 4,
                 )
             ),
             saio.as_pandas(
@@ -491,8 +484,7 @@ def seperate_demands(
                     egon_osm_ind_load_curves_individual.bus_id,
                     egon_osm_ind_load_curves_individual.p_set,
                 ).filter(
-                    egon_osm_ind_load_curves_individual.scn_name
-                    == "eGon2035",
+                    egon_osm_ind_load_curves_individual.scn_name == "eGon2035",
                     egon_osm_ind_load_curves_individual.voltage_level < 4,
                 )
             ),
@@ -524,9 +516,7 @@ def seperate_demands(
             (self.network.loads.bus == str(c))
             & (self.network.loads.carrier == "AC")
         ].index[0]
-        self.network.loads_t.p_set.loc[:, dg_load] -= hv_ind_loads_p.loc[
-            :, c
-        ]
+        self.network.loads_t.p_set.loc[:, dg_load] -= hv_ind_loads_p.loc[:, c]
 
     # Connect existing load to distribution grid
     self.network.loads.loc[
@@ -576,9 +566,10 @@ def seperate_demands(
             + "_distribution_grid"
         )
 
+
 def seperate_storage_units(self, mv_grids):
     ac_nodes_germany = get_ac_nodes_germany(self)
-    
+
     # Add PV home storage units to distribution grid
     battery_storages = self.network.storage_units[
         (self.network.storage_units.carrier == "battery")
@@ -603,12 +594,11 @@ def seperate_storage_units(self, mv_grids):
         max_hours=2,
         carrier="home_battery",
     )
-    self.network.storage_units.loc[
-        battery_storages.index, "p_nom_min"
-    ] = 0
+    self.network.storage_units.loc[battery_storages.index, "p_nom_min"] = 0
+
 
 def add_simplified_distribution_grids(self):
-    
+
     # Define and import tables in high spatial resolution
     if self.args["method"]["distribution_grids"]:
         if "oep.iks.cs.ovgu.de" in str(self.engine.url):
@@ -632,49 +622,58 @@ def add_simplified_distribution_grids(self):
             )
     # Copy previous network to derive data from it later on
     old_network = self.network.copy()
-    
+
     # import mv grid districts
     mv_grids = saio.as_pandas(
         query=self.session.query(egon_mv_grid_district.bus_id),
     )
-    
+
     # Add distribution grid buses and links
     distribution_grid_buses_and_links(self, mv_grids)
-    
-    # Seperate power plants conected to transmission and distribution grids    
+
+    # Seperate power plants conected to transmission and distribution grids
     seperate_power_plants(self, egon_power_plants, old_network)
     assert (
-        self.network.generators.p_nom.sum() - 
-        old_network.generators.p_nom.sum() == 0
+        self.network.generators.p_nom.sum()
+        - old_network.generators.p_nom.sum()
+        == 0
     ), "Installed capacity of power plants differs from original network."
 
     # Seperate chp plants conected to transmission and distribution grids
     seperate_chp(self, egon_chp_plants, egon_district_heating_areas)
     assert (
-        abs(self.network.generators[
-            self.network.generators.carrier.str.contains("CHP")].p_nom.sum() - 
-        old_network.generators[
-            old_network.generators.carrier.str.contains("CHP")].p_nom.sum() )
+        abs(
+            self.network.generators[
+                self.network.generators.carrier.str.contains("CHP")
+            ].p_nom.sum()
+            - old_network.generators[
+                old_network.generators.carrier.str.contains("CHP")
+            ].p_nom.sum()
+        )
         < 1e-6
     ), "Installed capacity of generator CHP differs from original network."
     assert (
-        abs(self.network.links[
-            self.network.links.carrier.str.contains("CHP")].p_nom.sum() - 
-        old_network.links[
-            old_network.links.carrier.str.contains("CHP")].p_nom.sum())
+        abs(
+            self.network.links[
+                self.network.links.carrier.str.contains("CHP")
+            ].p_nom.sum()
+            - old_network.links[
+                old_network.links.carrier.str.contains("CHP")
+            ].p_nom.sum()
+        )
         < 1e-6
     ), "Installed capacity of link CHP differs from original network."
-    
+
     # Seperate demands conected to transmission and distribution grids
     seperate_demands(
-            self,
-            mv_grids,
-            egon_osm_ind_load_curves_individual,
-            egon_sites_ind_load_curves_individual
-            )
+        self,
+        mv_grids,
+        egon_osm_ind_load_curves_individual,
+        egon_sites_ind_load_curves_individual,
+    )
     assert (
-        self.network.loads_t.p_set.sum().sum() - 
-        old_network.loads_t.p_set.sum().sum()
+        self.network.loads_t.p_set.sum().sum()
+        - old_network.loads_t.p_set.sum().sum()
         == 0
     ), "Loads differ from original network."
 
