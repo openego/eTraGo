@@ -580,17 +580,19 @@ def seperate_storage_units(self, mv_grids):
         "StorageUnit",
         names=(
             battery_storages[
-                battery_storages.bus.isin(mv_grids.astype(str))
+                battery_storages.bus.isin(mv_grids.bus_id.astype(str))
             ].bus
             + "_home_storage"
         ).values,
         bus=(
-            battery_storages[
-                battery_storages.bus.isin(mv_grids.astype(str))
-            ].bus
+            battery_storages.set_index("bus").loc[
+                mv_grids.bus_id.astype(str)
+            ].index
             + "_distribution_grid"
         ).values,
-        p_nom=battery_storages.p_nom_min,
+        p_nom = battery_storages.set_index("bus").loc[
+             mv_grids.bus_id.astype(str)
+         ].p_nom_min,
         p_nom_extendable=False,
         max_hours=2,
         carrier="home_battery",
