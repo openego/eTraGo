@@ -97,6 +97,7 @@ from etrago.tools.utilities import (
     check_args,
     convert_capital_costs,
     crossborder_capacity,
+    delete_dispensable_ac_buses,
     delete_irrelevant_oneports,
     drop_sectors,
     export_to_csv,
@@ -408,6 +409,8 @@ class Etrago:
     heat_stores = heat_stores
 
     hydrogen_stores = hydrogen_stores
+    
+    delete_dispensable_ac_buses = delete_dispensable_ac_buses
 
     delete_irrelevant_oneports = delete_irrelevant_oneports
 
@@ -507,6 +510,8 @@ class Etrago:
         )
 
         self.convert_capital_costs()
+        
+        self.delete_dispensable_ac_buses()
 
         self.delete_irrelevant_oneports()
 

@@ -605,6 +605,8 @@ def run_etrago(args, json_path):
 
     # import network from database
     etrago.build_network_from_db()
+    
+    etrago.args["delete_dispensable_ac_buses"] = True
 
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
