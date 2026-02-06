@@ -637,9 +637,11 @@ def add_simplified_distribution_grids(self):
     # Seperate power plants conected to transmission and distribution grids
     seperate_power_plants(self, egon_power_plants, old_network)
     assert (
-        self.network.generators.p_nom.sum()
-        - old_network.generators.p_nom.sum()
-        == 0
+        abs(
+            self.network.generators.p_nom.sum()
+            - old_network.generators.p_nom.sum()
+        )
+        < 1e-6
     ), "Installed capacity of power plants differs from original network."
 
     # Seperate chp plants conected to transmission and distribution grids
@@ -675,9 +677,11 @@ def add_simplified_distribution_grids(self):
         egon_sites_ind_load_curves_individual,
     )
     assert (
-        self.network.loads_t.p_set.sum().sum()
-        - old_network.loads_t.p_set.sum().sum()
-        == 0
+        abs(
+            self.network.loads_t.p_set.sum().sum()
+            - old_network.loads_t.p_set.sum().sum()
+            )
+        < 1e-6
     ), "Loads differ from original network."
 
     # Add pv home storage units to distribution grid node
