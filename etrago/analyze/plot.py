@@ -1782,7 +1782,7 @@ def plot_flexibility_usage(
     colors["dlr"] = "orange"
     colors["h2_store"] = colors["H2_underground"]
     colors["heat"] = colors["central_heat_store"]
-
+    colors["home_battery"] = colors["battery"]
     if not buses:
         buses = network.buses.index
 
@@ -1824,6 +1824,28 @@ def plot_flexibility_usage(
 
         su = network.storage_units[
             (network.storage_units.carrier == "battery")
+            & (network.storage_units.bus.isin(buses))
+        ]
+
+        df["p_min"] = su.p_nom_opt.sum() * (-1)
+        df["p_max"] = su.p_nom_opt.sum()
+        df["p"] = (
+            network.storage_units_t.p[su.index].sum(axis=1).loc[snapshots]
+        )
+
+        df["e_min"] = 0
+        df["e_max"] = su.p_nom_opt.mul(su.max_hours).sum()
+        df["e"] = (
+            network.storage_units_t.state_of_charge[su.index]
+            .sum(axis=1)
+            .loc[snapshots]
+        )
+
+    elif flexibility == "home_battery":
+        df = pd.DataFrame(index=snapshots)
+
+        su = network.storage_units[
+            (network.storage_units.carrier == "home_battery")
             & (network.storage_units.bus.isin(buses))
         ]
 
