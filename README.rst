@@ -52,17 +52,14 @@ If you want to display geographical features in the background of network plots,
 
    $ pip3 install cartopy
   
-For a more detailed guide on the installation, please refer to the `readthedocs <https://etrago.readthedocs.io/en/latest/installation.html>`_.
+For a more detailed guide on the installation, please refer to the readthedocs section `Installation <https://etrago.readthedocs.io/en/latest/installation.html>`_.
 
 Input Data
 ==========
 
 The grid model data for *eTraGo* was created using the open-source tool
 `eGon-data <https://github.com/openego/eGon-data>`_.
-The resulting data is currently available in a test environment of the
-*OpenEnergyPlatform*.
-In the future, it will be published on the main
-`OpenEnergyPlatform <https://openenergy-platform.org/>`_.
+The resulting data is available on the `OpenEnergyPlatform <https://openenergy-platform.org/>`_.
 
 As an alternative, a local database can be used.
 We have published the scenarios as backups of the required tables,

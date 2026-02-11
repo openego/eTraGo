@@ -72,13 +72,13 @@ and allows access to it via
 `oedialect <https://github.com/openego/oedialect>`_, a SQLAlchemy binding
 Python package for the REST API used by the
 `Open Energy Platform (OEP) <https://openenergy-platform.org/>`_.
-
-In the future, the data will be available on the main *OEP,* and the access settings will be updated accordingly.  
-For now, the data for the scenarios `eGon2035` and `eGon2035_lowflex` is stored on a *test OEP*.  
-To access this data, you can select `'test-oep'` in the
+  
+For now, the data for the scenarios `eGon2035` and `eGon2035_lowflex` is stored on the *OEP*. 
+To access this data, you can select `'oep'` in the
 `db <https://github.com/openego/eTraGo/blob/7e6719b8f71c78ea8f8312d74558e59c96c1b3a2/etrago/appl.py#L51>`_
 argument of the `'args'` parameter of the :func:`etrago.appl.etrago` function.  
 No account or additional information is required.
+In the future, more data will be available on the main *OEP,* and the access settings will be updated accordingly.
 
 Local Database Connection
 -----------------------------

@@ -8,14 +8,14 @@ __copyright__ = (
     "Flensburg University of Applied Sciences, "
     "Europa-Universität Flensburg, "
     "Center for Sustainable Energy Systems Flensburg, "
-    "DLR - Institute of Networked Energy Systems"
+    "DLR-Institute of Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = (
     "Flensburg University of Applied Sciences, "
     "Europa-Universität Flensburg, "
     "Center for Sustainable Energy Systems Flensburg, "
-    "DLR - Institute of Networked Energy Systems"
+    "DLR-Institute of Networked Energy Systems"
 )
 
 
@@ -41,7 +41,7 @@ setup(
         )
     ),
     long_description_content_type="text/x-rst",
-    version="0.10.0",
+    version="0.10.1",
     url="https://github.com/openego/eTraGo",
     license="GNU Affero General Public License Version 3 (AGPL-3.0)",
     packages=find_packages(),

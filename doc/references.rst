@@ -5,6 +5,10 @@ References
    *PyPSA: Python for Power System Analysis*. 2018.
    `<https://doi.org/10.5334/jors.188>`_
    
+.. [Buettner2025] C. Buettner, K.Esterl, B. Schachler, I. Cussmann:
+   *Challenges of top–down flexibility deployment for grid expansion across all voltage levels*. 2025.
+   `<https://doi.org/10.1088/2753-3751/ae2686>`_ 
+   
 .. [Buettner20242] C. Buettner, U. P. Müller:
    *The impact of redispatch on grid and storage expansion planning in the German energy system*. 2024.
    `<https://energy.acm.org/eir/the-impact-of-redispatch-on-grid-and-storage-expansion-planning-in-the-german-energy-system/>`_ 

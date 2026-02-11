@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2023  Flensburg University of Applied Sciences,
+# Copyright 2015-2026
+#  Flensburg University of Applied Sciences,
 # Europa-Universität Flensburg,
 # Centre for Sustainable Energy Systems,
 # DLR-Institute for Networked Energy Systems
@@ -48,7 +49,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "oep",  # database session
+    "db": "oep",  # database session: oep or local database
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
@@ -152,7 +153,7 @@ args = {
     },
     "skip_snapshots": 5,  # False or number of snapshots to skip
     "temporal_disaggregation": {
-        "active": False,  # choose if temporally full complex dispatch optimization should be conducted
+        "active": True,  # choose if temporally full complex dispatch optimization should be conducted
         "no_slices": 8,  # number of subproblems optimization is divided into
     },
     # Simplifications:
@@ -252,7 +253,7 @@ def run_etrago(args, json_path):
         for larger networks.
         Default: "kirchhoff".
     scn_name : str
-         Choose your scenario. For an overview of available scenarios, see the
+         Choose your scenario. For an overview of available scenarios, see the 
          documentation on Read the Docs.
     scn_extension : None or list of str
 

@@ -154,9 +154,7 @@ class NetworkScenario(ScenarioBase):
         start- and end_snapshot."""
 
         if self.oep_active:
-            from saio.tables import (
-                edut_00_073 as egon_etrago_temp_resolution,
-            )
+            from saio.tables import edut_00_073 as egon_etrago_temp_resolution
         else:
             from saio.grid import egon_etrago_temp_resolution
 
