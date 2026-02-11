@@ -25,7 +25,6 @@ temporal.py defines the methods to run temporal disaggregation on networks.
 import logging
 import math
 import os
-import time
 from datetime import timedelta
 import pandas as pd
 
