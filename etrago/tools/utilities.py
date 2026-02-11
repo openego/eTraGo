@@ -2699,16 +2699,6 @@ def check_args(etrago):
             )
             etrago.args["method"]["formulation"] = "pyomo"
 
-    if (etrago.args["method"]["formulation"] != "pyomo") & (
-        etrago.args["temporal_disaggregation"]["active"]
-    ):
-        logger.warning(
-            "Temporal disaggregation is"
-            " not yet correctly implemented without pyomo."
-            " Setting `args['method']['formulation']` to `pyomo`."
-        )
-        etrago.args["method"]["formulation"] = "pyomo"
-
 
 def drop_sectors(self, drop_carriers):
     """
