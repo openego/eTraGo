@@ -32,10 +32,8 @@ logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
 
-    from etrago.execute import iterate_lopf
-    from etrago.execute.market_optimization import (
-        optimize_with_rolling_horizon,
-    )
+    from etrago.execute import optimize_with_rolling_horizon
+
     from etrago.tools.constraints import Constraints
 
 
