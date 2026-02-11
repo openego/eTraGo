@@ -131,114 +131,45 @@ def run_lopf(etrago, extra_functionality, method):
 
     x = time.time()
 
-    if etrago.conduct_dispatch_disaggregation is not False:
-        # parameters defining the start and end per slices
-        no_slices = etrago.args["temporal_disaggregation"]["no_slices"]
-        skipped = etrago.network.snapshot_weightings.iloc[0].objective
-        transits = np.where(
-            etrago.network_tsa.snapshots.isin(
-                etrago.conduct_dispatch_disaggregation.index
+    if method["formulation"] == "pyomo":
+        etrago.network.lopf(
+            etrago.network.snapshots,
+            solver_name=etrago.args["solver"],
+            solver_options=etrago.args["solver_options"],
+            pyomo=True,
+            extra_functionality=extra_functionality,
+            formulation=etrago.args["model_formulation"],
+        )
+
+        if etrago.network.results["Solver"][0]["Status"] != "ok":
+            raise Exception("LOPF not solved.")
+
+    elif method["formulation"] == "linopy":
+        status, condition = etrago.network.optimize(
+            solver_name=etrago.args["solver"],
+            solver_options=etrago.args["solver_options"],
+            extra_functionality=extra_functionality,
+        )
+        if status != "ok":
+            logger.warning(
+                f"""Optimization failed with status {status}
+                and condition {condition}"""
             )
-        )[0]
+            etrago.network.model.print_infeasibilities()
+            import pdb
 
-        # repeat the optimization for all slices
-        for i in range(0, no_slices):
-            # keep information on the initial state of charge for the
-            # respectng slice
-            initial = transits[i - 1]
-            soc_initial = etrago.conduct_dispatch_disaggregation.loc[
-                [etrago.network_tsa.snapshots[initial]]
-            ].transpose()
-            etrago.network_tsa.storage_units.state_of_charge_initial = (
-                soc_initial
-            )
-            etrago.network_tsa.stores.e_initial = soc_initial
-            etrago.network_tsa.stores.e_initial.fillna(0, inplace=True)
-            # the state of charge at the end of each slice is set within
-            # split_dispatch_disaggregation_constraints in constraints.py
-
-            # adapt start and end snapshot of respecting slice
-            start = transits[i - 1] + skipped
-            end = transits[i] + (skipped - 1)
-            if i == 0:
-                start = 0
-            if i == no_slices - 1:
-                end = len(etrago.network_tsa.snapshots)
-
-                if method["formulation"] == "pyomo":
-                    etrago.network_tsa.lopf(
-                        etrago.network_tsa.snapshots[start : end + 1],
-                        solver_name=etrago.args["solver"],
-                        solver_options=etrago.args["solver_options"],
-                        pyomo=True,
-                        extra_functionality=extra_functionality,
-                        formulation=etrago.args["model_formulation"],
-                    )
-
-                    if (
-                        etrago.network_tsa.results["Solver"][0]["Status"]
-                        != "ok"
-                    ):
-                        raise Exception("LOPF not solved.")
-                else:
-                    raise Exception(
-                        """Temporal disaggregation currently only works when
-                        using pyomo."""
-                    )
-                    status, termination_condition = network_lopf(
-                        etrago.network_tsa,
-                        etrago.network_tsa.snapshots[start : end + 1],
-                        solver_name=etrago.args["solver"],
-                        solver_options=etrago.args["solver_options"],
-                        extra_functionality=extra_functionality,
-                        formulation=etrago.args["model_formulation"],
-                    )
-                    if status != "ok":
-                        raise Exception("LOPF not solved.")
-
-        etrago.network_tsa.storage_units.state_of_charge_initial = 0
-        etrago.network_tsa.stores.e_initial = 0
-
+            pdb.set_trace()
     else:
-        if method["formulation"] == "pyomo":
-            etrago.network.lopf(
-                etrago.network.snapshots,
-                solver_name=etrago.args["solver"],
-                solver_options=etrago.args["solver_options"],
-                pyomo=True,
-                extra_functionality=extra_functionality,
-                formulation=etrago.args["model_formulation"],
-            )
+        status, termination_condition = network_lopf(
+            etrago.network,
+            solver_name=etrago.args["solver"],
+            solver_options=etrago.args["solver_options"],
+            extra_functionality=extra_functionality,
+            formulation=etrago.args["model_formulation"],
+        )
 
-            if etrago.network.results["Solver"][0]["Status"] != "ok":
-                raise Exception("LOPF not solved.")
-
-        elif method["formulation"] == "linopy":
-            status, condition = etrago.network.optimize(
-                solver_name=etrago.args["solver"],
-                solver_options=etrago.args["solver_options"],
-                extra_functionality=extra_functionality,
-            )
-            if status != "ok":
-                logger.warning(
-                    f"""Optimization failed with status {status}
-                    and condition {condition}"""
-                )
-                etrago.network.model.print_infeasibilities()
-                import pdb
-
-                pdb.set_trace()
-        else:
-            status, termination_condition = network_lopf(
-                etrago.network,
-                solver_name=etrago.args["solver"],
-                solver_options=etrago.args["solver_options"],
-                extra_functionality=extra_functionality,
-                formulation=etrago.args["model_formulation"],
-            )
-
-            if status != "ok":
-                raise Exception("LOPF not solved.")
+        if status != "ok":
+            raise Exception("LOPF not solved.")
 
     y = time.time()
     z = (y - x) / 60
@@ -272,50 +203,14 @@ def iterate_lopf(
     path = args["csv_export"]
     lp_path = args["lpfile"]
 
-    if (
-        args["temporal_disaggregation"]["active"] is True
-        and etrago.conduct_dispatch_disaggregation is False
-    ):
+    if args["temporal_disaggregation"]["active"]:
         if args["csv_export"]:
             path = path + "/temporally_reduced"
 
         if args["lpfile"]:
             lp_path = lp_path[0:-3] + "_temporally_reduced.lp"
 
-    if etrago.conduct_dispatch_disaggregation is not False:
-        if args["lpfile"]:
-            lp_path = lp_path[0:-3] + "_dispatch_disaggregation.lp"
-
-        etrago.network_tsa.lines["s_nom"] = etrago.network.lines["s_nom_opt"]
-        etrago.network_tsa.lines["s_nom_extendable"] = False
-
-        etrago.network_tsa.links["p_nom"] = etrago.network.links["p_nom_opt"]
-        etrago.network_tsa.links["p_nom_extendable"] = False
-
-        etrago.network_tsa.transformers["s_nom"] = etrago.network.transformers[
-            "s_nom_opt"
-        ]
-        etrago.network_tsa.transformers.s_nom_extendable = False
-
-        etrago.network_tsa.storage_units["p_nom"] = (
-            etrago.network.storage_units["p_nom_opt"]
-        )
-        etrago.network_tsa.storage_units["p_nom_extendable"] = False
-
-        etrago.network_tsa.stores["e_nom"] = etrago.network.stores["e_nom_opt"]
-        etrago.network_tsa.stores["e_nom_extendable"] = False
-
-        etrago.network_tsa.storage_units.cyclic_state_of_charge = False
-        etrago.network_tsa.stores.e_cyclic = False
-
-        args["snapshot_clustering"]["active"] = False
-        args["skip_snapshots"] = False
-        args["extendable"] = []
-
-        network = etrago.network_tsa
-
-    else:
-        network = etrago.network
+    network = etrago.network
 
     # if network is extendable, iterate lopf
     # to include changes of electrical parameters
