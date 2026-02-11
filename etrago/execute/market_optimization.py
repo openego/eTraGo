@@ -136,7 +136,6 @@ def market_optimization(self):
         self.market_model.export_to_csv_folder(path + "/market")
 
 
-
 def build_market_model(self, unit_commitment=False):
     """Builds market model based on imported network from eTraGo
 
