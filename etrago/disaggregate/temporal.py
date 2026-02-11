@@ -22,10 +22,11 @@
 temporal.py defines the methods to run temporal disaggregation on networks.
 """
 
+from datetime import timedelta
 import logging
 import math
 import os
-from datetime import timedelta
+
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,6 @@ logger = logging.getLogger(__name__)
 if "READTHEDOCS" not in os.environ:
 
     from etrago.execute import optimize_with_rolling_horizon
-
     from etrago.tools.constraints import Constraints
 
 

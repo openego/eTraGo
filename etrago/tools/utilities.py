@@ -2529,9 +2529,7 @@ def check_args(etrago):
 
     if "oep.iks.cs.ovgu.de" in str(etrago.engine.url):
         saio.register_schema("tables", etrago.engine)
-        from saio.tables import (
-            edut_00_056 as egon_etrago_bus,
-        )
+        from saio.tables import edut_00_056 as egon_etrago_bus
     else:
         saio.register_schema("grid", etrago.engine)
         from saio.grid import egon_etrago_bus
@@ -2842,9 +2840,7 @@ def adjust_CH4_gen_carriers(self):
         try:
             if "oep.iks.cs.ovgu.de" in str(engine.url):
                 saio.register_schema("data", engine)
-                from saio.data import (
-                    edut_00_137 as egon_scenario_parameters,
-                )
+                from saio.data import edut_00_137 as egon_scenario_parameters
             else:
                 saio.register_schema("grid", engine)
                 from saio.grid import egon_scenario_parameters

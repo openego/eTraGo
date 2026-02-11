@@ -32,8 +32,8 @@ if "READTHEDOCS" not in os.environ:
 
     from etrago.cluster.electrical import postprocessing, preprocessing
     from etrago.cluster.spatial import group_links
-    from etrago.tools.constraints import Constraints
     from etrago.execute import optimize_with_rolling_horizon
+    from etrago.tools.constraints import Constraints
 
     logger = logging.getLogger(__name__)
 
