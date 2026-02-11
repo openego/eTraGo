@@ -301,23 +301,35 @@ def optimize_with_rolling_horizon(
                     {**args, **args_addition}, False, apply_on="market_model"
                 ).functionality
 
-        status, condition = n.optimize(
-            sns,
-            solver_name=solver_name,
-            extra_functionality=extra_functionality,
-            assign_all_duals=True,
-            linearized_unit_commitment=True,
-        )
-
-        if status != "ok":
-            logger.warning(
-                f"""Optimization failed with status {status}
-                and condition {condition}"""
+        if args["method"]["formulation"] == "linopy":
+            status, condition = n.optimize(
+                sns,
+                solver_name=solver_name,
+                extra_functionality=extra_functionality,
+                assign_all_duals=True,
+                solver_options=args["solver_options"],
             )
-            n.model.print_infeasibilities()
-            import pdb
 
-            pdb.set_trace()
+            if status != "ok":
+                logger.warning(
+                    f"""Optimization failed with status {status}
+                    and condition {condition}"""
+                )
+                n.model.print_infeasibilities()
+                import pdb
+
+                pdb.set_trace()
+
+        else:
+            n.lopf(
+                sns,
+                solver_name=solver_name,
+                solver_options=args["solver_options"],
+                pyomo=True,
+                extra_functionality=extra_functionality,
+                formulation=args["model_formulation"],
+            )
+
     return n
 
 
