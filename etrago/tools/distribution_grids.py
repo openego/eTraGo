@@ -592,7 +592,7 @@ def seperate_storage_units(self, mv_grids):
         ).values,
         p_nom = battery_storages.set_index("bus").loc[
              mv_grids.bus_id.astype(str)
-         ].p_nom_min,
+         ].p_nom_min.values,
         p_nom_extendable=False,
         max_hours=2,
         carrier="home_battery",
