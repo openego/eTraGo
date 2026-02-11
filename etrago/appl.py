@@ -53,7 +53,7 @@ args = {
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
         "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        "formulation": "linopy",
+        "formulation": "pyomo",
         "market_optimization": {
             "active": False,
             "market_zones": "status_quo",  # only used if type='market_grid'
@@ -614,6 +614,7 @@ def run_etrago(args, json_path):
     # spatial clustering
     etrago.spatial_clustering()
     etrago.spatial_clustering_gas()
+    etrago.network.storage_units.max_hours = etrago.network.storage_units.max_hours.round(1)
 
     # snapshot clustering
     etrago.snapshot_clustering()
