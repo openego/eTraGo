@@ -234,23 +234,19 @@ class Etrago:
                             ignore_standard_types,
                         )
                     except ValueError:
-                        logger.warning(
-                            """
+                        logger.warning("""
                             Could not import a market_model but the selected
                             method in the args indicated that it should be
                             there. This happens when the exported network was
                             not solved yet.Run 'etrago.optimize()' to build
                             and solve the market model.
-                            """
-                        )
+                            """)
 
             else:
 
-                logger.warning(
-                    f"""
+                logger.warning(f"""
                     No args.json in {csv_folder_name} available.
-                    """
-                )
+                    """)
 
                 try:
                     self.disaggregated_network = Network(
@@ -259,11 +255,9 @@ class Etrago:
                         ignore_standard_types,
                     )
                 except ValueError:
-                    logger.info(
-                        """
+                    logger.info("""
                         No disaggregated network available.
-                        """
-                    )
+                        """)
 
                 try:
                     self.market_model = Network(
@@ -272,11 +266,9 @@ class Etrago:
                         ignore_standard_types,
                     )
                 except ValueError:
-                    logger.info(
-                        """
+                    logger.info("""
                             No separate market model available.
-                            """
-                    )
+                            """)
 
             self.get_clustering_data(csv_folder_name)
 

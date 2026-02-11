@@ -21,6 +21,7 @@
 """
 Plot.py defines functions necessary to plot results of eTraGo.
 """
+
 from math import sqrt
 import logging
 import os
@@ -2648,13 +2649,11 @@ def plot_grid(
 
     elif bus_colors == "storage_expansion":
         if not isinstance(scaling_store_expansion, dict):
-            raise Exception(
-                """To plot storage_expansion, the argument\
+            raise Exception("""To plot storage_expansion, the argument\
             scaling_store_expansion must be a dictionary like:
                             {"H2": 50,
                             "heat": 0.1,
-                            "battery": 10}"""
-            )
+                            "battery": 10}""")
         bus_scaling = bus_sizes
         bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network)
         for store_carrier in scaling_store_expansion.keys():
@@ -2893,12 +2892,9 @@ def plot_grid(
                         facecolor=network.carriers.color[i],
                     )[0]
                 )
-                labels.append(
-                    f"""
+                labels.append(f"""
                     {round(max_value/bus_scaling/scaling_store_expansion[i]/
-                           1000, 0)} {bus_unit} """
-                    + i
-                )
+                           1000, 0)} {bus_unit} """ + i)
         else:
             if len(bus_sizes) > 0:
                 max_value = bus_sizes.max()

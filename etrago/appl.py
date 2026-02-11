@@ -58,7 +58,7 @@ args = {
         "formulation": "linopy",
         "market_optimization":
             {
-                "active": True,
+                "active": False,
                 "market_zones": "status_quo", # only used if type='market_grid'
                 "rolling_horizon": {# Define parameter of market optimization
                     "planning_horizon": 168, # number of snapshots in each optimization
@@ -154,7 +154,7 @@ args = {
     },
     "skip_snapshots": 5,  # False or number of snapshots to skip
     "temporal_disaggregation": {
-        "active": False,  # choose if temporally full complex dispatch optimization should be conducted
+        "active": True,  # choose if temporally full complex dispatch optimization should be conducted
         "no_slices": 8,  # number of subproblems optimization is divided into
     },
     # Simplifications:

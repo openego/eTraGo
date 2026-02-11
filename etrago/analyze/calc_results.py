@@ -21,6 +21,7 @@
 """
 calc_results.py defines methods to calculate results of eTraGo
 """
+
 import os
 
 if "READTHEDOCS" not in os.environ:

@@ -21,6 +21,7 @@
 """
 Defines the market optimization within eTraGo
 """
+
 import os
 
 if "READTHEDOCS" not in os.environ:
@@ -83,10 +84,8 @@ def market_optimization(self):
         )
 
         if status != "ok":
-            logger.warning(
-                f"""Optimization failed with status {status}
-                and condition {condition}"""
-            )
+            logger.warning(f"""Optimization failed with status {status}
+                and condition {condition}""")
 
     else:
         logger.warning("Method type must be either 'pyomo' or 'linopy'")
@@ -192,11 +191,9 @@ def build_market_model(self, unit_commitment=False):
         medoid_idx = pd.Series(dtype=str)
 
     else:
-        logger.warning(
-            f"""
+        logger.warning(f"""
             Market zone setting {self.args['method']['market_zones']}
-            is not available. Please use one of ['status_quo']."""
-        )
+            is not available. Please use one of ['status_quo'].""")
 
     logger.info("Start market zone specifc clustering")
 
