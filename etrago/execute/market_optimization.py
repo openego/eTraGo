@@ -21,12 +21,13 @@
 """
 Defines the market optimization within eTraGo
 """
+
 import os
 
 if "READTHEDOCS" not in os.environ:
     import logging
 
-    from pypsa.components import component_attrs
+    from pypsa.components import Components
     import pandas as pd
 
     from etrago.cluster.electrical import postprocessing, preprocessing
@@ -82,10 +83,8 @@ def market_optimization(self):
         )
 
         if status != "ok":
-            logger.warning(
-                f"""Optimization failed with status {status}
-                and condition {condition}"""
-            )
+            logger.warning(f"""Optimization failed with status {status}
+                and condition {condition}""")
 
     else:
         logger.warning("Method type must be either 'pyomo' or 'linopy'")
@@ -177,10 +176,8 @@ def optimize_with_rolling_horizon(
     for i, start in enumerate(starting_points):
         end = min(len(snapshots), start + horizon)
         sns = snapshots[start:end]
-        logger.info(
-            f"""Optimizing network for snapshot horizon
-            [{sns[0]}:{sns[-1]}] ({i+1}/{len(starting_points)})."""
-        )
+        logger.info(f"""Optimizing network for snapshot horizon
+            [{sns[0]}:{sns[-1]}] ({i+1}/{len(starting_points)}).""")
 
         if not n.stores.empty:
             stores_no_dsm = n.stores[
@@ -300,10 +297,8 @@ def optimize_with_rolling_horizon(
         )
 
         if status != "ok":
-            logger.warning(
-                f"""Optimization failed with status {status}
-                and condition {condition}"""
-            )
+            logger.warning(f"""Optimization failed with status {status}
+                and condition {condition}""")
             n.model.print_infeasibilities()
             import pdb
 
@@ -367,11 +362,9 @@ def build_market_model(self, unit_commitment=False):
         medoid_idx = pd.Series(dtype=str)
 
     else:
-        logger.warning(
-            f"""
+        logger.warning(f"""
             Market zone setting {self.args['method']['market_zones']}
-            is not available. Please use one of ['status_quo']."""
-        )
+            is not available. Please use one of ['status_quo'].""")
 
     logger.info("Start market zone specifc clustering")
 
@@ -627,34 +620,43 @@ def set_unit_commitment(self, apply_on):
         unit_commitment
     ).to_frame("committable")
 
+    component_attrs = network.component_attrs
+
+    # -------------------------
+    # Generators
+    # -------------------------
     for attr in unit_commitment.index:
-        default = component_attrs["Generator"].default[attr]
-        committable_attrs[attr] = network.generators.carrier.map(
-            unit_commitment.loc[attr]
-        ).fillna(default)
-        committable_attrs[attr] = committable_attrs[attr].astype(
-            network.generators.carrier.map(unit_commitment.loc[attr]).dtype
-        )
+        default = component_attrs["Generator"].loc[attr, "default"]
+
+        mapped = network.generators.carrier.map(unit_commitment.loc[attr])
+
+        committable_attrs[attr] = mapped.fillna(default)
+
+        committable_attrs[attr] = committable_attrs[attr].astype(mapped.dtype)
 
     network.generators[committable_attrs.columns] = committable_attrs
+
     network.generators.min_up_time = network.generators.min_up_time.astype(int)
+
     network.generators.min_down_time = network.generators.min_down_time.astype(
         int
     )
 
-    # Tadress link carriers i.e. OCGT
+    # -------------------------
+    # Links (e.g. OCGT)
+    # -------------------------
     committable_links = network.links.carrier.isin(unit_commitment).to_frame(
         "committable"
     )
 
     for attr in unit_commitment.index:
-        default = component_attrs["Link"].default[attr]
-        committable_links[attr] = network.links.carrier.map(
-            unit_commitment.loc[attr]
-        ).fillna(default)
-        committable_links[attr] = committable_links[attr].astype(
-            network.links.carrier.map(unit_commitment.loc[attr]).dtype
-        )
+        default = component_attrs["Link"].loc[attr, "default"]
+
+        mapped = network.links.carrier.map(unit_commitment.loc[attr])
+
+        committable_links[attr] = mapped.fillna(default)
+
+        committable_links[attr] = committable_links[attr].astype(mapped.dtype)
 
     network.links[committable_links.columns] = committable_links
     network.links.min_up_time = network.links.min_up_time.astype(int)
