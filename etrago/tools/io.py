@@ -675,9 +675,3 @@ def add_ch4_h2_correspondence(self):
             ].index[0]
         ] = h2_bus
         self.ch4_h2_mapping.index.name = "CH4_bus"
-
-
-if __name__ == "__main__":
-    if pypsa.__version__ not in ["0.6.2", "0.11.0"]:
-        print("Pypsa version %s not supported." % pypsa.__version__)
-    pass
