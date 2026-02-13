@@ -496,7 +496,7 @@ def foreign_links(self):
 
         network.links.loc[foreign_links.index, "carrier"] = "DC"
 
-        network.import_components_from_dataframe(
+        network._import_components_from_df(
             foreign_lines.loc[:, ["bus0", "bus1", "capital_cost", "length"]]
             .assign(p_nom=foreign_lines.s_nom)
             .assign(p_nom_min=foreign_lines.s_nom_min)
@@ -703,7 +703,7 @@ def load_shedding(
             start = 0
 
         index = list(range(start, start + len(network.buses.index)))
-        network.import_components_from_dataframe(
+        network._import_components_from_df(
             pd.DataFrame(
                 dict(
                     marginal_cost=marginal_cost,
@@ -729,7 +729,7 @@ def load_shedding(
                     start + len(network.buses.index) + len(neg_shedding_buses),
                 )
             )
-            network.import_components_from_dataframe(
+            network._import_components_from_df(
                 pd.DataFrame(
                     dict(
                         marginal_cost=-marginal_cost,
@@ -2762,7 +2762,7 @@ def drop_sectors(self, drop_carriers):
                 gen_empty.p_max_pu = 1
                 gen_empty.control = "PV"
                 gen_empty.fillna(0, inplace=True)
-                self.network.import_components_from_dataframe(
+                self.network._import_components_from_df(
                     gen_empty, "Generator"
                 )
 
