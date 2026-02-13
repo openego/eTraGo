@@ -30,7 +30,7 @@ from matplotlib.colors import TwoSlopeNorm
 from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
 from pyproj import Proj, transform
-from pypsa.plot import draw_map_cartopy
+#from pypsa.plot import draw_map_cartopy
 import geopandas as gpd
 import matplotlib
 import matplotlib.patches as mpatches
