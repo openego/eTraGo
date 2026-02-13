@@ -344,9 +344,6 @@ class NetworkScenario(ScenarioBase):
         df_all.set_index(index_col, inplace=True)
         df_all.index = df_all.index.astype(str)
 
-        # Slice DataFrame to desired snapshots
-        df_all = df_all.iloc[self.start_snapshot : self.end_snapshot + 1]
-
         # Drop non-time-series columns
         key_columns = ["scn_name", index_col, "temp_id", "id"]
         if self.version:
