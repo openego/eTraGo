@@ -59,7 +59,6 @@ logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
 
-    from sqlalchemy import literal_column
     from sqlalchemy.orm.exc import NoResultFound
     import saio
 
@@ -327,64 +326,46 @@ class NetworkScenario(ScenarioBase):
                 egon_etrago_transformer_timeseries,
             )
 
-        # Select index column
-        if name == "Transformer":
-            index_col = "trafo_id"
-
-        else:
-            index_col = f"{name.lower()}_id"
-
-        # Select columns with time series data
-        query_columns = self.session.query(
-            vars()[f"egon_etrago_{name.lower()}_timeseries"]
-        ).limit(1)
-
-        key_columns = ["scn_name", index_col, "temp_id", "id"]
-
-        if self.version:
-            key_columns.append(["version"])
-
-        columns = saio.as_pandas(query_columns).columns.drop(
-            key_columns, errors="ignore"
+        # Determine index column
+        index_col = (
+            "trafo_id" if name == "Transformer" else f"{name.lower()}_id"
         )
 
-        # Query and import time series data
-        for col in columns:
-            tbl = vars()[f"egon_etrago_{name.lower()}_timeseries"]
+        # Get the DB table dynamically
+        tbl = vars()[f"egon_etrago_{name.lower()}_timeseries"]
 
-            query = self.session.query(
-                getattr(tbl, index_col),
-                literal_column(
-                    f"{col}[{self.start_snapshot}:{self.end_snapshot}]"
-                ).label(col),
-            ).filter(tbl.scn_name == self.scn_name)
+        # Build SQLAlchemy query
+        query = self.session.query(tbl).filter(tbl.scn_name == self.scn_name)
 
-            if self.version:
-                query = query.filter(
-                    vars()[f"egon_etrago_{name.lower()}_timeseries"].version
-                    == self.version
-                )
+        # Read full table into pandas
+        df_all = pd.read_sql(query.statement, self.session.bind)
 
-            df_all = saio.as_pandas(query)
+        # Set component ID as index
+        df_all.set_index(index_col, inplace=True)
+        df_all.index = df_all.index.astype(str)
 
-            # Rename index
-            df_all.set_index(index_col, inplace=True)
+        # Slice DataFrame to desired snapshots
+        df_all = df_all.iloc[self.start_snapshot : self.end_snapshot + 1]
 
-            df_all.index = df_all.index.astype(str)
+        # Drop non-time-series columns
+        key_columns = ["scn_name", index_col, "temp_id", "id"]
+        if self.version:
+            key_columns.append("version")
+        ts_columns = df_all.columns.drop(key_columns, errors="ignore")
+        df_all = df_all[ts_columns]
 
-            if not df_all.isnull().all().all():
-
-                # Drop empty series
-                df_all = df_all[~df_all[col].isnull()]
-
-                df = df_all[col].apply(pd.Series).transpose()
-
-                df.index = self.timeindex
-
-                pypsa.io.import_series_from_dataframe(
-                    network, df, pypsa_name, col
-                )
-
+        if df_all.empty:
+            logger.info(f"No timeseries found for {name}")
+        else:
+            for col in ts_columns:
+                if not df_all[col].isnull().all().all():
+                    logger.info(
+                        f"Importing timeseries {col} for attribute {name}"
+                    )
+                    df = df_all[col].apply(pd.Series).transpose()
+                    df = df.iloc[self.start_snapshot : self.end_snapshot + 1]
+                    df.index = self.timeindex
+                    network._import_series_from_df(df, name, col)
         return network
 
     def build_network(self, network=None, *args, **kwargs):
@@ -418,24 +399,12 @@ class NetworkScenario(ScenarioBase):
             # Drop columns with only NaN values
             df = df.drop(df.isnull().all()[df.isnull().all()].index, axis=1)
 
-            # Replace NaN values with defailt values from pypsa
-            for c in df.columns:
-                if c in network.component_attrs[pypsa_comp].index:
-                    df[c].fillna(
-                        network.component_attrs[pypsa_comp].default[c],
-                        inplace=True,
-                    )
-
             if pypsa_comp == "Generator":
                 df.sign = 1
 
-            network.import_components_from_dataframe(df, pypsa_comp)
+            network.add(pypsa_comp, df.index, **df)
 
-            network = self.series_fetch_by_relname(network, comp, pypsa_comp)
-
-        # populate carrier attribute in PyPSA network
-        # network.import_components_from_dataframe(
-        #     self.fetch_by_relname(carr_ormclass), 'Carrier')
+            self.series_fetch_by_relname(network, comp, pypsa_comp)
 
         self.network = network
 
