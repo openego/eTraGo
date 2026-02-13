@@ -29,11 +29,10 @@ from pypsa.clustering.spatial import (
     aggregateoneport,
     busmap_by_kmeans,
 )
-from pypsa.components import Network
+from pypsa import Network
 from six import iteritems
 import numpy as np
 import pandas as pd
-import pypsa.io as io
 
 if "READTHEDOCS" not in os.environ:
     from etrago.cluster.spatial import (
@@ -101,7 +100,7 @@ def preprocessing(etrago, carrier, apply_on="grid_model"):
     buses_gas = network.buses.copy()
     links_gas = network.links.copy()
 
-    io.import_components_from_dataframe(network_gas, buses_gas, "Bus")
+    network_gas._import_components_from_df(buses_gas, "Bus")
     network_gas.madd(
         "Link", links_gas.index, **links_gas.loc[:, ~links_gas.isna().any()]
     )
@@ -578,21 +577,19 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
     other_components = ["Line", "StorageUnit", "ShuntImpedance", "Transformer"]
 
     for c in network.iterate_components(other_components):
-        io.import_components_from_dataframe(
-            network_gasgrid_c,
+        network_gasgrid_c._import_components_from_df(
             c.df,
             c.name,
         )
         for attr, df in c.pnl.items():
             if not df.empty:
-                io.import_series_from_dataframe(
-                    network_gasgrid_c,
+                network_gasgrid_c._import_series_from_df(
                     df,
                     c.name,
                     attr,
                 )
-    io.import_components_from_dataframe(
-        network_gasgrid_c, network.carriers, "Carrier"
+    network_gasgrid_c._import_components_from_df(
+        network.carriers, "Carrier"
     )
 
     network_gasgrid_c.consistency_check()
@@ -963,7 +960,7 @@ def get_clustering_from_busmap(
     )
     new_buses.index.name = "bus_id"
 
-    io.import_components_from_dataframe(network_gasgrid_c, new_buses, "Bus")
+    network_gasgrid_c._import_components_from_df(new_buses, "Bus")
 
     if with_time:
         network_gasgrid_c.set_snapshots(network.snapshots)
@@ -991,12 +988,12 @@ def get_clustering_from_busmap(
                 with_time=with_time,
                 custom_strategies=generator_strategies,
             )
-        io.import_components_from_dataframe(
-            network_gasgrid_c, new_df, one_port
+        network_gasgrid_c._import_components_from_df(
+            new_df, one_port
         )
         for attr, df in iteritems(new_pnl):
-            io.import_series_from_dataframe(
-                network_gasgrid_c, df, one_port, attr
+            network_gasgrid_c._import_series_from_df(
+                df, one_port, attr
             )
     # Aggregate links
     new_links = (
@@ -1023,15 +1020,15 @@ def get_clustering_from_busmap(
 
     # import the links and the respective time series with the bus0 and bus1
     # values updated from the busmap
-    io.import_components_from_dataframe(
-        network_gasgrid_c, new_links.loc[:, ~new_links.isna().all()], "Link"
+    network_gasgrid_c._import_components_from_df(
+        new_links.loc[:, ~new_links.isna().all()], "Link"
     )
 
     if with_time:
         for attr, df in network.links_t.items():
             if not df.empty:
-                io.import_series_from_dataframe(
-                    network_gasgrid_c, df, "Link", attr
+                network_gasgrid_c._import_series_from_df(
+                    df, "Link", attr
                 )
 
     return network_gasgrid_c

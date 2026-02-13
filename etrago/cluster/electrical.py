@@ -33,7 +33,6 @@ from pypsa.clustering.spatial import (
 from six import iteritems
 import numpy as np
 import pandas as pd
-import pypsa.io as io
 
 logger = logging.getLogger(__name__)
 
@@ -314,9 +313,9 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
     mask = transformers.bus0.isin(buses.index)
     transformers = transformers.loc[mask, :]
 
-    io.import_components_from_dataframe(network_c, buses, "Bus")
-    io.import_components_from_dataframe(network_c, lines, "Line")
-    io.import_components_from_dataframe(network_c, transformers, "Transformer")
+    network_c._import_components_from_df(buses, "Bus")
+    network_c._import_components_from_df(lines, "Line")
+    network_c._import_components_from_df(transformers, "Transformer")
 
     # Dealing with links
     links = network.links.copy()
@@ -333,7 +332,7 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
 
     new_links = pd.concat([new_links, dc_links])
     new_links["topo"] = np.nan
-    io.import_components_from_dataframe(network_c, new_links, "Link")
+    network_c._import_components_from_df(new_links, "Link")
 
     if with_time:
         network_c.snapshots = network.snapshots
@@ -344,13 +343,13 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
             mask = df.columns[df.columns.isin(lines.index)]
             df = df.loc[:, mask]
             if not df.empty:
-                io.import_series_from_dataframe(network_c, df, "Line", attr)
+                network_c._import_series_from_df(df, "Line", attr)
 
         for attr, df in network.links_t.items():
             mask = df.columns[df.columns.isin(links.index)]
             df = df.loc[:, mask]
             if not df.empty:
-                io.import_series_from_dataframe(network_c, df, "Link", attr)
+                network_c._import_series_from_df(df, "Link", attr)
 
     # dealing with generators
     # network.generators["weight"] = 1
@@ -368,9 +367,9 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
             with_time=with_time,
             custom_strategies=custom_strategies,
         )
-        io.import_components_from_dataframe(network_c, new_df, one_port)
+        network_c._import_components_from_df(new_df, one_port)
         for attr, df in iteritems(new_pnl):
-            io.import_series_from_dataframe(network_c, df, one_port, attr)
+            network_c._import_series_from_df(df, one_port, attr)
 
     network_c.links, network_c.links_t = group_links(network_c)
     network_c.determine_network_topology()
@@ -739,7 +738,7 @@ def preprocessing(etrago, apply_on="grid_model"):
             axis=1,
         )
 
-        network.import_components_from_dataframe(
+        network._import_components_from_df(
             network.transformers.loc[
                 :,
                 [
