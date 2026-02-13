@@ -24,15 +24,12 @@ Constraints.py includes additional constraints for eTraGo-optimizations
 import logging
 import os
 
-from pyomo.environ import Constraint
-from pypsa.descriptors import (
-    expand_series,
-    get_switchable_as_dense as get_as_dense,
-)
-from pypsa.optimization.compat import get_var, define_constraints, linexpr
+from pypsa.common import expand_series
+from pypsa.descriptors import get_switchable_as_dense as get_as_dense
+#from pypsa.optimization.compat import get_var, define_constraints, linexpr
 import numpy as np
 import pandas as pd
-import pyomo.environ as po
+#import pyomo.environ as po
 import saio
 import sqlalchemy
 
