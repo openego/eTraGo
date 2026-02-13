@@ -27,8 +27,6 @@ if "READTHEDOCS" not in os.environ:
     import logging
     import time
 
-    from pypsa.linopf import network_lopf
-    from pypsa.pf import sub_network_pf
     import numpy as np
     import pandas as pd
 
@@ -185,9 +183,8 @@ def run_lopf(etrago, extra_functionality, method):
                         """Temporal disaggregation currently only works when
                         using pyomo."""
                     )
-                    status, termination_condition = network_lopf(
-                        etrago.network_tsa,
-                        etrago.network_tsa.snapshots[start : end + 1],
+                    status, termination_condition = etrago.network_tsa.optimize(
+                        snapshots=etrago.network_tsa.snapshots[start : end + 1],
                         solver_name=etrago.args["solver"],
                         solver_options=etrago.args["solver_options"],
                         extra_functionality=extra_functionality,
@@ -229,8 +226,7 @@ def run_lopf(etrago, extra_functionality, method):
 
                 pdb.set_trace()
         else:
-            status, termination_condition = network_lopf(
-                etrago.network,
+            status, termination_condition = etrago.network.optimize(
                 solver_name=etrago.args["solver"],
                 solver_options=etrago.args["solver_options"],
                 extra_functionality=extra_functionality,
@@ -794,12 +790,12 @@ def pf_post_lopf(etrago, calc_losses=False):
     ] = 0
 
     # execute non-linear pf
-    pf_solution = sub_network_pf(
-        sub_network=network.sub_networks["obj"][main_subnet],
+    pf_solution = network.sub_networks.obj[main_subnet].pf(
         snapshots=network.snapshots,
         use_seed=True,
         distribute_slack=True,
     )
+
 
     pf_solve = pd.DataFrame(index=pf_solution[0].index)
     pf_solve["converged"] = pf_solution[2].values
