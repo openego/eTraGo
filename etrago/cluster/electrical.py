@@ -247,36 +247,37 @@ def adjust_no_electric_network(
 
     busmap4 = {}
     if "distribution_grid" in etrago.network.buses.carrier.unique():
-    # rural_heat and BEV buses are clustered based on the AC buses connected to
-    # their corresponding distribution grid buses    
+        # rural_heat and BEV buses are clustered based on the AC buses connected to
+        # their corresponding distribution grid buses
         for carrier in ["rural_heat_pump", "BEV_charger"]:
             links_from_dg_buses = etrago.network.links[
-                etrago.network.links.carrier==carrier
+                etrago.network.links.carrier == carrier
             ].copy()
-            
-            links_from_dg_buses["to_ac"] = links_from_dg_buses["bus0"].map(busmap3)
+
+            links_from_dg_buses["to_ac"] = links_from_dg_buses["bus0"].map(
+                busmap3
+            )
             for bus, df in links_from_dg_buses.groupby("to_ac"):
                 cluster_bus = df.bus1.iat[0]
                 for new_bus in df.bus1:
                     busmap4[new_bus] = cluster_bus
-    
+
     heat_store_links = etrago.network.links[
-            etrago.network.links.carrier.isin([
-                "rural_heat_store_charger"])
-        ].copy()
+        etrago.network.links.carrier.isin(["rural_heat_store_charger"])
+    ].copy()
 
     busmap5 = {}
     if "distribution_grid" in etrago.network.buses.carrier.unique():
         base_busmap = busmap4
     else:
-        base_busmap=busmap3
-        
+        base_busmap = busmap3
+
     heat_store_links["to_ac"] = heat_store_links["bus0"].map(base_busmap)
     for bus, df in heat_store_links.groupby("to_ac"):
         cluster_bus = df.bus1.iat[0]
         for new_bus in df.bus1:
             busmap5[new_bus] = cluster_bus
-            
+
     # Add the buses not related to AC to the busmap and map them to themself
     for no_ac_bus in network.buses[
         ~network.buses["carrier"].isin(
@@ -285,7 +286,6 @@ def adjust_no_electric_network(
     ].index:
         busmap2[no_ac_bus] = no_ac_bus
     busmap = {**busmap, **busmap2, **busmap3, **busmap4, **busmap5}
-
 
     return network, busmap
 
@@ -1038,55 +1038,60 @@ def weighting_for_scenario(network, save=None):
         return cf
 
     weight = pd.Series(
-        index=network.buses[network.buses.carrier=="AC"].index,
-        data = 1.
-        )
+        index=network.buses[network.buses.carrier == "AC"].index, data=1.0
+    )
 
     dg_links = network.links[
-        (network.links.carrier=="distribution_grid")
-        &(network.links.bus0.isin(
-            network.buses[network.buses.carrier=="AC"].index.values
-            ))][["bus0", "bus1"]]
+        (network.links.carrier == "distribution_grid")
+        & (
+            network.links.bus0.isin(
+                network.buses[network.buses.carrier == "AC"].index.values
+            )
+        )
+    ][["bus0", "bus1"]]
 
     # Add weighting of generators attached to transmission grid bus
     gen = network.generators[
         (network.generators.carrier != "load shedding")
-        &(network.generators.bus.isin(weight.index))][
-        ["bus", "carrier", "p_nom"]
-    ].copy()
+        & (network.generators.bus.isin(weight.index))
+    ][["bus", "carrier", "p_nom"]].copy()
     gen["cf"] = gen.apply(calc_availability_factor, axis=1)
-    gen["weight"] = gen["p_nom"] * gen["cf"]    
+    gen["weight"] = gen["p_nom"] * gen["cf"]
     weight.loc[gen.bus.unique()] += gen.groupby("bus").weight.sum()
-    
+
     # Add weighting of generators attached to distribution grid bus
     gen_dg = network.generators[
         (network.generators.carrier != "load shedding")
-        &(network.generators.bus.isin(dg_links.bus1))][
-        ["bus", "carrier", "p_nom"]
-    ].copy()
+        & (network.generators.bus.isin(dg_links.bus1))
+    ][["bus", "carrier", "p_nom"]].copy()
     gen_dg["cf"] = gen_dg.apply(calc_availability_factor, axis=1)
-    gen_dg["weight"] = gen_dg["p_nom"] * gen_dg["cf"]    
-    gen_dg["bus_tg"] = dg_links.set_index(
-        "bus1").loc[gen_dg.bus, "bus0"].values    
-    weight.loc[gen_dg.bus_tg.unique()] += gen_dg.groupby("bus_tg").weight.sum() 
-    
+    gen_dg["weight"] = gen_dg["p_nom"] * gen_dg["cf"]
+    gen_dg["bus_tg"] = (
+        dg_links.set_index("bus1").loc[gen_dg.bus, "bus0"].values
+    )
+    weight.loc[gen_dg.bus_tg.unique()] += gen_dg.groupby("bus_tg").weight.sum()
+
     # Add weighting of storage units attached to transmission grid bus
     weight.loc[
         network.storage_units.bus[
-            network.storage_units.bus.isin(weight.index)].unique()
-        ] += (
-            network.storage_units[
-                network.storage_units.bus.isin(weight.index)].groupby("bus")
-            .p_nom.sum()
-        )
+            network.storage_units.bus.isin(weight.index)
+        ].unique()
+    ] += (
+        network.storage_units[network.storage_units.bus.isin(weight.index)]
+        .groupby("bus")
+        .p_nom.sum()
+    )
 
     # Add weighting of storage units attached to distribution grid bus
     dg_storage = network.storage_units[
-        network.storage_units.bus.isin(dg_links.bus1)].copy()
-    dg_storage["bus_tg"] = dg_links.set_index(
-        "bus1").loc[dg_storage.bus, "bus0"].values
-    weight.loc[
-        dg_storage.bus_tg.unique()] += dg_storage.groupby("bus_tg").p_nom.sum()
+        network.storage_units.bus.isin(dg_links.bus1)
+    ].copy()
+    dg_storage["bus_tg"] = (
+        dg_links.set_index("bus1").loc[dg_storage.bus, "bus0"].values
+    )
+    weight.loc[dg_storage.bus_tg.unique()] += dg_storage.groupby(
+        "bus_tg"
+    ).p_nom.sum()
 
     # Add weighting of loads attached to transmission grid
     load = (
@@ -1094,26 +1099,32 @@ def weighting_for_scenario(network, save=None):
         .groupby(network.loads.bus)
         .sum()
         .reindex(network.buses.index, fill_value=0.0)
-    )    
+    )
     weight.loc[load.index[load.index.isin(weight.index)]] += load[weight.index]
 
     # Add weighting of loads attached to distribution grid
     dg_load = pd.DataFrame(load.loc[dg_links.bus1])
-    dg_load["bus_tg"] = dg_links.set_index(
-        "bus1").loc[dg_load.index, "bus0"].values
-    weight.loc[dg_load["bus_tg"].unique()] += dg_load.groupby(
-        "bus_tg")[0].sum()
+    dg_load["bus_tg"] = (
+        dg_links.set_index("bus1").loc[dg_load.index, "bus0"].values
+    )
+    weight.loc[dg_load["bus_tg"].unique()] += dg_load.groupby("bus_tg")[
+        0
+    ].sum()
 
     # Add weighting of loads attached to distribution grid bus
     dg_storage = network.storage_units[
-        network.storage_units.bus.isin(dg_links.bus1)].copy()
-    dg_storage["bus_tg"] = dg_links.set_index(
-        "bus1").loc[dg_storage.bus, "bus0"].values
-    weight.loc[
-        dg_storage.bus_tg.unique()] += dg_storage.groupby("bus_tg").p_nom.sum()
+        network.storage_units.bus.isin(dg_links.bus1)
+    ].copy()
+    dg_storage["bus_tg"] = (
+        dg_links.set_index("bus1").loc[dg_storage.bus, "bus0"].values
+    )
+    weight.loc[dg_storage.bus_tg.unique()] += dg_storage.groupby(
+        "bus_tg"
+    ).p_nom.sum()
 
     weight_normed = (
-        weight * (100000.0 / weight.max())).astype(int).clip(lower=1)
+        (weight * (100000.0 / weight.max())).astype(int).clip(lower=1)
+    )
 
     if save:
         weight_normed.to_csv(save)
