@@ -175,6 +175,17 @@ def seperate_power_plants(self, egon_power_plants, old_network):
         )
 
         dg_generators_carrier = dg_generators[dg_generators.carrier == c]
+
+        if c == "solar_rooftop":
+            dg_generators_carrier = (
+                solar_rooftop.groupby(["bus", "carrier"])
+                .p_nom.sum()
+                .reset_index()
+            )
+            dg_generators_carrier.loc[:, "bus_id"] = dg_generators_carrier.loc[
+                :, "bus"
+            ]
+
         self.network.generators_t.p_max_pu.loc[
             :,
             "distribution_grid_"
