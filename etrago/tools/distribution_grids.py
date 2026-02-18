@@ -36,7 +36,7 @@ def get_ac_nodes_germany(self):
     ].index
 
 
-def distribution_grid_buses_and_links(self, mv_grids):
+def distribution_grid_buses_and_links(self, mv_grids, seperate_dg_link=True):
     # Create distribution grid (DG) nodes
     self.network.madd(
         "Bus",
@@ -52,20 +52,63 @@ def distribution_grid_buses_and_links(self, mv_grids):
     ).set_index("bus_id")
 
     # Create link between transmission an distribution grid
-    self.network.madd(
-        "Link",
-        names=mv_grids.bus_id.astype(str) + "_distribution_grid",
-        carrier="distribution_grid",
-        bus0=mv_grids.bus_id.astype(str).values,
-        bus1=(mv_grids.bus_id.astype(str) + "_distribution_grid").values,
-        p_nom_min=edisgo_results.loc[mv_grids.bus_id, "p_nom"].values,
-        p_nom_max=(edisgo_results.loc[mv_grids.bus_id, "p_nom"]*4).clip(lower=10.0).values,
-        p_nom_extendable=True,
-        capital_cost=edisgo_results.loc[
-            mv_grids.bus_id, "capital_cost"
-        ].values,
-        p_min_pu=-1,
-    )
+    # Either one bidirectional link is created or two unidirectional.
+    # Two links allow setting different starting capacities for load and
+    # feedin case in the distribution grid. The expansion is coupled end
+    # always extends the capacity in both directions.
+    if seperate_dg_link:
+        self.network.madd(
+            "Link",
+            names=mv_grids.bus_id.astype(str) + "_to_distribution_grid",
+            carrier="distribution_grid",
+            bus0=mv_grids.bus_id.astype(str).values,
+            bus1=(mv_grids.bus_id.astype(str) + "_distribution_grid").values,
+            p_nom_min=edisgo_results.loc[mv_grids.bus_id, "p_nom_load"].values,
+            p_nom_max=(edisgo_results.loc[mv_grids.bus_id, "p_nom_load"] * 4)
+            .clip(lower=10.0)
+            .values,
+            p_nom_extendable=True,
+            capital_cost=edisgo_results.loc[
+                mv_grids.bus_id, "capital_cost_worst_case"
+            ].values,
+            marginal_cost=0.1,
+            p_min_pu=0,
+        )
+
+        self.network.madd(
+            "Link",
+            names=mv_grids.bus_id.astype(str) + "_from_distribution_grid",
+            carrier="distribution_grid",
+            bus0=(mv_grids.bus_id.astype(str) + "_distribution_grid").values,
+            bus1=mv_grids.bus_id.astype(str).values,
+            p_nom_min=edisgo_results.loc[mv_grids.bus_id, "p_nom_feedin"]
+            .abs()
+            .values,
+            p_nom_max=(edisgo_results.loc[mv_grids.bus_id, "p_nom_load"] * 4)
+            .clip(lower=10.0)
+            .values,
+            p_nom_extendable=True,
+            capital_cost=0,
+            marginal_cost=0.1,
+            p_min_pu=0,
+        )
+    else:
+        self.network.madd(
+            "Link",
+            names=mv_grids.bus_id.astype(str) + "_distribution_grid",
+            carrier="distribution_grid",
+            bus0=mv_grids.bus_id.astype(str).values,
+            bus1=(mv_grids.bus_id.astype(str) + "_distribution_grid").values,
+            p_nom_min=edisgo_results.loc[mv_grids.bus_id, "p_nom_load"].values,
+            p_nom_max=(edisgo_results.loc[mv_grids.bus_id, "p_nom_load"] * 4)
+            .clip(lower=10.0)
+            .values,
+            p_nom_extendable=True,
+            capital_cost=edisgo_results.loc[
+                mv_grids.bus_id, "capital_cost_worst_case"
+            ].values,
+            p_min_pu=-1,
+        )
 
 
 def seperate_power_plants(self, egon_power_plants, old_network):

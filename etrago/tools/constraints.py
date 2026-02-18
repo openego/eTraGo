@@ -21,10 +21,11 @@
 """
 Constraints.py includes additional constraints for eTraGo-optimizations
 """
+
 import logging
 import os
 
-from pyomo.environ import Constraint
+from pyomo.environ import Constraint, ConstraintList
 from pypsa.descriptors import (
     expand_series,
     get_switchable_as_dense as get_as_dense,
@@ -3660,28 +3661,33 @@ class Constraints:
             List of timesteps considered in the optimization
 
         """
+
+        couple_distribution_links(self, network, snapshots)
+
         if "CH4" in network.buses.carrier.values:
             if self.args["method"]["formulation"] == "pyomo":
 
                 if self.args["scn_name"] in [
-                        "eGon100RE", "powerd2025", "powerd2030", "powerd2035"]:
+                    "eGon100RE",
+                    "powerd2025",
+                    "powerd2030",
+                    "powerd2035",
+                ]:
                     add_electrolysis_coupling_constraints(network, snapshots)
                     add_chp_constraints_simplyfied(network, snapshots)
                 else:
                     add_chp_constraints(network, snapshots)
 
-                if (self.args["scn_name"] not in [
-                        "status2019", "status2023"]) & (
-                    len(snapshots) > 1500
-                ):
+                if (
+                    self.args["scn_name"] not in ["status2019", "status2023"]
+                ) & (len(snapshots) > 1500):
                     add_ch4_constraints(self, network, snapshots)
                     add_biomass_constraint(self, network, snapshots)
 
             elif self.args["method"]["formulation"] == "linopy":
-                if (self.args["scn_name"] not in [
-                        "status2019", "status2023"]) & (
-                    len(snapshots) > 1500
-                ):
+                if (
+                    self.args["scn_name"] not in ["status2019", "status2023"]
+                ) & (len(snapshots) > 1500):
                     add_ch4_constraints_linopy(self, network, snapshots)
                     add_biomass_constraint_linopy(self, network, snapshots)
 
@@ -4212,3 +4218,119 @@ def add_chp_constraints_linopy(network, snapshots):
                     "Link",
                     "top_iso_fuel_line_" + i + "_" + str(snapshot),
                 )
+
+
+def couple_distribution_links(self, n, snapshots):
+    """
+    Couple bidirectional distribution grid links such that
+    capacity expansion is identical in both directions.
+
+    This ensures that any additional capacity built between
+    transmission and distribution grids is shared physically,
+    i.e. an expansion of e.g. 10 MW applies to both flow
+    directions equally.
+
+    The function automatically detects whether the optimization
+    backend is Pyomo or Linopy based on:
+
+        self.args["method"]  ∈ {"pyomo", "linopy"}
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        The PyPSA network instance.
+
+    snapshots : pandas.Index
+        Snapshots passed by PyPSA during optimization.
+        (Not used directly but required by the interface.)
+
+    Notes
+    -----
+    • Existing capacities (p_nom) are NOT coupled.
+      Only expansion variables are linked.
+
+    • Investment costs should only be assigned to one
+      direction of each link pair to avoid double counting.
+
+    • Link pairs are identified via naming convention:
+
+          {bus}_to_distribution_grid
+          {bus}_from_distribution_grid
+
+    • Only links with carrier == "distribution_grid"
+      are considered.
+
+    Raises
+    ------
+    ValueError
+        If an unknown optimization method is specified.
+    """
+    # --------------------------------------------------
+    # Identify link pairs from the network itself
+    # --------------------------------------------------
+    links = n.links[n.links.carrier == "distribution_grid"]
+
+    # Build mapping: (bus0, bus1) → link_name
+    link_map = {(row.bus0, row.bus1): name for name, row in links.iterrows()}
+
+    # Identify bidirectional pairs
+    link_pairs = []
+
+    for (bus0, bus1), fwd_name in link_map.items():
+
+        rev_key = (bus1, bus0)
+
+        if rev_key in link_map:
+
+            rev_name = link_map[rev_key]
+
+            # Avoid double counting pairs
+            if (rev_name, fwd_name) not in link_pairs:
+                link_pairs.append((fwd_name, rev_name))
+
+    # ==================================================
+    # PYOMO BACKEND
+    # ==================================================
+    if self.args["method"]["formulation"] == "pyomo":
+
+        import pyomo.environ as pyomo
+
+        m = n.model
+        m.dist_link_coupling = pyomo.ConstraintList()
+
+        for fwd, rev in link_pairs:
+
+            # Ensure both links are extendable
+            if (
+                n.links.at[fwd, "p_nom_extendable"]
+                and n.links.at[rev, "p_nom_extendable"]
+            ):
+
+                m.dist_link_coupling.add(
+                    m.link_p_nom[fwd] == m.link_p_nom[rev]
+                )
+
+    # ==================================================
+    # LINOPY BACKEND
+    # ==================================================
+    elif self.args["method"]["formulation"] == "linopy":
+
+        m = n.model
+        p_nom = m.variables["Link-p_nom"]
+
+        for fwd, rev in link_pairs:
+
+            if (
+                n.links.at[fwd, "p_nom_extendable"]
+                and n.links.at[rev, "p_nom_extendable"]
+            ):
+
+                m.add_constraints(p_nom.loc[fwd] == p_nom.loc[rev])
+
+    # ==================================================
+    # SAFETY CHECK
+    # ==================================================
+    else:
+        raise ValueError(
+            f"Unknown optimization method: {self.args['method']['formulation']}"
+        )
