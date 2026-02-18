@@ -1043,7 +1043,10 @@ def weighting_for_scenario(network, save=None):
         )
 
     dg_links = network.links[
-        network.links.carrier=="distribution_grid"][["bus0", "bus1"]]
+        (network.links.carrier=="distribution_grid")
+        &(network.links.bus0.isin(
+            network.buses[network.buses.carrier=="AC"].index.values
+            ))][["bus0", "bus1"]]
 
     # Add weighting of generators attached to transmission grid bus
     gen = network.generators[
