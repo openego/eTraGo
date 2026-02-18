@@ -639,14 +639,14 @@ def seperate_storage_units(self, mv_grids):
             + "_home_storage"
         ).values,
         bus=(
-            battery_storages.set_index("bus").loc[
-                mv_grids.bus_id.astype(str)
-            ].index
+            battery_storages.set_index("bus")
+            .loc[mv_grids.bus_id.astype(str)]
+            .index
             + "_distribution_grid"
         ).values,
-        p_nom = battery_storages.set_index("bus").loc[
-             mv_grids.bus_id.astype(str)
-         ].p_nom_min.values,
+        p_nom=battery_storages.set_index("bus")
+        .loc[mv_grids.bus_id.astype(str)]
+        .p_nom_min.values,
         p_nom_extendable=False,
         max_hours=2,
         carrier="home_battery",
@@ -734,7 +734,7 @@ def add_simplified_distribution_grids(self):
         abs(
             self.network.loads_t.p_set.sum().sum()
             - old_network.loads_t.p_set.sum().sum()
-            )
+        )
         < 1e-6
     ), "Loads differ from original network."
 
