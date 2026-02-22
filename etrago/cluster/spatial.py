@@ -137,7 +137,7 @@ def strategies_one_ports():
             "efficiency_dispatch": "mean",
             "standing_loss": "mean",
             "efficiency_store": "mean",
-            "p_min_pu": "min",
+            "p_min_pu": "mean",
             "p_nom_extendable": ext_storage,
             "p_nom_max": sum_with_inf,
             "scn_name": "first",
@@ -163,6 +163,7 @@ def strategies_generators():
         "p_nom_max": sum_with_inf,
         "weight": "sum",
         "p_nom": "sum",
+        "p_set": "sum",
         "p_nom_opt": "sum",
         "marginal_cost": "mean",
         "capital_cost": "mean",
@@ -188,7 +189,7 @@ def strategies_links():
         "type": nan_links,
         "efficiency": "mean",
         "p_nom_min": "sum",
-        "p_set": "mean",
+        "p_set": "sum",
         "p_min_pu": "mean",
         "p_max_pu": "mean",
         "marginal_cost": "mean",
@@ -254,7 +255,7 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
 
         return network
 
-    network = arrange_dc_bus0_bus1(network)
+    #network = arrange_dc_bus0_bus1(network)
 
     if carriers is None:
         carriers = network.links.carrier.unique()
@@ -847,15 +848,15 @@ def focus_weighting(
     # calc distance from buses to focus region
 
     ## geographical
-    buses_gdf["distance_to_focus"] = buses_gdf.geometry.distance(focus_polygon)
-    distgeo = buses_gdf["distance_to_focus"]
+    #buses_gdf["distance_to_focus"] = buses_gdf.geometry.distance(focus_polygon)
+    #distgeo = buses_gdf["distance_to_focus"]
 
     ## electrical (paths with dijkstra)
     # define centroid as base bus for focus region
     centroid = focus_polygon.centroid
     buses_gdf["dist"] = buses_gdf.geometry.distance(centroid)
     central = [buses_gdf.loc[buses_gdf["dist"].idxmin()].name]
-    paths = list(product(network.buses.index, central))
+    #paths = list(product(network.buses.index, central))
 
     if "AC" in network.buses.carrier.unique():
         edges = [
@@ -883,13 +884,17 @@ def focus_weighting(
     dist.loc[lines_cross.bus0.values]=0
     dist.loc[lines_cross.bus1.values]=0
     indizes = dist[dist==0].index
+    
+    # identify joints within focus region and directly connected
+    # to still cluster those
+    joints = network.buses.loc[indizes].assign(weight=weight.loc[indizes]).query("weight == 1").index
 
     # to m
     dist = dist * 1000
     # do not allow 0
     dist[dist == 0] = 1
 
-    '''# 1/dist
+    # 1/dist
     if func == "1-dist":
         factor = 1 / dist
 
@@ -903,17 +908,17 @@ def focus_weighting(
         sigma = 100000  # z. B. 100 km
         factor = np.exp(-(dist**2) / (2 * sigma**2))
 
-    # Sigmoid-Abklingfunktion mit 20 km
-    elif func == "sigmoid-20":
-        sigma = 20000
+    # Sigmoid-Abklingfunktion mit 200 km
+    elif func == "sigmoid-200":
+        sigma = 200000
         factor = 1 / (1 + (dist / sigma) ** 2)
 
     # Sigmoid-Abklingfunktion mit 100 km
     elif func == "sigmoid-100":
         sigma = 100000
-        factor = 1 / (1 + (dist / sigma) ** 2)'''
+        factor = 1 / (1 + (dist / sigma) ** 2)
         
-    # 1/dist
+    '''# 1/dist
     factor0 = 1 / dist
 
     # Gaußsche Abklingfunktion mit 20 km
@@ -941,19 +946,20 @@ def focus_weighting(
     weight2['gauss-20'] = weight2['original'] * factor1
     weight2['gauss-100'] = weight2['original'] * factor2
     weight2['sig-20'] = weight2['original'] * factor3
-    weight2 = weight2.apply(np.ceil)
+    weight2 = weight2.apply(np.ceil)'''
     
     weight = weight * factor
     weight = weight.apply(np.ceil)
 
     if cluster_within == False:
-        weight2['sig-100-2']=weight2['sig-100']
+        '''weight2['sig-100-2']=weight2['sig-100']
         weight2['sig-100-2'].loc[indizes] = 100000
         weight2['gauss-100-2']=weight2['gauss-100']
-        weight2['gauss-100-2'].loc[indizes] = 100000
+        weight2['gauss-100-2'].loc[indizes] = 100000'''
         weight.loc[indizes]=100000
+        weight.loc[joints]=1
 
-    weight2.to_csv('/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming/tests/sig-100-neu-cluster/weighting_tests.csv')
+    #weight2.to_csv('weight.csv')
 
     return weight
 

@@ -960,7 +960,7 @@ def postprocessing(
                 clustering.network.buses.at[i, "y"] = etrago.network.buses[
                     "y"
                 ].loc[medoid]
-
+    
     if aggregate_links:
         clustering.network.links, clustering.network.links_t = group_links(
             clustering.network
@@ -1089,7 +1089,7 @@ def run_spatial_clustering(self):
         ]
         if focus_region:
 
-            func = "sigmoid-100"
+            func = "sigmoid-200"
             cluster_within = self.args["network_clustering"][
                 "electricity_grid"
             ]["cluster_within_focus"]

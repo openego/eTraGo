@@ -1003,6 +1003,7 @@ def get_clustering_from_busmap(
             io.import_series_from_dataframe(
                 network_gasgrid_c, df, one_port, attr
             )
+            
     # Aggregate links
     new_links = (
         network.links.assign(
@@ -1030,7 +1031,7 @@ def get_clustering_from_busmap(
     # values updated from the busmap
     io.import_components_from_dataframe(
         network_gasgrid_c, new_links.loc[:, ~new_links.isna().all()], "Link"
-    )
+        )
 
     if with_time:
         for attr, df in network.links_t.items():
@@ -1038,6 +1039,12 @@ def get_clustering_from_busmap(
                 io.import_series_from_dataframe(
                     network_gasgrid_c, df, "Link", attr
                 )
+        ### only keep timeseries of new links
+        for attr in list(network_gasgrid_c.links_t.keys()):
+            network_gasgrid_c.links_t[attr] = network_gasgrid_c.links_t[attr].reindex(
+            columns=new_links.index,
+            fill_value=0.0
+            )
 
     return network_gasgrid_c
 
@@ -1114,7 +1121,7 @@ def run_spatial_clustering_gas(self):
             ]
             if focus_region:
 
-                func = "sigmoid-20"
+                func = "sigmoid-200"
                 cluster_within = self.args["network_clustering"]["gas_grids"][
                     "cluster_ch4_within_focus"
                 ]
