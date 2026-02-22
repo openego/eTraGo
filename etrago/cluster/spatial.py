@@ -137,7 +137,7 @@ def strategies_one_ports():
             "efficiency_dispatch": "mean",
             "standing_loss": "mean",
             "efficiency_store": "mean",
-            "p_min_pu": "min",
+            "p_min_pu": "mean",
             "p_nom_extendable": ext_storage,
             "p_nom_max": sum_with_inf,
             "scn_name": "first",
