@@ -56,16 +56,15 @@ args = {
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
         "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "formulation": "linopy",
-        "market_optimization":
-            {
-                "active": True,
-                "market_zones": "status_quo", # only used if type='market_grid'
-                "rolling_horizon": {# Define parameter of market optimization
-                    "planning_horizon": 168, # number of snapshots in each optimization
-                    "overlap": 120, # number of overlapping hours
-                 },
-                "redispatch": True,
-             }
+        "market_optimization": {
+            "active": True,
+            "market_zones": "status_quo",  # only used if type='market_grid'
+            "rolling_horizon": {  # Define parameter of market optimization
+                "planning_horizon": 168,  # number of snapshots in each optimization
+                "overlap": 120,  # number of overlapping hours
+            },
+            "redispatch": True,
+        },
     },
     "pf_post_lopf": {
         "active": False,  # choose if perform a pf after lopf
@@ -187,7 +186,7 @@ def run_etrago(args, json_path):
     Parameters
     ----------
     db : str
-        Name of Database session setting stored in *config.ini* within 
+        Name of Database session setting stored in *config.ini* within
         *.etrago_database/* in case of local database,
         or  ``'test-oep'`` or ``'oedb'`` to load model from OEP.
     gridversion : None or str
@@ -267,7 +266,7 @@ def run_etrago(args, json_path):
         for larger networks.
         Default: "kirchhoff".
     scn_name : str
-         Choose your scenario. For an overview of available scenarios, see the 
+         Choose your scenario. For an overview of available scenarios, see the
          documentation on Read the Docs.
     scn_extension : None or list of str
 
