@@ -602,13 +602,27 @@ def set_unit_commitment(self, apply_on):
         return
 
     # set UC constraints
-    unit_commitment_fpath = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "data",
-        "unit_commitment.csv",
+    unit_commitment = pd.DataFrame(
+        {
+            "OCGT": [1.0, 0.2, 0.2, 0.2, 0.0, 0.0, 9.6],
+            "CCGT": [1.0, 0.45, 0.45, 0.45, 3.0, 2.0, 34.2],
+            "coal": [1.0, 0.38, 0.38, 0.325, 5.0, 6.0, 35.64],
+            "lignite": [1.0, 0.40, 0.40, 0.40, 7.0, 6.0, 19.14],
+            "nuclear": [0.3, 0.5, 0.5, 0.5, 6.0, 10.0, 16.5],
+        },
+        index=[
+            "ramp_limit_up",
+            "ramp_limit_start_up",
+            "ramp_limit_shut_down",
+            "p_min_pu",
+            "min_up_time",
+            "min_down_time",
+            "start_up_cost",
+        ],
     )
-    unit_commitment = pd.read_csv(unit_commitment_fpath, index_col=0)
-    unit_commitment.fillna(0, inplace=True)
+
+    unit_commitment.index.name = "attribute"
+
     committable_attrs = network.generators.carrier.isin(
         unit_commitment
     ).to_frame("committable")

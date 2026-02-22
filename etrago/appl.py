@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2023  Flensburg University of Applied Sciences,
+# Copyright 2015-2026
+#  Flensburg University of Applied Sciences,
 # Europa-Universität Flensburg,
 # Centre for Sustainable Energy Systems,
 # DLR-Institute for Networked Energy Systems
@@ -28,6 +29,7 @@ the function run_etrago.
 import datetime
 import os
 import os.path
+import pandas as pd
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -49,7 +51,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "oep",  # database session: oep or local database
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
@@ -185,7 +187,7 @@ def run_etrago(args, json_path):
     Parameters
     ----------
     db : str
-        Name of Database session setting stored in *config.ini* within 
+        Name of Database session setting stored in *config.ini* within
         *.etrago_database/* in case of local database,
         or  ``'test-oep'`` or ``'oedb'`` to load model from OEP.
     gridversion : None or str
@@ -265,7 +267,7 @@ def run_etrago(args, json_path):
         for larger networks.
         Default: "kirchhoff".
     scn_name : str
-         Choose your scenario. For an overview of available scenarios, see the 
+         Choose your scenario. For an overview of available scenarios, see the
          documentation on Read the Docs.
     scn_extension : None or list of str
 

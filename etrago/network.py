@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2023  Flensburg University of Applied Sciences,
+# Copyright 2015-2026
+#  Flensburg University of Applied Sciences,
 # Europa-Universität Flensburg,
 # Centre for Sustainable Energy Systems,
 # DLR-Institute for Networked Energy Systems
