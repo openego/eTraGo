@@ -121,7 +121,7 @@ args = {
     },
     "network_clustering": {
         "method": {
-            "focus_region": ["Region Hannover"],  # None, shape-file or list with string for Kreise
+            "focus_region": "focus-region/hannover.shp",  # None, shape-file or list with string for Kreise
             "algorithm": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
             "remove_stubs": False,  # remove stubs before kmeans clustering
             "use_reduced_coordinates": False,  # if True, do not average cluster coordinates in kmeans
@@ -697,7 +697,7 @@ if __name__ == "__main__":
 
     print(datetime.datetime.now())
     
-    spatial_resolution = [30, 300, 3000, 10000]
+    spatial_resolution = [30, 300, 10000]
     
     for i in range (0, len(spatial_resolution)):
             

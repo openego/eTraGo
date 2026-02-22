@@ -833,7 +833,10 @@ def focus_weighting(
     else:
         focus_gdf = gpd.read_file(focus_region)
    
-    focus_gdf.set_crs(epsg=4326)
+    if focus_gdf.crs is None:
+        focus_gdf = focus_gdf.set_crs(epsg=4326)
+    elif focus_gdf.crs.to_epsg() != 4326:
+        focus_gdf = focus_gdf.to_crs(epsg=4326)
     focus_gdf = focus_gdf.to_crs(epsg=25832)
     focus_polygon = focus_gdf.geometry.unary_union
 
