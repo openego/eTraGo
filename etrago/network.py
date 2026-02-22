@@ -68,7 +68,7 @@ from etrago.cluster.gas import run_spatial_clustering_gas
 from etrago.cluster.temporal import skip_snapshots, snapshot_clustering
 from etrago.disaggregate.spatial import run_disaggregation
 from etrago.disaggregate.temporal import dispatch_disaggregation
-from etrago.execute import lopf, optimize, run_pf_post_lopf
+from etrago.execute import lopf, optimize, run_pf_post_lopf, run_power_flow
 from etrago.execute.grid_optimization import (
     add_redispatch_generators,
     grid_optimization,
@@ -340,6 +340,8 @@ class Etrago:
     temporal_disaggregation = dispatch_disaggregation
 
     pf_post_lopf = run_pf_post_lopf
+    
+    power_flow = run_power_flow
 
     spatial_disaggregation = run_disaggregation
 
@@ -522,3 +524,138 @@ class Etrago:
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
+    
+def import_egon_results(etrago, path):
+    
+    # to check function
+    network=etrago.network.copy()
+    
+    import pypsa
+    ego = pypsa.Network(path)
+    
+    # take over snapshot
+    etrago.network.set_snapshots(ego.snapshots)
+    
+    # delete components in imported network
+    components = {
+    "Generator": "generators",
+    "Load": "loads",
+    "StorageUnit": "storage_units",
+    "Store": "stores",
+    "Link": "links",
+    }
+    for comp, attr in components.items():
+        df = getattr(etrago.network, attr)
+        for name in df.index:
+            etrago.network.remove(comp, name)
+            
+    # import components from optimised egon-network
+    
+    # import generators incl. timeseries
+    etrago.network.import_components_from_dataframe(
+        ego.generators,
+        "Generator"
+    )
+    for attr, df in ego.generators_t.items():
+        etrago.network.import_series_from_dataframe(
+            df,
+            "Generator",
+            attr
+        )
+    
+    # import loads incl. timeseries
+    etrago.network.import_components_from_dataframe(
+        ego.loads,
+        "Load"
+    )
+    for attr, df in ego.loads_t.items():
+        etrago.network.import_series_from_dataframe(
+            df,
+            "Load",
+            attr
+        )
+    
+    # import storage units incl. timeseries
+    for attr, df in ego.storage_units_t.items():
+        etrago.network.import_series_from_dataframe(
+            df,
+            "StorageUnit",
+            attr
+        )
+    etrago.network.import_components_from_dataframe(
+        ego.storage_units,
+        "StorageUnit"
+    )
+
+    # import stores incl. timeseries
+    for attr, df in ego.stores_t.items():
+        etrago.network.import_series_from_dataframe(
+            df,
+            "Store",
+            attr
+        ) 
+    etrago.network.import_components_from_dataframe(
+        ego.stores,
+        "Store"
+    )
+    
+    # import links incl. timeseries
+    etrago.network.import_components_from_dataframe(
+        ego.links,
+        "Link"
+    )
+    for attr, df in ego.links_t.items():
+        etrago.network.import_series_from_dataframe(
+            df,
+            "Link",
+            attr
+        )
+        
+    # set resulting timeseries as input for pf
+    
+    if "p" in etrago.network.generators_t:
+        etrago.network.generators_t.p_set = (
+            etrago.network.generators_t.p.copy()
+        )
+        
+    if "p" in etrago.network.storage_units_t:
+        etrago.network.storage_units_t.p_set = (
+            etrago.network.storage_units_t.p.copy()
+        )
+        
+    if "p" in etrago.network.stores_t:
+        etrago.network.stores_t.p_set = (
+            etrago.network.stores_t.p.copy()
+        )
+        
+    if "p0" in etrago.network.links_t:
+        etrago.network.links_t.p_set = (
+            etrago.network.links_t.p0.copy()
+        )
+        
+    # set extendable to False
+    
+    etrago.network.generators.p_nom_extendable = False
+    etrago.network.storage_units.p_nom_extendable = False
+    etrago.network.stores.e_nom_extendable = False
+    etrago.network.links.p_nom_extendable = False
+    
+    # delete former result timeseries
+    
+    keep_attrs = {"q_set", "p_set", "p_min_pu", "p_max_pu", "e_min_pu", "e_max_pu", "efficiency"}
+    components_t = [
+        etrago.network.generators_t,
+        etrago.network.links_t,
+        etrago.network.storage_units_t,
+        etrago.network.stores_t,
+        etrago.network.loads_t
+        ]
+    for container in components_t:
+        for attr in list(container.keys()):
+            if attr not in keep_attrs:
+                del container[attr]
+
+
+
+
+

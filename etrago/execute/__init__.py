@@ -29,6 +29,7 @@ if "READTHEDOCS" not in os.environ:
 
     from pypsa.linopf import network_lopf
     from pypsa.pf import sub_network_pf
+    from pypsa.pf import sub_network_lpf
     import numpy as np
     import pandas as pd
 
@@ -573,6 +574,195 @@ def run_pf_post_lopf(self):
 
     if self.args["pf_post_lopf"]["active"]:
         pf_post_lopf(self)
+
+def run_power_flow(etrago):
+    
+    def drop_foreign_components(network):
+        """
+        Function that drops foreign components which are only connected via
+        DC-links and saves their optimization results in pd.DataFrame.
+
+        Parameters
+        ----------
+        network : pypsa.Network object
+            Container for all network components.
+
+        Returns
+        -------
+        None.
+
+        """
+
+        # Create series for constant loads
+        constant_loads = network.loads[network.loads.p_set != 0]["p_set"]
+        for load in constant_loads.index:
+            network.loads_t.p_set[load] = constant_loads[load]
+        network.loads.p_set = 0
+
+        n_bus = pd.Series(index=network.sub_networks.index)
+
+        for i in network.sub_networks.index:
+            n_bus[i] = len(network.buses.index[network.buses.sub_network == i])
+
+        sub_network_DE = n_bus.index[n_bus == n_bus.max()]
+
+        foreign_bus = network.buses[
+            (network.buses.sub_network != sub_network_DE.values[0])
+            & (network.buses.country != "DE")
+        ]
+
+        foreign_comp = {
+            "Bus": network.buses[network.buses.index.isin(foreign_bus.index)],
+            "Generator": network.generators[
+                network.generators.bus.isin(foreign_bus.index)
+            ],
+            "Load": network.loads[network.loads.bus.isin(foreign_bus.index)],
+            "Transformer": network.transformers[
+                network.transformers.bus0.isin(foreign_bus.index)
+            ],
+            "StorageUnit": network.storage_units[
+                network.storage_units.bus.isin(foreign_bus.index)
+            ],
+            "Store": network.stores[
+                network.stores.bus.isin(foreign_bus.index)
+            ],
+        }
+
+        foreign_series = {
+            "Bus": network.buses_t.copy(),
+            "Generator": network.generators_t.copy(),
+            "Load": network.loads_t.copy(),
+            "Transformer": network.transformers_t.copy(),
+            "StorageUnit": network.storage_units_t.copy(),
+            "Store": network.stores_t.copy(),
+        }
+
+        for comp in sorted(foreign_series):
+            attr = sorted(foreign_series[comp])
+            for a in attr:
+                if (
+                    not foreign_series[comp][a].empty
+                    and not (foreign_series[comp][a] == 0.0).all().all()
+                ):
+                    if a != "p_max_pu":
+                        if a in ["q_set", "e_max_pu", "e_min_pu"]:
+                            g_in_q_set = foreign_comp[comp][
+                                foreign_comp[comp].index.isin(
+                                    foreign_series[comp][a].columns
+                                )
+                            ]
+                            foreign_series[comp][a] = foreign_series[comp][a][
+                                g_in_q_set.index
+                            ]
+                        else:
+                            foreign_series[comp][a] = foreign_series[comp][a][
+                                foreign_comp[comp].index
+                            ]
+
+                    else:
+                        foreign_series[comp][a] = foreign_series[comp][a][
+                            foreign_comp[comp][
+                                foreign_comp[comp].index.isin(
+                                    network.generators_t.p_max_pu.columns
+                                )
+                            ].index
+                        ]
+
+        # Drop components
+        network.buses = network.buses.drop(foreign_bus.index)
+        network.generators = network.generators[
+            network.generators.bus.isin(network.buses.index)
+        ]
+        network.loads = network.loads[
+            network.loads.bus.isin(network.buses.index)
+        ]
+        network.transformers = network.transformers[
+            network.transformers.bus0.isin(network.buses.index)
+        ]
+        network.storage_units = network.storage_units[
+            network.storage_units.bus.isin(network.buses.index)
+        ]
+        network.stores = network.stores[
+            network.stores.bus.isin(network.buses.index)
+        ]
+
+        return foreign_bus, foreign_comp, foreign_series
+
+    x = time.time()
+    network = etrago.network
+    args = etrago.args
+
+    network.determine_network_topology()
+
+    # if foreign lines are DC, execute pf only on sub_network in Germany
+    '''if (args["foreign_lines"]["carrier"] == "DC") or (
+        (args["scn_extension"] is not None)
+        and ("BE_NO_NEP 2035" in args["scn_extension"])
+    ):
+        foreign_bus, foreign_comp, foreign_series = drop_foreign_components(
+            network
+        )'''
+
+    # Assign generators control strategy
+    ac_bus = network.buses[network.buses.carrier == "AC"]
+    network.generators.control[network.generators.bus.isin(ac_bus.index)] = (
+        "PV"
+    )
+    network.generators.control[
+        network.generators.carrier == "load shedding"
+    ] = "PQ"
+
+    ## Find out the name of the main subnetwork
+    #main_subnet = str(network.buses.sub_network.value_counts().argmax())
+
+    # Delete very small p_set and q_set values to avoid problems when solving
+    network.generators_t["p_set"][
+        np.abs(network.generators_t["p_set"]) < 0.001
+    ] = 0
+    network.generators_t["q_set"][
+        np.abs(network.generators_t["q_set"]) < 0.001
+    ] = 0
+    network.loads_t["p_set"][np.abs(network.loads_t["p_set"]) < 0.001] = 0
+    network.loads_t["q_set"][np.abs(network.loads_t["q_set"]) < 0.001] = 0
+    network.storage_units_t["p_set"][
+        np.abs(network.storage_units_t["p_set"]) < 0.001
+    ] = 0
+    network.storage_units_t["q_set"][
+        np.abs(network.storage_units_t["p_set"]) < 0.001
+    ] = 0
+    
+    if args["csv_export"]:
+        path = args["csv_export"] + "/vor-lpf"
+        etrago.export_to_csv(path)
+    
+    # execute lpf  
+    network.lpf()
+
+    y = time.time()
+    z = (y - x) / 60
+    print("Time for PF [min]:", round(z, 2))
+
+    # if selected, copy lopf results of neighboring countries to network
+    '''if (
+        (args["foreign_lines"]["carrier"] == "DC")
+        or (
+            (args["scn_extension"] is not None)
+            and ("BE_NO_NEP 2035" in args["scn_extension"])
+        )
+    ) and etrago.args["pf_post_lopf"]["add_foreign_lopf"]:
+        for comp in sorted(foreign_series):
+            network.import_components_from_dataframe(foreign_comp[comp], comp)
+
+            for attr in sorted(foreign_series[comp]):
+                network.import_series_from_dataframe(
+                    foreign_series[comp][attr], comp, attr
+                )'''
+
+    if args["csv_export"]:
+        path = args["csv_export"] + "/lpf"
+        etrago.export_to_csv(path)
+
+    return network
 
 
 def pf_post_lopf(etrago, calc_losses=False):

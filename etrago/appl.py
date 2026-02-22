@@ -28,7 +28,6 @@ the function run_etrago.
 import datetime
 import os
 import os.path
-import pandas as pd
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -46,6 +45,7 @@ if "READTHEDOCS" not in os.environ:
     # Do not import internal packages directly
 
     from etrago import Etrago
+    from etrago.network import import_egon_results
 
 args = {
     # Setup and Configuration:
@@ -54,7 +54,7 @@ args = {
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
         "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        "formulation": "pyomo",
+        "formulation": "linopy",
         "market_optimization": {
             "active": False,
             "market_zones": "status_quo",  # only used if type='market_grid'
@@ -71,7 +71,7 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 8760,
+    "end_snapshot": 1,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -163,14 +163,14 @@ args = {
         "n_clusters": 5,  # number of periods - only relevant for 'typical_periods'
         "n_segments": 5,  # number of segments - only relevant for segmentation
     },
-    "skip_snapshots": 5,  # False or number of snapshots to skip
+    "skip_snapshots": False,  # False or number of snapshots to skip
     "temporal_disaggregation": {
         "active": False,  # choose if temporally full complex dispatch optimization should be conducted
         "no_slices": 8,  # number of subproblems optimization is divided into
     },
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
-    "load_shedding": True,  # meet the demand at value of loss load cost
+    "load_shedding": False,  # meet the demand at value of loss load cost
     "foreign_lines": {
         "carrier": "DC",  # 'DC' for modeling foreign lines as links
         "capacity": "osmTGmod",  # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
@@ -646,34 +646,41 @@ def run_etrago(args, json_path):
 
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
+    
+    # define calculation case for power flow
+    egon_path = "ego-big-results/ehvhv_level/lowflex_network_1_hour.nc"
+    import_egon_results(etrago, egon_path)
 
     # ehv network clustering
-    etrago.ehv_clustering()
+    #etrago.ehv_clustering()
 
     # spatial clustering
     etrago.spatial_clustering()
     etrago.spatial_clustering_gas()
 
     # snapshot clustering
-    etrago.snapshot_clustering()
+    #etrago.snapshot_clustering()
 
     # skip snapshots
-    etrago.skip_snapshots()
+    #etrago.skip_snapshots()
+    
+    # conduct power flow
+    etrago.power_flow()
 
     # start linear optimal powerflow calculations
-    etrago.optimize()
+    #etrago.optimize()
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
-    etrago.temporal_disaggregation()
+    #etrago.temporal_disaggregation()
 
     # start power flow based on lopf results
-    etrago.pf_post_lopf()
+    #etrago.pf_post_lopf()
 
     # spatial disaggregation
-    etrago.spatial_disaggregation()
+    #etrago.spatial_disaggregation()
 
     # calculate central etrago results
-    etrago.calc_results()
+    #etrago.calc_results()
 
     return etrago
 
@@ -688,13 +695,13 @@ if __name__ == "__main__":
 
     print(datetime.datetime.now())
     
-    spatial_resolution = [50, 100, 150, 200, 250, 300]
+    spatial_resolution = [30, 300, 3000, 10000]
     
     for i in range (0, len(spatial_resolution)):
             
         args['network_clustering']['electricity_grid']['n_clusters'] = spatial_resolution[i]
         
-        args['csv_export'] = 'Zooming-Tests/AC-'+str(args['network_clustering']['electricity_grid']['n_clusters'])
+        args['csv_export'] = 'Zooming-Tests/full-res/AC-'+str(args['network_clustering']['electricity_grid']['n_clusters'])
         
         old_stdout = sys.stdout
         path_log = args['csv_export']
