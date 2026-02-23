@@ -64,7 +64,7 @@ args = {
             },
             "redispatch": True,
         },
-        "distribution_grids": "distribution_grid_results_mv_clustering_sq.csv", # False or path to file with edisgo results
+        "distribution_grids": "distribution_grid_results_all_cases_sq.csv", # False or path to file with edisgo results
     },
     "pf_post_lopf": {
         "active": False,  # choose if perform a pf after lopf
