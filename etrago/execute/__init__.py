@@ -34,6 +34,7 @@ if "READTHEDOCS" not in os.environ:
     import pandas as pd
 
     from etrago.tools.constraints import Constraints
+    from etrago.tools.constraints import _get_crossborder_components
 
     logger = logging.getLogger(__name__)
 
@@ -395,6 +396,7 @@ def optimize_with_rolling_horizon(
     solver_name,
     extra_functionality,
     args,
+    temporal_disaggregation=False,
 ):
     """
     Optimizes the network in a rolling horizon fashion.
@@ -550,6 +552,11 @@ def optimize_with_rolling_horizon(
                     {**args, **args_addition}, False, apply_on="market_model"
                 ).functionality
 
+        if temporal_disaggregation:
+            args = update_extra_functionality_temporal_disaggregation(
+                n, pre_market, args, sns
+            )
+
         if args["method"]["formulation"] == "linopy":
             status, condition = n.optimize(
                 sns,
@@ -578,6 +585,110 @@ def optimize_with_rolling_horizon(
             )
 
     return n
+
+
+def update_extra_functionality_temporal_disaggregation(n, n_tsa, args, sns):
+
+    for key in args["extra_functionality"].keys():
+        if key == "cross_border_flow_per_country":
+            args = adjust_crossborder_flow_rolling_horizon(n, n_tsa, args, sns)
+            logger.info("Cross border flow constraint adjusted")
+
+        elif key in [
+            "max_line_ext",
+            "max_battery_expansion_germany",
+            "fixed_battery_expansion_germany",
+            "min_ely_capacity_germany",
+        ]:
+            logger.info(
+                "No adjustment for temporal disaggregation in constraint "
+                f"{key} needed."
+            )
+        else:
+            logger.warning(
+                "Adjustment for temporal disaggregation in constraint "
+                f"{key} needed but not implemented yet. Results of "
+                "temporal disaggregation might be incorrect."
+            )
+    return args
+
+
+def adjust_crossborder_flow_rolling_horizon(n, n_tsa, args, sns):
+
+    buses_de, buses_for, cb0, cb1, cb0_link, cb1_link = (
+        _get_crossborder_components(n)
+    )
+
+    line0 = n.lines.loc[cb0]
+    line0["country0"] = n.buses.loc[line0.bus0.values, "country"].values
+    line0["country1"] = n.buses.loc[line0.bus1.values, "country"].values
+
+    line1 = n.lines.loc[cb1]
+    line1["country0"] = n.buses.loc[line1.bus0.values, "country"].values
+    line1["country1"] = n.buses.loc[line1.bus1.values, "country"].values
+
+    link0 = n.links.loc[cb0_link]
+    link0["country0"] = n.buses.loc[link0.bus0.values, "country"].values
+    link0["country1"] = n.buses.loc[link0.bus1.values, "country"].values
+
+    link1 = n.links.loc[cb1_link]
+    link1["country0"] = n.buses.loc[link1.bus0.values, "country"].values
+    link1["country1"] = n.buses.loc[link1.bus1.values, "country"].values
+
+    n_tsa_sns = n_tsa.snapshots[n_tsa.snapshots.isin(sns)]
+    for cntr in args["extra_functionality"][
+        "cross_border_flow_per_country"
+    ].keys():
+        usage_tsa = (
+            (
+                n_tsa.lines_t.p0.loc[
+                    n_tsa_sns, line1[line1.country1 == cntr].index
+                ]
+                .sum(axis=1)
+                .mul(n_tsa.snapshot_weightings.loc[n_tsa_sns, "objective"])
+                .sum()
+            )
+            - (
+                n_tsa.lines_t.p0.loc[
+                    n_tsa_sns, line0[line0.country0 == cntr].index
+                ]
+                .sum(axis=1)
+                .mul(n_tsa.snapshot_weightings.loc[n_tsa_sns, "objective"])
+                .sum()
+            )
+            + (
+                n_tsa.links_t.p0.loc[
+                    n_tsa_sns, link1[link1.country1 == cntr].index
+                ]
+                .sum(axis=1)
+                .mul(n_tsa.snapshot_weightings.loc[n_tsa_sns, "objective"])
+                .sum()
+            )
+            - (
+                n_tsa.links_t.p0.loc[
+                    n_tsa_sns, link0[link0.country0 == cntr].index
+                ]
+                .sum(axis=1)
+                .mul(n_tsa.snapshot_weightings.loc[n_tsa_sns, "objective"])
+                .sum()
+            )
+        )
+        if usage_tsa >= 0:
+            args["extra_functionality"]["cross_border_flow_per_country"][cntr][
+                0
+            ] = (0.99 * usage_tsa)
+            args["extra_functionality"]["cross_border_flow_per_country"][cntr][
+                1
+            ] = (1.01 * usage_tsa)
+        else:
+            args["extra_functionality"]["cross_border_flow_per_country"][cntr][
+                1
+            ] = (0.99 * usage_tsa)
+            args["extra_functionality"]["cross_border_flow_per_country"][cntr][
+                0
+            ] = (1.01 * usage_tsa)
+
+    return args
 
 
 def import_gen_from_links(network, drop_small_capacities=True):

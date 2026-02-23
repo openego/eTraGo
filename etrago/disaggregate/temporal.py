@@ -179,6 +179,7 @@ def dispatch_disaggregation(self):
                 self.args, False, apply_on="market_model"
             ).functionality,
             args=self.args,
+            temporal_disaggregation=True,
         )
 
         # switch to temporally fully resolved network as standard network,
