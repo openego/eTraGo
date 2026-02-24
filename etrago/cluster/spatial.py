@@ -821,10 +821,17 @@ def kmedoids_dijkstra_clustering(
 
 
 def focus_weighting(
-    etrago, network, weight, focus_region, cluster_within, cpu_cores, func='sigmoid-50', save=None
+    etrago,
+    network,
+    weight,
+    focus_region,
+    cluster_within,
+    cpu_cores,
+    func="sigmoid-50",
+    save=None,
 ):
 
-    # prepare focus region gdf 
+    # prepare focus region gdf
     if isinstance(focus_region, list):
         if "oep.iks.cs.ovgu.de" in str(etrago.engine.url):
             saio.register_schema("tables", etrago.engine)
@@ -845,32 +852,39 @@ def focus_weighting(
     )
     buses_gdf = gpd.GeoDataFrame(buses_df, geometry="geometry", crs=4326)
     buses_gdf = buses_gdf.to_crs(epsg=25832)
-    
+
     # check and adapt CRS
     if focus_gdf.crs is None:
         raise ValueError("CRS of your focus region must be imported.")
     # In Bus-CRS transformieren
     focus_gdf = focus_gdf.to_crs(buses_gdf.crs)
-    focus_polygon = focus_gdf.geometry.unary_union 
-    
+    focus_polygon = focus_gdf.geometry.unary_union
+
     # identify buses within focus region
     mask = buses_gdf.geometry.within(focus_polygon)
     inside = buses_gdf[mask]
     outside = buses_gdf[~mask]
-    
+
     # calc distance from buses to focus region
     # Dijkstra's algorithm will be used for path lengths of lines
     # considering buses at border of focus region to consider its size
     if "AC" in network.buses.carrier.unique():
         lines_cross = network.lines[
-        (network.lines.bus0.isin(inside.index)) ^ (network.lines.bus1.isin(inside.index))]
-        border_buses = buses_gdf.loc[list(set(lines_cross.bus0).union(lines_cross.bus1)-set(inside.index))]
+            (network.lines.bus0.isin(inside.index))
+            ^ (network.lines.bus1.isin(inside.index))
+        ]
+        border_buses = buses_gdf.loc[
+            list(
+                set(lines_cross.bus0).union(lines_cross.bus1)
+                - set(inside.index)
+            )
+        ]
         paths = list(product(outside.index, border_buses.index))
     elif "CH4" in network.buses.carrier.unique():
         ch4_links = network.links[network.links.carrier == "CH4"]
         links_cross = ch4_links[
-            (ch4_links.bus0.isin(inside.index)) ^
-            (ch4_links.bus1.isin(inside.index))
+            (ch4_links.bus0.isin(inside.index))
+            ^ (ch4_links.bus1.isin(inside.index))
         ]
         border_buses = buses_gdf.loc[
             list(
@@ -882,8 +896,8 @@ def focus_weighting(
     elif "H2" in network.buses.carrier.unique():
         h2_links = network.links[network.links.carrier == "H2"]
         links_cross = h2_links[
-            (h2_links.bus0.isin(inside.index)) ^
-            (h2_links.bus1.isin(inside.index))
+            (h2_links.bus0.isin(inside.index))
+            ^ (h2_links.bus1.isin(inside.index))
         ]
         border_buses = buses_gdf.loc[
             list(
@@ -892,8 +906,7 @@ def focus_weighting(
             )
         ]
         paths = list(product(outside.index, border_buses.index))
-        
-    
+
     # graph creation
     if "AC" in network.buses.carrier.unique():
         edges = [
@@ -911,7 +924,7 @@ def focus_weighting(
             for ix, row in h2_links.iterrows()
         ]
     graph = graph_from_edges(edges)
-    
+
     # processor count
     if cpu_cores == "max":
         cpu_cores = mp.cpu_count()
@@ -923,12 +936,16 @@ def focus_weighting(
     chunksize = ceil(len(paths) / cpu_cores)
     container = p.starmap(shortest_path, gen(paths, chunksize, graph))
     dist = pd.concat(container)
-    dist = dist.loc[dist.groupby(level="source")["path_length"].idxmin()].droplevel("target")
-    
+    dist = dist.loc[
+        dist.groupby(level="source")["path_length"].idxmin()
+    ].droplevel("target")
+
     # set distances to 0 for buses within focus region
-    dist = pd.concat([dist, pd.DataFrame({"path_length": 0}, index=inside.index)])
-    dist=dist['path_length']
-    dist = dist[~dist.index.duplicated(keep='first')]
+    dist = pd.concat(
+        [dist, pd.DataFrame({"path_length": 0}, index=inside.index)]
+    )
+    dist = dist["path_length"]
+    dist = dist[~dist.index.duplicated(keep="first")]
 
     # to m
     dist = dist * 1000
@@ -953,7 +970,7 @@ def focus_weighting(
     elif func == "sigmoid-20":
         sigma = 20000
         factor = 1 / (1 + (dist / sigma) ** 2)
-        
+
     # Sigmoid-Abklingfunktion mit 50 km
     elif func == "sigmoid-50":
         sigma = 50000

@@ -1119,8 +1119,12 @@ def run_spatial_clustering_gas(self):
                     ch4_network,
                     weight_ch4,
                     focus_region,
-                    cluster_within=self.args["network_clustering"]["gas_grids"]["cluster_within_focus"],
-                    cpu_cores=self.args["network_clustering"]["method"]["cpu_cores"],
+                    cluster_within=self.args["network_clustering"][
+                        "gas_grids"
+                    ]["cluster_within_focus"],
+                    cpu_cores=self.args["network_clustering"]["method"][
+                        "cpu_cores"
+                    ],
                     save=self.args["network_clustering"]["gas_grids"][
                         "ch4_weight_tocsv"
                     ],
@@ -1135,8 +1139,12 @@ def run_spatial_clustering_gas(self):
                         h2_network,
                         weight_h2,
                         focus_region,
-                        cluster_within=self.args["network_clustering"]["gas_grids"]["cluster_within_focus"],
-                        cpu_cores=self.args["network_clustering"]["method"]["cpu_cores"],
+                        cluster_within=self.args["network_clustering"][
+                            "gas_grids"
+                        ]["cluster_within_focus"],
+                        cpu_cores=self.args["network_clustering"]["method"][
+                            "cpu_cores"
+                        ],
                     )
 
             if method == "kmeans":
