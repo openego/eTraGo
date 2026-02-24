@@ -1088,18 +1088,13 @@ def run_spatial_clustering(self):
             "focus_region"
         ]
         if focus_region:
-
-            func = "sigmoid-100"
-            cluster_within = self.args["network_clustering"][
-                "electricity_grid"
-            ]["cluster_within_focus"]
             weight = focus_weighting(
                 self,
                 elec_network,
                 weight,
-                focus_region,
-                func,
-                cluster_within,
+                focus_region=focus_region,
+                cluster_within=self.args["network_clustering"]["electricity_grid"]["cluster_within_focus"],
+                cpu_cores=self.args["network_clustering"]["method"]["cpu_cores"],
                 save=self.args["network_clustering"]["electricity_grid"][
                     "bus_weight_tocsv"
                 ],

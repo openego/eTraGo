@@ -43,6 +43,7 @@ if "READTHEDOCS" not in os.environ:
     import numpy as np
     import pandas as pd
     import pypsa
+    import saio
 
     from etrago.tools.utilities import (
         buses_grid_linked,
@@ -531,7 +532,7 @@ def busmap_ehv_clustering(etrago):
     """
 
     if etrago.args["network_clustering_ehv"]["busmap"] is False:
-        cpu_cores = etrago.args["network_clustering_ehv"]["CPU_cores"]
+        cpu_cores = etrago.args["network_clustering_ehv"]["cpu_cores"]
         if cpu_cores == "max":
             cpu_cores = mp.cpu_count()
         else:
@@ -592,7 +593,7 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
     kmean_settings = etrago.args["network_clustering"]
 
     with threadpool_limits(
-        limits=kmean_settings["method"]["CPU_cores"], user_api=None
+        limits=kmean_settings["method"]["cpu_cores"], user_api=None
     ):
         # remove stubs
         if kmean_settings["method"]["remove_stubs"]:
@@ -755,7 +756,7 @@ def kmedoids_dijkstra_clustering(
     # to use threadpool_limits:
     # https://scikit-learn.org/stable/computing/parallelism.html
     with threadpool_limits(
-        limits=settings["method"]["CPU_cores"], user_api=None
+        limits=settings["method"]["cpu_cores"], user_api=None
     ):
         # remove stubs
         if settings["method"]["remove_stubs"]:
@@ -803,7 +804,7 @@ def kmedoids_dijkstra_clustering(
                 buses,
                 connections,
                 medoid_idx,
-                etrago.args["network_clustering"]["method"]["CPU_cores"],
+                etrago.args["network_clustering"]["method"]["cpu_cores"],
             )
         elif len(busmap) < n_clusters:
             logger.warning(
@@ -820,20 +821,22 @@ def kmedoids_dijkstra_clustering(
 
 
 def focus_weighting(
-    etrago, network, weight, focus_region, func, cluster_within, save=None
+    etrago, network, weight, focus_region, cluster_within, cpu_cores, func='sigmoid-50', save=None
 ):
 
-    # prepare focus region gdf
+    # prepare focus region gdf 
     if isinstance(focus_region, list):
-        con = etrago.engine
-        query = "SELECT gen, geometry FROM boundaries.vg250_krs"
-        focus_gdf = gpd.read_postgis(query, con, geom_col="geometry")
-        focus_gdf = focus_gdf[focus_gdf["gen"].isin(focus_region)]
+        if "oep.iks.cs.ovgu.de" in str(etrago.engine.url):
+            saio.register_schema("tables", etrago.engine)
+            from saio.tables import edut_00_012 as vg250_krs
+        else:
+            saio.register_schema("boundaries", etrago.engine)
+            from saio.boundaries import vg250_krs
+        query = etrago.session.query(vg250_krs)
+        krs = saio.as_pandas(query, geometry="geometry")
+        focus_gdf = krs[krs["gen"].isin(focus_region)]
     else:
         focus_gdf = gpd.read_file(focus_region)
-
-    focus_gdf = focus_gdf.to_crs(epsg=25832)
-    focus_polygon = focus_gdf.geometry.unary_union
 
     # prepare buses gdf
     buses_df = network.buses[["x", "y"]].copy()
@@ -842,20 +845,56 @@ def focus_weighting(
     )
     buses_gdf = gpd.GeoDataFrame(buses_df, geometry="geometry", crs=4326)
     buses_gdf = buses_gdf.to_crs(epsg=25832)
-
+    
+    # check and adapt CRS
+    if focus_gdf.crs is None:
+        raise ValueError("CRS of your focus region must be imported.")
+    # In Bus-CRS transformieren
+    focus_gdf = focus_gdf.to_crs(buses_gdf.crs)
+    focus_polygon = focus_gdf.geometry.unary_union 
+    
+    # identify buses within focus region
+    mask = buses_gdf.geometry.within(focus_polygon)
+    inside = buses_gdf[mask]
+    outside = buses_gdf[~mask]
+    
     # calc distance from buses to focus region
-
-    ## geographical
-    buses_gdf["distance_to_focus"] = buses_gdf.geometry.distance(focus_polygon)
-    distgeo = buses_gdf["distance_to_focus"]
-
-    ## electrical (paths with dijkstra)
-    # define centroid as base bus for focus region
-    centroid = focus_polygon.centroid
-    buses_gdf["dist"] = buses_gdf.geometry.distance(centroid)
-    central = [buses_gdf.loc[buses_gdf["dist"].idxmin()].name]
-    paths = list(product(network.buses.index, central))
-
+    # Dijkstra's algorithm will be used for path lengths of lines
+    # considering buses at border of focus region to consider its size
+    if "AC" in network.buses.carrier.unique():
+        lines_cross = network.lines[
+        (network.lines.bus0.isin(inside.index)) ^ (network.lines.bus1.isin(inside.index))]
+        border_buses = buses_gdf.loc[list(set(lines_cross.bus0).union(lines_cross.bus1)-set(inside.index))]
+        paths = list(product(outside.index, border_buses.index))
+    elif "CH4" in network.buses.carrier.unique():
+        ch4_links = network.links[network.links.carrier == "CH4"]
+        links_cross = ch4_links[
+            (ch4_links.bus0.isin(inside.index)) ^
+            (ch4_links.bus1.isin(inside.index))
+        ]
+        border_buses = buses_gdf.loc[
+            list(
+                set(links_cross.bus0).union(links_cross.bus1)
+                - set(inside.index)
+            )
+        ]
+        paths = list(product(outside.index, border_buses.index))
+    elif "H2" in network.buses.carrier.unique():
+        h2_links = network.links[network.links.carrier == "H2"]
+        links_cross = h2_links[
+            (h2_links.bus0.isin(inside.index)) ^
+            (h2_links.bus1.isin(inside.index))
+        ]
+        border_buses = buses_gdf.loc[
+            list(
+                set(links_cross.bus0).union(links_cross.bus1)
+                - set(inside.index)
+            )
+        ]
+        paths = list(product(outside.index, border_buses.index))
+        
+    
+    # graph creation
     if "AC" in network.buses.carrier.unique():
         edges = [
             (row.bus0, row.bus1, row.length, ix)
@@ -864,16 +903,32 @@ def focus_weighting(
     elif "CH4" in network.buses.carrier.unique():
         edges = [
             (row.bus0, row.bus1, row.length, ix)
-            for ix, row in network.links.iterrows()
+            for ix, row in ch4_links.iterrows()
         ]
-
+    elif "H2" in network.buses.carrier.unique():
+        edges = [
+            (row.bus0, row.bus1, row.length, ix)
+            for ix, row in h2_links.iterrows()
+        ]
     graph = graph_from_edges(edges)
-    dist = nx.single_source_dijkstra_path_length(graph, central[0])
-    dist = pd.Series(dist)
-    # set distances to 0 for buses within focus rerion
-    mask = buses_gdf.geometry.within(focus_polygon)
-    indizes = buses_gdf[mask].index
-    dist.loc[indizes] = 0
+    
+    # processor count
+    if cpu_cores == "max":
+        cpu_cores = mp.cpu_count()
+    else:
+        cpu_cores = int(cpu_cores)
+
+    # calculation of shortest path using multiprocessing
+    p = mp.Pool(cpu_cores)
+    chunksize = ceil(len(paths) / cpu_cores)
+    container = p.starmap(shortest_path, gen(paths, chunksize, graph))
+    dist = pd.concat(container)
+    dist = dist.loc[dist.groupby(level="source")["path_length"].idxmin()].droplevel("target")
+    
+    # set distances to 0 for buses within focus region
+    dist = pd.concat([dist, pd.DataFrame({"path_length": 0}, index=inside.index)])
+    dist=dist['path_length']
+    dist = dist[~dist.index.duplicated(keep='first')]
 
     # to m
     dist = dist * 1000
@@ -898,6 +953,11 @@ def focus_weighting(
     elif func == "sigmoid-20":
         sigma = 20000
         factor = 1 / (1 + (dist / sigma) ** 2)
+        
+    # Sigmoid-Abklingfunktion mit 50 km
+    elif func == "sigmoid-50":
+        sigma = 50000
+        factor = 1 / (1 + (dist / sigma) ** 2)
 
     # Sigmoid-Abklingfunktion mit 100 km
     elif func == "sigmoid-100":
@@ -909,7 +969,7 @@ def focus_weighting(
     weight = weight.apply(np.ceil)
 
     if cluster_within == False:
-        weight.loc[indizes] = 100000
+        weight.loc[inside.index] = 100000
 
     if save:
         weight.to_csv(save)

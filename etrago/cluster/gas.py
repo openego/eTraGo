@@ -1114,17 +1114,13 @@ def run_spatial_clustering_gas(self):
             ]
             if focus_region:
 
-                func = "sigmoid-20"
-                cluster_within = self.args["network_clustering"]["gas_grids"][
-                    "cluster_ch4_within_focus"
-                ]
                 weight_ch4 = focus_weighting(
                     self,
                     ch4_network,
                     weight_ch4,
                     focus_region,
-                    func,
-                    cluster_within,
+                    cluster_within=self.args["network_clustering"]["gas_grids"]["cluster_within_focus"],
+                    cpu_cores=self.args["network_clustering"]["method"]["cpu_cores"],
                     save=self.args["network_clustering"]["gas_grids"][
                         "ch4_weight_tocsv"
                     ],
@@ -1139,8 +1135,8 @@ def run_spatial_clustering_gas(self):
                         h2_network,
                         weight_h2,
                         focus_region,
-                        func,
-                        cluster_within,
+                        cluster_within=self.args["network_clustering"]["gas_grids"]["cluster_within_focus"],
+                        cpu_cores=self.args["network_clustering"]["method"]["cpu_cores"],
                     )
 
             if method == "kmeans":

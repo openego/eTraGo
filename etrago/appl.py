@@ -51,15 +51,15 @@ if "READTHEDOCS" not in os.environ:
 args = {
     # Setup and Configuration:
     "db": "oep",  # database session: oep or local database
-    "gridversion": None,  # None for model_draft or Version number
-    "method": {  # Choose method and settings for optimization
+    "gridversion": None,  # None for model_draft or version number
+    "method": {  # choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
         "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "formulation": "linopy",
         "market_optimization": {
             "active": True,
             "market_zones": "status_quo",  # only used if type='market_grid'
-            "rolling_horizon": {  # Define parameter of market optimization
+            "rolling_horizon": {  # define parameter of market optimization
                 "planning_horizon": 168,  # number of snapshots in each optimization
                 "overlap": 120,  # number of overlapping hours
             },
@@ -85,10 +85,10 @@ args = {
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # scenario, e.g. eGon2035, eGon2035_lowflex or status2019
-    # Scenario variations:
+    # Scenario Variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
-    # Export options:
+    # Export Options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
     "csv_export": "results",  # save results as csv: False or /path/tofolder
     # Settings:
@@ -116,25 +116,25 @@ args = {
     "network_clustering_ehv": {
         "active": False,  # choose if clustering of HV buses to EHV buses is activated
         "busmap": False,  # False or path to stored busmap
-        "CPU_cores": 4,  # number of cores used during clustering, "max" for all cores available.
+        "cpu_cores": 4,  # number of cores used during clustering, "max" for all cores available.
     },
     "network_clustering": {
         "method": {
             "focus_region": None,  # None, shape-file or list with string for Kreise
             "algorithm": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
             "remove_stubs": False,  # remove stubs before kmeans clustering
-            "use_reduced_coordinates": False,  # if True, do not average cluster coordinates in kmeans
+            "use_reduced_coordinates": False,  # if True, do not average cluster coordinates (in remove stubs)
             "line_length_factor": 1,  # Factor to multiply distance between new buses for new line lengths
             "random_state": 42,  # random state for replicability of clustering results
             "n_init": 10,  # affects clustering algorithm, only change when neccesary
             "max_iter": 100,  # affects clustering algorithm, only change when neccesary
             "tol": 1e-6,  # affects clustering algorithm, only change when neccesary
-            "CPU_cores": 4,  # number of cores used during clustering, "max" for all cores available.
+            "cpu_cores": 4,  # number of cores used during clustering, "max" for all cores available.
         },
         "electricity_grid": {
             "active": True,  # choose if clustering is activated
-            "cluster_within_focus": False,  # False for no clustering within focus region
-            "n_clusters": 30,  # total number of resulting AC nodes
+            "cluster_within_focus": False,  # False for very low clustering within focus region
+            "n_clusters": 100,  # total number of resulting AC nodes
             "cluster_foreign": False,  # take foreign AC buses into account, True or False
             "k_elec_busmap": False,  # False or path/to/busmap.csv
             "bus_weight_tocsv": None,  # None or path/to/bus_weight.csv
@@ -142,9 +142,8 @@ args = {
         },
         "gas_grids": {
             "active": True,  # choose if clustering is activated
-            "cluster_ch4_within_focus": True,  #  False for no clustering within focus region
-            "n_clusters_ch4": 15,  # total number of resulting CH4 nodes
-            "cluster_h2_within_focus": True,  #  False for no clustering within focus region
+            "cluster_within_focus": False,  #  False for very low clustering within focus region
+            "n_clusters_ch4": 80,  # total number of resulting CH4 nodes
             "n_clusters_h2": 15,  # total number of resulting H2 nodes
             "cluster_foreign_ch4": False,  # take foreign CH4 buses into account, True or False
             "k_ch4_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -188,7 +187,7 @@ def run_etrago(args, json_path):
     db : str
         Name of Database session setting stored in *config.ini* within
         *.etrago_database/* in case of local database,
-        or  ``'test-oep'`` or ``'oedb'`` to load model from OEP.
+        or ``'oep'`` to load model from OEP.
     gridversion : None or str
         Name of the data version number of oedb: state ``'None'`` for
         model_draft (sand-box) or an explicit version number
@@ -503,17 +502,14 @@ def run_etrago(args, json_path):
             * "active": bool
                 If True, the AC buses are clustered down to ``'n_clusters'``.
                 Default: True.
-            * "cluster_ch4_within_focus": bool
-                If False, the CH4 buses within the focus region will not be clustered.
+            * "cluster_within_focus": bool
+                If False, the gas grid buses within the focus region will barely be clustered.
                 Default: True.
             * "n_clusters_ch4" : int
                 Defines total number of resulting CH4 nodes including DE and
                 foreign nodes if `cluster_foreign_gas` is set to True, otherwise
                 only DE nodes.
                 Default: 15.
-            * "cluster_h2_within_focus": bool
-                If False, the H2 buses within the focus region will not be clustered.
-                Default: True.
             * "n_clusters_h2" : int
                 Defines total number of resulting H2 nodes including DE and
                 foreign nodes if `cluster_foreign_gas` is set to True, otherwise
