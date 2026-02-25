@@ -412,8 +412,7 @@ def delete_ehv_buses_no_lines(network):
     ].index
 
     if len(delete_buses):
-        logger.info(
-            f"""
+        logger.info(f"""
 
                 ----------------------- WARNING ---------------------------
                 THE FOLLOWING BUSES WERE DELETED BECAUSE THEY WERE ISOLATED:
@@ -421,8 +420,7 @@ def delete_ehv_buses_no_lines(network):
                 IT IS POTENTIALLY A SIGN OF A PROBLEM IN THE DATASET
                 ----------------------- WARNING ---------------------------
 
-                """
-        )
+                """)
 
     network.mremove("Bus", delete_buses)
 
@@ -777,8 +775,7 @@ def preprocessing(etrago, apply_on="grid_model"):
     network.buses["v_nom"].loc[network.buses.carrier.values == "AC"] = 380.0
 
     if network.buses.country.isna().any():
-        logger.info(
-            f"""
+        logger.info(f"""
 
                 ----------------------- WARNING ---------------------------
                 THE FOLLOWING BUSES HAVE NOT COUNTRY DATA:
@@ -787,8 +784,7 @@ def preprocessing(etrago, apply_on="grid_model"):
                 SIGN OF A PROBLEM IN THE DATASET.
                 ----------------------- WARNING ---------------------------
 
-                """
-        )
+                """)
         network.buses.country.loc[network.buses.country.isna()] = "DE"
 
     if settings["k_elec_busmap"] is False:

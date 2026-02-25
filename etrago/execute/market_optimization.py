@@ -21,6 +21,7 @@
 """
 Defines the market optimization within eTraGo
 """
+
 import os
 
 if "READTHEDOCS" not in os.environ:
@@ -82,10 +83,8 @@ def market_optimization(self):
         )
 
         if status != "ok":
-            logger.warning(
-                f"""Optimization failed with status {status}
-                and condition {condition}"""
-            )
+            logger.warning(f"""Optimization failed with status {status}
+                and condition {condition}""")
 
     else:
         logger.warning("Method type must be either 'pyomo' or 'linopy'")
@@ -177,10 +176,8 @@ def optimize_with_rolling_horizon(
     for i, start in enumerate(starting_points):
         end = min(len(snapshots), start + horizon)
         sns = snapshots[start:end]
-        logger.info(
-            f"""Optimizing network for snapshot horizon
-            [{sns[0]}:{sns[-1]}] ({i+1}/{len(starting_points)})."""
-        )
+        logger.info(f"""Optimizing network for snapshot horizon
+            [{sns[0]}:{sns[-1]}] ({i+1}/{len(starting_points)}).""")
 
         if not n.stores.empty:
             stores_no_dsm = n.stores[
@@ -300,10 +297,8 @@ def optimize_with_rolling_horizon(
         )
 
         if status != "ok":
-            logger.warning(
-                f"""Optimization failed with status {status}
-                and condition {condition}"""
-            )
+            logger.warning(f"""Optimization failed with status {status}
+                and condition {condition}""")
             n.model.print_infeasibilities()
             import pdb
 
@@ -367,11 +362,9 @@ def build_market_model(self, unit_commitment=False):
         medoid_idx = pd.Series(dtype=str)
 
     else:
-        logger.warning(
-            f"""
+        logger.warning(f"""
             Market zone setting {self.args['method']['market_zones']}
-            is not available. Please use one of ['status_quo']."""
-        )
+            is not available. Please use one of ['status_quo'].""")
 
     logger.info("Start market zone specifc clustering")
 
