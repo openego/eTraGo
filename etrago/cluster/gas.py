@@ -238,24 +238,9 @@ def preprocessing(etrago, carrier, apply_on="grid_model"):
             weightings.to_csv(save)
         return weightings
 
-    # State whether to create a bus weighting and save it, create or not save
-    # it, or use a bus weighting from a csv file
-    if settings["ch4_weight_tocsv"] is not None:
-        weight_gas = weighting_for_scenario(
-            network_gas.buses,
-            settings["ch4_weight_tocsv"],
-        )
-    elif settings["ch4_weight_fromcsv"] is not None:
-        # create DataFrame with uniform weightings for all ch4_buses
-        weight_gas = pd.DataFrame([1] * len(buses_gas), index=buses_gas.index)
-        loaded_weights = pd.read_csv(
-            settings["ch4_weight_fromcsv"], index_col=0
-        )
-        # load weights into previously created DataFrame
-        loaded_weights.index = loaded_weights.index.astype(str)
-        weight_gas.loc[loaded_weights.index] = loaded_weights
-    else:
-        weight_gas = weighting_for_scenario(network_gas.buses, save=False)
+    # weight buses for clustering
+    weight_gas = weighting_for_scenario(network_gas.buses, save=False)
+    
     return network_gas, weight_gas.squeeze(axis=1), n_clusters
 
 
@@ -1125,15 +1110,10 @@ def run_spatial_clustering_gas(self):
                     cpu_cores=self.args["network_clustering"]["method"][
                         "cpu_cores"
                     ],
-                    save=self.args["network_clustering"]["gas_grids"][
-                        "ch4_weight_tocsv"
-                    ],
                 )
 
                 if "H2_grid" in self.network.links.carrier.unique():
-                    cluster_within = self.args["network_clustering"][
-                        "gas_grids"
-                    ]["cluster_h2_within_focus"]
+
                     weight_h2 = focus_weighting(
                         self,
                         h2_network,

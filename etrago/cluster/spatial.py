@@ -577,12 +577,6 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
         Removes stubs and stubby trees (i.e. sequentially reducing dead-ends).
     use_reduced_coordinates: boolean
         If True, do not average cluster coordinates, but take from busmap.
-    bus_weight_tocsv : str
-        Creates a bus weighting based on conventional generation and load
-        and save it to a csv file.
-    bus_weight_fromcsv : str
-        Loads a bus weighting from a csv file to apply it to the clustering
-        algorithm.
 
     Returns
     -------
@@ -828,7 +822,7 @@ def focus_weighting(
     cluster_within,
     cpu_cores,
     func="sigmoid-50",
-    save=None,
+    save=None
 ):
 
     # prepare focus region gdf

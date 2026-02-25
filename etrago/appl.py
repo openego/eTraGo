@@ -134,21 +134,17 @@ args = {
         "electricity_grid": {
             "active": True,  # choose if clustering is activated
             "cluster_within_focus": False,  # False for very low clustering within focus region
-            "n_clusters": 100,  # total number of resulting AC nodes
+            "n_clusters": 30,  # total number of resulting AC nodes
             "cluster_foreign": False,  # take foreign AC buses into account, True or False
             "k_elec_busmap": False,  # False or path/to/busmap.csv
-            "bus_weight_tocsv": None,  # None or path/to/bus_weight.csv
-            "bus_weight_fromcsv": None,  # None or path/to/bus_weight.csv
         },
         "gas_grids": {
             "active": True,  # choose if clustering is activated
             "cluster_within_focus": False,  #  False for very low clustering within focus region
-            "n_clusters_ch4": 80,  # total number of resulting CH4 nodes
+            "n_clusters_ch4": 15,  # total number of resulting CH4 nodes
             "n_clusters_h2": 15,  # total number of resulting H2 nodes
             "cluster_foreign_ch4": False,  # take foreign CH4 buses into account, True or False
             "k_ch4_busmap": False,  # False or path/to/ch4_busmap.csv
-            "ch4_weight_tocsv": None,  # None or path/to/gas_bus_weight.csv
-            "ch4_weight_fromcsv": None,  # None or path/to/gas_bus_weight.csv
             "sector_coupled_clustering": True,  # choose if clustering is activated
         },
     },
@@ -484,17 +480,6 @@ def run_etrago(args, json_path):
                 is loaded from the specified file. Please note, that when a path is
                 provided, the set number of clusters will be ignored.
                 Default: False.
-            * "bus_weight_fromcsv" : None or str
-                In general, the weighting of AC buses takes place considering
-                generation and load at each node. With this option, you can load an
-                own weighting for the AC buses by providing a path to a csv file.
-                If None, weighting is conducted as described above.
-                Default: None.
-            * "bus_weight_tocsv" : None or str
-                Specifies whether to store the weighting of AC buses to csv or not.
-                If None, it is not stored. Otherwise, it is stored to the provided
-                path/to/bus_weight.csv.
-                Default: None.
 
         * "gas_grids" : dict
             Choose clustering settings for CH4 and H2 grids:
@@ -529,18 +514,6 @@ def run_etrago(args, json_path):
                 is loaded from the specified file. Please note, that when a path is
                 provided, the set number of clusters will be ignored.
                 Default: False.
-            * "ch4_weight_fromcsv" : None or str
-                In general, the weighting of CH4 nodes takes place considering
-                generation and load at each node, as well as non-transport
-                capacities at each node. With this option, you can load an own
-                weighting for the CH4 buses by providing a path to a csv file. If
-                None, weighting is conducted as described above.
-                Default: None.
-            * "ch4_weight_tocsv" : None or str
-                Specifies whether to store the weighting of gas buses to csv or
-                not. If None, it is not stored. Otherwise, it is stored to the
-                provided path/to/gas_bus_weight.csv.
-                Default: None.
             * "sector_coupled_clustering" : bool
                 Choose if you want to apply a clustering of sector coupled carriers,
                 such as central_heat. You finde the specified settings in cluster/gas.py.
