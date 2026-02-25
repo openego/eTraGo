@@ -564,6 +564,7 @@ def optimize_with_rolling_horizon(
                 extra_functionality=extra_functionality,
                 assign_all_duals=True,
                 solver_options=args["solver_options"],
+                linearized_unit_commitment=True,
             )
 
             if status != "ok":
