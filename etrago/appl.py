@@ -54,9 +54,9 @@ args = {
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
         "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        "formulation": "pyomo",
+        "formulation": "linopy",
         "market_optimization": {
-            "active": False,
+            "active": True,
             "market_zones": "status_quo",  # only used if type='market_grid'
             "rolling_horizon": {  # Define parameter of market optimization
                 "planning_horizon": 168,  # number of snapshots in each optimization
@@ -64,7 +64,7 @@ args = {
             },
             "redispatch": True,
         },
-        "distribution_grids": "distribution_grid_results_all_cases_sq.csv", # False or path to file with edisgo results
+        "distribution_grids": False, # False or path to file with edisgo results
     },
     "pf_post_lopf": {
         "active": False,  # choose if perform a pf after lopf
@@ -153,14 +153,14 @@ args = {
     },
     "skip_snapshots": 5,  # False or number of snapshots to skip
     "temporal_disaggregation": {
-        "active": True,  # choose if temporally full complex dispatch optimization should be conducted
+        "active": False,  # choose if temporally full complex dispatch optimization should be conducted
         "no_slices": 8,  # number of subproblems optimization is divided into
     },
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": True,  # meet the demand at value of loss load cost
     "foreign_lines": {
-        "carrier": "DC",  # 'DC' for modeling foreign lines as links
+        "carrier": "AC",  # 'DC' for modeling foreign lines as links
         "capacity": "osmTGmod",  # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
     },
     "comments": None,
@@ -615,17 +615,12 @@ def run_etrago(args, json_path):
     # spatial clustering
     etrago.spatial_clustering()
     etrago.spatial_clustering_gas()
-    etrago.network.storage_units.max_hours = etrago.network.storage_units.max_hours.round(1)
 
     # snapshot clustering
     etrago.snapshot_clustering()
 
     # skip snapshots
     etrago.skip_snapshots()
-
-    etrago.network.links[
-        etrago.network.links.carrier == "central_gas_boiler"
-    ].p_nom *= 10000
 
     # start linear optimal powerflow calculations
     etrago.optimize()
