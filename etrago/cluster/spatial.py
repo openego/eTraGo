@@ -975,7 +975,7 @@ def focus_weighting(
     weight = weight * factor
     weight = weight.apply(np.ceil)
 
-    if cluster_within == False:
+    if cluster_within is False:
         weight.loc[inside.index] = 100000
 
     if save:
