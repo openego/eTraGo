@@ -247,8 +247,8 @@ def adjust_no_electric_network(
 
     busmap4 = {}
     if "distribution_grid" in etrago.network.buses.carrier.unique():
-        # rural_heat and BEV buses are clustered based on the AC buses connected to
-        # their corresponding distribution grid buses
+        # rural_heat and BEV buses are clustered based on the AC buses
+        # connected to their corresponding distribution grid buses
         for carrier in ["rural_heat_pump", "BEV_charger"]:
             links_from_dg_buses = etrago.network.links[
                 etrago.network.links.carrier == carrier
