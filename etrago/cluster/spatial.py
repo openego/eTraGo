@@ -821,7 +821,7 @@ def focus_weighting(
     save=None,
 ):
     """
-    Apply a distance-based spatial weighting relative to a defined focus region.
+    Apply distance-based spatial weighting relative to a defined focus region.
 
     This function modifies an existing bus weighting by applying a decay
     function based on the shortest-path distance (along network topology)
@@ -841,7 +841,7 @@ def focus_weighting(
         links (e.g. CH4, H2). Must include:
         - `network.buses` with columns ["x", "y", "carrier"]
         - `network.lines` with ["bus0", "bus1", "length"] (for AC)
-        - `network.links` with ["bus0", "bus1", "length", "carrier"] (for CH4/H2)
+        - `network.links` with ["bus0", "bus1", "length", "carrier"] (CH4/H2)
     weight : pandas.Series
         Initial bus weighting (indexed by bus names). Typically derived from
         generation capacities and/or loads. Will be modified and returned.
