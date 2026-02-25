@@ -33,8 +33,10 @@ if "READTHEDOCS" not in os.environ:
     import numpy as np
     import pandas as pd
 
-    from etrago.tools.constraints import Constraints
-    from etrago.tools.constraints import _get_crossborder_components
+    from etrago.tools.constraints import (
+        Constraints,
+        _get_crossborder_components,
+    )
 
     logger = logging.getLogger(__name__)
 
