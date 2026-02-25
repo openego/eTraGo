@@ -754,10 +754,8 @@ def kmedoids_dijkstra_clustering(
     ):
         # remove stubs
         if settings["method"]["remove_stubs"]:
-            logger.info(
-                """options remove_stubs and use_reduced_coordinates not
-                reasonable for k-medoids Dijkstra Clustering"""
-            )
+            logger.info("""options remove_stubs and use_reduced_coordinates not
+                reasonable for k-medoids Dijkstra Clustering""")
 
         bus_weightings = pd.Series(weight)
         buses_i = buses.index
@@ -801,13 +799,11 @@ def kmedoids_dijkstra_clustering(
                 etrago.args["network_clustering"]["method"]["cpu_cores"],
             )
         elif len(busmap) < n_clusters:
-            logger.warning(
-                f"""
+            logger.warning(f"""
             The number supplied to the parameter n_clusters for
             {buses.carrier[0]} buses is larger than the actual number of buses
             in the network.
-            """
-            )
+            """)
 
         busmap.index.name = "bus_id"
 
@@ -822,7 +818,7 @@ def focus_weighting(
     cluster_within,
     cpu_cores,
     func="sigmoid-50",
-    save=None
+    save=None,
 ):
 
     # prepare focus region gdf

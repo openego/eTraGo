@@ -21,6 +21,7 @@
 """
 execute.py defines optimization and simulation methods for the etrago object.
 """
+
 import os
 
 if "READTHEDOCS" not in os.environ:
@@ -220,10 +221,8 @@ def run_lopf(etrago, extra_functionality, method):
                 extra_functionality=extra_functionality,
             )
             if status != "ok":
-                logger.warning(
-                    f"""Optimization failed with status {status}
-                    and condition {condition}"""
-                )
+                logger.warning(f"""Optimization failed with status {status}
+                    and condition {condition}""")
                 etrago.network.model.print_infeasibilities()
                 import pdb
 

@@ -21,6 +21,7 @@
 """
 Defines the market optimization within eTraGo
 """
+
 import os
 
 if "READTHEDOCS" not in os.environ:
