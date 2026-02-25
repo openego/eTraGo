@@ -820,6 +820,63 @@ def focus_weighting(
     func="sigmoid-50",
     save=None,
 ):
+    """
+    Apply a distance-based spatial weighting relative to a defined focus region.
+
+    This function modifies an existing bus weighting by applying a decay
+    function based on the shortest-path distance (along network topology)
+    between each bus and a specified focus region. Buses inside the focus
+    region receive zero distance (handled as 1 m internally to avoid division
+    by zero). Distances are computed using Dijkstra's algorithm and
+    multiprocessing.
+
+    The decay factor is applied multiplicatively to the input `weight`.
+
+    Parameters
+    ----------
+    etrago : Etrago
+        An instance of the Etrago class
+    network : pypsa.Network
+        Network containing buses and either lines (AC) or carrier-specific
+        links (e.g. CH4, H2). Must include:
+        - `network.buses` with columns ["x", "y", "carrier"]
+        - `network.lines` with ["bus0", "bus1", "length"] (for AC)
+        - `network.links` with ["bus0", "bus1", "length", "carrier"] (for CH4/H2)
+    weight : pandas.Series
+        Initial bus weighting (indexed by bus names). Typically derived from
+        generation capacities and/or loads. Will be modified and returned.
+    focus_region : list[str] or str
+        Either:
+        - List of region identifiers (`gen` column in vg250_krs), or
+        - Path to a geospatial file readable by GeoPandas.
+        The geometry must have a valid CRS.
+    cluster_within : bool
+        If False, buses located inside the focus region are assigned a very
+        large weight (100000) to prevent clustering within the region.
+    cpu_cores : int or str
+        Number of CPU cores for multiprocessing. If "max", all available
+        cores are used.
+    func : {"1-dist", "gauss-20", "gauss-100",
+            "sigmoid-20", "sigmoid-50", "sigmoid-100"}, optional
+        Distance decay function applied to shortest-path distances (in meters):
+
+        - "1-dist"        : Inverse distance weighting (1 / d)
+        - "gauss-20"      : Gaussian decay (σ = 20 km)
+        - "gauss-100"     : Gaussian decay (σ = 100 km)
+        - "sigmoid-20"    : Sigmoid decay (σ = 20 km)
+        - "sigmoid-50"    : Sigmoid decay (σ = 50 km)
+        - "sigmoid-100"   : Sigmoid decay (σ = 100 km)
+
+        Default is "sigmoid-50".
+    save : str or None, optional
+        If provided, the resulting weight Series is written to this CSV path.
+
+    Returns
+    -------
+    pandas.Series
+        Modified bus weighting indexed by bus name. The values are rounded
+        up using `np.ceil`.
+    """
 
     # prepare focus region gdf
     if isinstance(focus_region, list):
