@@ -691,7 +691,8 @@ def load_shedding(
         network.add("Carrier", "load")
         start = (
             network.generators.index.to_series()
-            .str.extract('(\d+)').astype(int)
+            .str.extract("(\d+)")
+            .astype(int)
             .max()
             + 1
         )[0]

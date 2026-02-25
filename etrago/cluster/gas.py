@@ -357,7 +357,10 @@ def sector_coupled_clustering_strategy(etrago):
                     "strategy": "simultaneous",
                 },
                 "H2_grid": {"base": ["CH4"], "strategy": "consecutive"},
-                "H2_saltcavern": {"base": ["H2_grid"], "strategy": "consecutive"},
+                "H2_saltcavern": {
+                    "base": ["H2_grid"],
+                    "strategy": "consecutive",
+                },
             }
         else:
             strategy = {
@@ -367,7 +370,10 @@ def sector_coupled_clustering_strategy(etrago):
                 },
                 "rural_heat": {"base": ["AC"], "strategy": "consecutive"},
                 "H2_grid": {"base": ["CH4"], "strategy": "consecutive"},
-                "H2_saltcavern": {"base": ["H2_grid"], "strategy": "consecutive"},
+                "H2_saltcavern": {
+                    "base": ["H2_grid"],
+                    "strategy": "consecutive",
+                },
                 "Li_ion": {"base": ["AC"], "strategy": "consecutive"},
             }
 
