@@ -240,7 +240,7 @@ def preprocessing(etrago, carrier, apply_on="grid_model"):
 
     # weight buses for clustering
     weight_gas = weighting_for_scenario(network_gas.buses, save=False)
-    
+
     return network_gas, weight_gas.squeeze(axis=1), n_clusters
 
 
