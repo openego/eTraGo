@@ -3654,8 +3654,9 @@ class Constraints:
             List of timesteps considered in the optimization
 
         """
-
-        couple_distribution_links(self, network, snapshots)
+        
+        if self.args["method"]["distribution_grids"]:
+            couple_distribution_links(self, network, snapshots)
 
         if "CH4" in network.buses.carrier.values:
             if self.args["method"]["formulation"] == "pyomo":
