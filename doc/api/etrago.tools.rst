@@ -10,6 +10,14 @@ etrago.tools.constraints module
     :undoc-members:
     :show-inheritance:
 
+etrago.tools.distribution_grids module
+--------------------------------------
+
+.. automodule:: etrago.tools.distribution_grids
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 etrago.tools.extendable module
 ------------------------------
 
