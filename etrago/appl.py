@@ -87,7 +87,6 @@ args = {
     "scn_name": "eGon2035",  # scenario, e.g. eGon2035, eGon2035_lowflex or status2019
     # Scenario Variations:
     "scn_extension": None,  # None or array of extension scenarios
-    "scn_decommissioning": None,  # None or decommissioning scenario
     # Export Options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
     "csv_export": "results",  # save results as csv: False or /path/tofolder
@@ -409,6 +408,7 @@ def run_etrago(args, json_path):
                 Defines a focus region for clustering. A higher spatial resolution
                 will be applied inside and around this region.
                 Enter a path to a shape-file or add a list of strings with Kreisnamen.
+                Needs to be one connected region with defined CRS.
                 Default: None.
             * "algortihm": dict
                 Algorithm used for clustering. You can choose between two
