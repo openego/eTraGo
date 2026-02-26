@@ -982,7 +982,8 @@ def focus_weighting(
     p = mp.Pool(cpu_cores)
     chunksize = ceil(len(paths) / cpu_cores)
     container = p.starmap(shortest_path, gen(paths, chunksize, graph))
-    dist = pd.concat(container)
+    dist = pd.concat(container).astype({"path_length": "float64"})
+
     dist = dist.loc[
         dist.groupby(level="source")["path_length"].idxmin()
     ].droplevel("target")
