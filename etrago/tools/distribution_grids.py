@@ -30,6 +30,15 @@ import geopandas as gpd
 
 
 def get_ac_nodes_germany(self):
+    """
+    Filters AC buses within Germany
+
+    Returns
+    -------
+    pd.Series
+        Indices of AC buses within Germany.
+
+    """
     return self.network.buses[
         (self.network.buses.carrier == "AC")
         & (self.network.buses.country == "DE")
@@ -37,6 +46,23 @@ def get_ac_nodes_germany(self):
 
 
 def distribution_grid_buses_and_links(self, mv_grids, seperate_dg_link=True):
+    """Adds buses and links modeling simplified distribution grids.
+    The parametrization is derived from bottom-up simulations of distribution
+    grids with eDisGo/eGo.
+
+    Parameters
+    ----------
+    mv_grids : pd.DataFrame
+        Medium voltage grid districts.
+    seperate_dg_link : boolean, optional
+        Select if distribution grids are modeled as one bi-directional link or
+        as two coupled uni-directional link. The default is True.
+
+    Returns
+    -------
+    None.
+
+    """
     # Create distribution grid (DG) nodes
     self.network.madd(
         "Bus",
@@ -112,6 +138,22 @@ def distribution_grid_buses_and_links(self, mv_grids, seperate_dg_link=True):
 
 
 def seperate_power_plants(self, egon_power_plants, old_network):
+    """
+    Divides power plants by grid level (transmission or distribution grid) and
+    connects them to the corresponding bus.
+
+    Parameters
+    ----------
+    egon_power_plants : sqlalchemy.ext.declarative.api.DeclarativeMeta
+        Pointer to table containing non-aggregated power plants.
+    old_network : pypsa.Network
+        Previous network without adjustments.
+
+    Returns
+    -------
+    None.
+
+    """
     ac_nodes_germany = get_ac_nodes_germany(self)
     # Import power plants table
     power_plants = saio.as_pandas(
@@ -251,10 +293,40 @@ def seperate_power_plants(self, egon_power_plants, old_network):
 
 
 def seperate_chp(self, egon_chp_plants, egon_district_heating_areas):
+    """
+    Divides CHP plants by grid level (transmission or distribution grid) and
+    connects them to the corresponding bus.
+
+    Parameters
+    ----------
+    egon_chp_plants : sqlalchemy.ext.declarative.api.DeclarativeMeta
+        Pointer to table containing non-aggregated CHP plants.
+    egon_district_heating_areas : sqlalchemy.ext.declarative.api.DeclarativeMeta
+        Pointer to table containing district heating areas.
+
+    Returns
+    -------
+    None
+
+    """
     ac_nodes_germany = get_ac_nodes_germany(self)
 
-    # Drop current CHP plants in Germany
     def drop_chp(network, ac_nodes):
+        """
+        Drop current CHP plants in Germany
+
+        Parameters
+        ----------
+        network : pypsa.Network
+            Network container
+        ac_nodes : pd.Series
+            List of AC nodes within Germany.
+
+        Returns
+        -------
+        None.
+
+        """
         gen = network.generators
         link = network.links
 
@@ -277,9 +349,46 @@ def seperate_chp(self, egon_chp_plants, egon_district_heating_areas):
     drop_chp(self.network, ac_nodes_germany)
 
     def dg_bus(bus_id):
+        """
+        Select corresponting distribution grid node
+
+        Parameters
+        ----------
+        bus_id : Index
+            Transmission grid bus.
+
+        Returns
+        -------
+        str
+            Distribution grid bus.
+
+        """
         return bus_id.astype(str) + "_distribution_grid"
 
     def add_generators(df, carrier, bus, p_nom, mc, suffix):
+        """
+        Add CHP as generator component
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            CHP plants that should be modeled as generator.
+        carrier : str
+            Energy carrier.
+        bus : str
+            Bus the CHP is connected to.
+        p_nom : float
+            Nominal power.
+        mc : float
+            Marginal cost.
+        suffix : str
+            Addition to index.
+
+        Returns
+        -------
+        None.
+
+        """
         if df.empty:
             return
         self.network.madd(
@@ -292,6 +401,33 @@ def seperate_chp(self, egon_chp_plants, egon_district_heating_areas):
         )
 
     def add_links(df, carrier, bus0, bus1, p_nom, mc, suffix, efficiency=1.0):
+        """
+        Add CHP as link component
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            CHP plants that should be modeled as link.
+        carrier : str
+            Energy carrier.
+        bus0 : str
+            CH4-bus the CHP is connected to.
+        bus1 : str
+            Electrical or heat bus the CHP is connected to.
+        p_nom : float
+            Nominal power.
+        mc : float
+            Marginal cost.
+        suffix : str
+            Addition to index.
+        efficiency : float, optional
+            Efficiency of bus01 to bus1. The default is 1.0.
+
+        Returns
+        -------
+        None.
+
+        """
         if df.empty:
             return
         self.network.madd(
@@ -306,6 +442,20 @@ def seperate_chp(self, egon_chp_plants, egon_district_heating_areas):
         )
 
     def select_chp(scenario):
+        """
+        Select and prepare CHP plants from the database.
+
+        Parameters
+        ----------
+        scenario : str
+            Scenario name.
+
+        Returns
+        -------
+        chp_plants : pd.DataFrame
+            CHP plants in the specific scenario.
+
+        """
         chp_plants = saio.as_pandas(
             query=self.session.query(egon_chp_plants).filter(
                 egon_chp_plants.scenario == scenario
@@ -521,6 +671,26 @@ def seperate_demands(
     egon_osm_ind_load_curves_individual,
     egon_sites_ind_load_curves_individual,
 ):
+    """
+    Divides electrical loads by grid level (transmission or distribution grid)
+    and connects them to the corresponding bus.
+
+    Parameters
+    ----------
+    mv_grids : pd.DataFrame
+        Medium voltage grid districts.
+    egon_osm_ind_load_curves_individual :
+        sqlalchemy.ext.declarative.api.DeclarativeMeta
+        Pointer to table containing industrial load curves at OSM areas.
+    egon_sites_ind_load_curves_individual :
+        sqlalchemy.ext.declarative.api.DeclarativeMeta
+        Pointer to table containing industrial load curves at points.
+
+    Returns
+    -------
+    None.
+
+    """
     # Import industrial demands attached to transmission grid
     hv_ind_loads = pd.concat(
         [
@@ -623,6 +793,20 @@ def seperate_demands(
 
 
 def seperate_storage_units(self, mv_grids):
+    """
+    Divides storage units by grid level (transmission or distribution grid)
+    and connects them to the corresponding bus.
+
+    Parameters
+    ----------
+    mv_grids : pd.DataFrame
+        Medium voltage grid districts.
+
+    Returns
+    -------
+    None.
+
+    """
     ac_nodes_germany = get_ac_nodes_germany(self)
 
     # Add PV home storage units to distribution grid
@@ -655,6 +839,16 @@ def seperate_storage_units(self, mv_grids):
 
 
 def add_simplified_distribution_grids(self):
+    """
+    Adds simplified distrubution grids to each HV/MV substation in the
+    transmission grid model. Load, generation and storage units are connected
+    to the corresponding grid level based on not-aggregated egon-data results.
+
+    Returns
+    -------
+    None.
+
+    """
 
     # Define and import tables in high spatial resolution
     if self.args["method"]["distribution_grids"]:
