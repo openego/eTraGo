@@ -876,7 +876,7 @@ def pf_post_lopf(etrago, calc_losses=False):
                     not foreign_series[comp][a].empty
                     and not (foreign_series[comp][a] == 0.0).all().all()
                 ):
-                    if a != "p_max_pu":
+                    if a not in ["mu_lower", "mu_upper", "p_max_pu"]:
                         if a in ["q_set", "e_max_pu", "e_min_pu"]:
                             g_in_q_set = foreign_comp[comp][
                                 foreign_comp[comp].index.isin(
