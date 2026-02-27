@@ -975,7 +975,7 @@ def pf_post_lopf(etrago, calc_losses=False):
         "PV"
     )
     network.generators.control[
-        network.generators.carrier.str().contains("load shedding")
+        network.generators.carrier.str.contains("load shedding")
     ] = "PQ"
 
     # Assign storage units control strategy
