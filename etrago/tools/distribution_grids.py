@@ -90,9 +90,12 @@ def distribution_grid_buses_and_links(self, mv_grids, seperate_dg_link=True):
             bus0=mv_grids.bus_id.astype(str).values,
             bus1=(mv_grids.bus_id.astype(str) + "_distribution_grid").values,
             p_nom_min=edisgo_results.loc[mv_grids.bus_id, "p_nom_load"].values,
-            p_nom_max=(edisgo_results.loc[mv_grids.bus_id, "p_nom_load"] * 4)
-            .clip(lower=10.0)
-            .values,
+            p_nom_max=(
+                edisgo_results.loc[mv_grids.bus_id, "p_nom_load"]
+                + (edisgo_results.loc[mv_grids.bus_id, "p_nom_load"] * 4).clip(
+                    lower=10.0
+                )
+            ).values,
             p_nom_extendable=True,
             capital_cost=edisgo_results.loc[
                 mv_grids.bus_id, "capital_cost_worst_case"
@@ -110,9 +113,12 @@ def distribution_grid_buses_and_links(self, mv_grids, seperate_dg_link=True):
             p_nom_min=edisgo_results.loc[mv_grids.bus_id, "p_nom_feedin"]
             .abs()
             .values,
-            p_nom_max=(edisgo_results.loc[mv_grids.bus_id, "p_nom_load"] * 4)
-            .clip(lower=10.0)
-            .values,
+            p_nom_max=(
+                edisgo_results.loc[mv_grids.bus_id, "p_nom_feedin"].abs()
+                + (edisgo_results.loc[mv_grids.bus_id, "p_nom_load"] * 4).clip(
+                    lower=10.0
+                )
+            ).values,
             p_nom_extendable=True,
             capital_cost=0,
             marginal_cost=0.1,
