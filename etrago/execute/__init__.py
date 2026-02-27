@@ -731,7 +731,8 @@ def import_gen_from_links(network, drop_small_capacities=True):
     df["p_nom_max"] = gas_to_add.groupby(["bus", "carrier"]).p_nom_max.sum()
     df["p_nom_min"] = gas_to_add.groupby(["bus", "carrier"]).p_nom_min.sum()
     df["p_nom_extendable"] = gas_to_add.groupby(
-        ["bus", "carrier"]).p_nom_extendable.any()
+        ["bus", "carrier"]
+    ).p_nom_extendable.any()
     df["marginal_cost"] = gas_to_add.groupby(
         ["bus", "carrier"]
     ).marginal_cost.mean()
@@ -925,9 +926,9 @@ def pf_post_lopf(etrago, calc_losses=False):
     args = etrago.args
 
     network.lines.s_nom = network.lines.s_nom_opt
-    network.links.loc[
-        network.links.p_nom_extendable, "p_nom"] = network.links.loc[
-            network.links.p_nom_extendable, "p_nom_opt"]
+    network.links.loc[network.links.p_nom_extendable, "p_nom"] = (
+        network.links.loc[network.links.p_nom_extendable, "p_nom_opt"]
+    )
 
     # generators modeled as links are imported to the generators table
     import_gen_from_links(network)
