@@ -264,3 +264,145 @@ abstract = {The ongoing transformation towards a sector-coupled energy system ba
 	year={2025},
 	abstract={The energy transition in Germany demands a comprehensive transformation of electricity grids at all levels, making them central to the achievement of climate goals and the integration of renewable energy in all energy sectors. However, grid infrastructure currently represents a critical bottleneck. In particular, the role of medium and low voltage grids is changing. Historically designed to distribute electricity from the transmission system to demands, medium and low voltage grids must now adapt to accommodate distributed generation, increased flexibility, and new demands driven by sector coupling. Flexibility options, such as demand response and energy storage, offer potential solutions, but their efficient deployment requires optimized coordination. In order to contribute to the identification of an effective coordination strategy, the open-source tool eGo has been developed. The objective is to quantify the expansion needs of the grid at all levels in Germany, considering flexibility options from the sectors electricity, heat, gas, and mobility using a top-down approach. The method is applied to a mid-term scenario depicting the year 2035.&#xD;The results show that while top-down dispatch optimization is effective for extra-high and high voltage grids, it can exacerbate expansion requirements in medium and low voltage grids. As a result, flexibility options can reduce system costs by only 1 %, taking into account the need for expansion at all grid levels. The curtailment of intermittent renewables can be significantly reduced by 71 %. Coordinated dispatch across grid operators and levels is therefore essential to fully leverage flexibility options, ensuring that the energy transition proceeds efficiently across the entire electricity grid.}
 }
+
+@article{mueller20181,
+doi = {10.1088/1742-6596/977/1/012003},
+url = {https://doi.org/10.1088/1742-6596/977/1/012003},
+year = {2018},
+month = {feb},
+publisher = {IOP Publishing},
+volume = {977},
+number = {1},
+pages = {012003},
+author = {Müller, Ulf Philipp and Wienholt, Lukas and Kleinhans, David and Cussmann, Ilka and Bunke, Wolf-Dieter and Pleßmann, Guido and Wendiggensen, Jochen},
+title = {The eGo grid model: An open source approach towards a model of German high and extra-high voltage power grids},
+journal = {Journal of Physics: Conference Series},
+abstract = {There are several power grid modelling approaches suitable for simulations in the field of power grid planning. The restrictive policies of grid operators, regulators and research institutes concerning their original data and models lead to an increased interest in open source approaches of grid models based on open data. By including all voltage levels between 60 kV (high voltage) and 380kV (extra high voltage), we dissolve the common distinction between transmission and distribution grid in energy system models and utilize a single, integrated model instead. An open data set for primarily Germany, which can be used for non-linear, linear and linear-optimal power flow methods, was developed. This data set consists of an electrically parameterised grid topology as well as allocated generation and demand characteristics for present and future scenarios at high spatial and temporal resolution. The usability of the grid model was demonstrated by the performance of exemplary power flow optimizations. Based on a marginal cost driven power plant dispatch, being subject to grid restrictions, congested power lines were identified. Continuous validation of the model is nescessary in order to reliably model storage and grid expansion in progressing research.}
+}
+
+@INPROCEEDINGS{Mueller20182,
+  author={Müller, Ulf Philipp and Wienholt, Lukas and Cussmann, Ilka},
+  booktitle={2018 International Conference on Smart Energy Systems and Technologies (SEST)}, 
+  title={The Role of the High Voltage Power Level in Future Power Systems and Their Modelling}, 
+  year={2018},
+  volume={},
+  number={},
+  pages={1-6},
+  keywords={High-voltage techniques;Power generation;Power systems;Load modeling;Biological system modeling;Topology;Optimization;power system modelling;high voltage level;110 kV;grid restrictions;dispatch optimisation;storage expansion;linear optimal power flow;open source;open data;k-means network clustering;Dijkstra algorithm},
+  doi={10.1109/SEST.2018.8495721}}
+
+@ARTICLE{Horsch2018-et,
+  title        = "{PyPSA-Eur}: An open optimisation model of the European
+                  transmission system",
+  author       = "H{\"o}rsch, Jonas and Hofmann, Fabian and Schlachtberger,
+                  David and Brown, Tom",
+  abstract     = "PyPSA-Eur, the first open model dataset of the European power
+                  system at the transmission network level to cover the full
+                  ENTSO-E area, is presented. It contains 6001 lines
+                  (alternating current lines at and above 220 kV voltage level
+                  and all high voltage direct current lines), 3657 substations,
+                  a new open database of conventional power plants, time series
+                  for electrical demand and variable renewable generator
+                  availability, and geographic potentials for the expansion of
+                  wind and solar power. The model is suitable both for
+                  operational studies and generation and transmission expansion
+                  planning studies. The continental scope and highly resolved
+                  spatial scale enables a proper description of the long-range
+                  smoothing effects for renewable power generation and their
+                  varying resource availability. The restriction to freely
+                  available and open data encourages the open exchange of model
+                  data developments and eases the comparison of model results.
+                  A further novelty of the dataset is the publication of the
+                  full, automated software pipeline to assemble the
+                  load-flow-ready model from the original datasets, which
+                  enables easy replacement and improvement of the individual
+                  parts. This paper focuses on the description of the network
+                  topology, the compilation of a European power plant database
+                  and a top-down load time-series regionalisation. It
+                  summarises the derivation of renewable wind and solar
+                  availability time-series from re-analysis weather datasets
+                  and the estimation of renewable capacity potentials
+                  restricted by land-use. Finally, validations of the dataset
+                  are presented, including a new methodology to compare
+                  geo-referenced network datasets to one another.",
+  year         =  2018,
+  primaryClass = "physics.soc-ph",
+  eprint       = "1806.01613"
+}
+
+@article{Schill2020,
+  title = {Flexible electricity use for heating in markets with renewable energy},
+  volume = {266},
+  ISSN = {0306-2619},
+  url = {http://dx.doi.org/10.1016/j.apenergy.2020.114571},
+  DOI = {10.1016/j.apenergy.2020.114571},
+  journal = {Applied Energy},
+  publisher = {Elsevier BV},
+  author = {Schill,  Wolf-Peter and Zerrahn,  Alexander},
+  year = {2020},
+  month = may,
+  pages = {114571}
+}
+
+@article{Wetzel2024,
+  title = {REMix: A GAMS-based framework for optimizing energy
+system models},
+  volume = {9},
+  ISSN = {2475-9066},
+  url = {http://dx.doi.org/10.21105/joss.06330},
+  DOI = {10.21105/joss.06330},
+  number = {99},
+  journal = {Journal of Open Source Software},
+  publisher = {The Open Journal},
+  author = {Wetzel,  Manuel and Ruiz,  Eugenio Salvador Arellano and Witte,  Francesco and Schmugge,  Jens and Sasanpour,  Shima and Yeligeti,  Madhura and Miorelli,  Fabia and Buschmann,  Jan and Cao,  Karl-Ki\^en and Wulff,  Niklas and Gardian,  Hedda and Rubbert,  Alexander and Fuchs,  Benjamin and Scholz,  Yvonne and Gils,  Hans Christian},
+  year = {2024},
+  month = jul,
+  pages = {6330}
+}
+
+@article{Brandes2024,
+  title = {Increasing spatial resolution of a sector-coupled long-term energy system model: The case of the German states},
+  volume = {372},
+  ISSN = {0306-2619},
+  url = {http://dx.doi.org/10.1016/j.apenergy.2024.123809},
+  DOI = {10.1016/j.apenergy.2024.123809},
+  journal = {Applied Energy},
+  publisher = {Elsevier BV},
+  author = {Brandes,  Julian and J\"{u}rgens,  Patrick and Kaiser,  Markus and Kost,  Christoph and Henning,  Hans-Martin},
+  year = {2024},
+  month = oct,
+  pages = {123809}
+}
+
+@misc{ariadne-report,
+  title = {{Report: Die Energiewende kosteneffizient gestalten – Szenarien zur Klimaneutralität 2045}},
+  url = {https://ariadneprojekt.de/publikation/report-szenarien-zur-klimaneutralitat-2045/},
+  author = {Luderer, Gunnar AND Bartels, Frederike AND Brown, Tom AND  Schreyer, Felix AND   Sörgel, Dominika AND  Hasse, Robin AND   Hoppe, Johanna AND  Pietzcker, Robert AND   Verpoort, Philipp C. AND Gnann, Till  AND   Speth, Daniel AND   Frank, Fabio AND  Krail, Michael AND   Aulich, Clara AND   Plötz, Patrick AND   Nolte, Hannah AND   Kost, Christoph AND  Senkpiel, Charlotte  AND  Herkel,  Sebastian AND   Rehfeldt, Matthias AND   Herbst, Andrea AND   Fleiter, Tobias AND  Neuwirth, Marius AND   Lindner, Michael AND   Gerhardt, Norman AND   Seibold, Toni Elia AND  Geis, Julian AND   Ganal, Helen AND  Gunnemann, Alyssa  AND   Steffen, Bjarne AND   Benke, Falk },
+  year = {2025},
+}
+
+@ARTICLE{pandapower.2018,
+    author={L. Thurner and A. Scheidler and F. Sch{\"a}fer and J. Menke and J. Dollichon and F. Meier and S. Meinecke and M. Braun},
+    journal={IEEE Transactions on Power Systems},
+    title={pandapower — An Open-Source Python Tool for Convenient Modeling, Analysis, and Optimization of Electric Power Systems},
+    year={2018},
+    month={Nov},
+    volume={33},
+    number={6},
+    pages={6510-6521},
+    doi={10.1109/TPWRS.2018.2829021},
+    ISSN={0885-8950}}
+
+@article{Hilpert2018,
+  title = {The Open Energy Modelling Framework (oemof) - A new approach to facilitate open science in energy system modelling},
+  volume = {22},
+  ISSN = {2211-467X},
+  url = {http://dx.doi.org/10.1016/j.esr.2018.07.001},
+  DOI = {10.1016/j.esr.2018.07.001},
+  journal = {Energy Strategy Reviews},
+  publisher = {Elsevier BV},
+  author = {Hilpert,  S. and Kaldemeyer,  C. and Krien,  U. and G\"{u}nther,  S. and Wingenbach,  C. and Plessmann,  G.},
+  year = {2018},
+  month = nov,
+  pages = {16–25}
+}
