@@ -4301,6 +4301,7 @@ def couple_distribution_links(self, n, snapshots):
 
         m = n.model
         m.dist_link_coupling = pyomo.ConstraintList()
+        p_nom_min = n.links["p_nom_min"]
 
         for fwd, rev in link_pairs:
 
@@ -4311,7 +4312,8 @@ def couple_distribution_links(self, n, snapshots):
             ):
 
                 m.dist_link_coupling.add(
-                    m.link_p_nom[fwd] == m.link_p_nom[rev]
+                    m.link_p_nom[fwd] - p_nom_min.loc[fwd]
+                    == m.link_p_nom[rev] - p_nom_min.loc[rev]
                 )
 
     # ==================================================
@@ -4321,7 +4323,7 @@ def couple_distribution_links(self, n, snapshots):
 
         m = n.model
         p_nom = m.variables["Link-p_nom"]
-
+        p_nom_min = n.links["p_nom_min"]
         for fwd, rev in link_pairs:
 
             if (
@@ -4329,7 +4331,10 @@ def couple_distribution_links(self, n, snapshots):
                 and n.links.at[rev, "p_nom_extendable"]
             ):
 
-                m.add_constraints(p_nom.loc[fwd] == p_nom.loc[rev])
+                m.add_constraints(
+                    p_nom.loc[fwd] - p_nom_min.loc[fwd]
+                    == p_nom.loc[rev] - p_nom_min.loc[rev]
+                )
 
     # ==================================================
     # SAFETY CHECK
