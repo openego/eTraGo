@@ -183,6 +183,7 @@ def iterate_lopf(
     etrago,
     extra_functionality,
     method={"n_iter": 4, "pyomo": True},
+    drop_small_bounds=True,
 ):
     """
     Run optimization of lopf. If network extension is included, the specified
@@ -198,6 +199,8 @@ def iterate_lopf(
         Choose 'n_iter' and integer for fixed number of iterations or
         'threshold' and derivation of objective in percent for variable number
         of iteration until the threshold of the objective function is reached.
+    drop_small_bounds: bool
+        If True, very small values are dropped to improve the numerical stability.
 
     """
 
@@ -211,6 +214,59 @@ def iterate_lopf(
 
         if args["lpfile"]:
             lp_path = lp_path[0:-3] + "_temporally_reduced.lp"
+
+    if drop_small_bounds:
+        for component in [
+            "buses",
+            "generators",
+            "lines",
+            "links",
+            "loads",
+            "storage_units",
+            "stores",
+        ]:
+            df = getattr(etrago.network, component)
+            numeric = df.select_dtypes(include="number")
+            df.update(numeric.where(numeric.abs() >= 1e-5, 0))
+
+            comp_t = getattr(etrago.network, f"{component}_t")
+            for attr, df_t in comp_t.items():
+                if "_pu" not in attr:
+                    cleaned = df_t.where(df_t.abs() >= 1e-5, 0)
+                    comp_t[attr] = cleaned
+
+            if "p_nom" not in df.columns:
+                continue
+            else:
+                for attr in ["p_max_pu", "p_min_pu"]:
+                    if attr not in comp_t or comp_t[attr].empty:
+                        continue
+
+                    df_t = comp_t[attr]
+                    p_nom = df.loc[df_t.columns, "p_nom"]
+                    p_actual = df_t * p_nom
+
+                    mask = (p_actual.abs() > 0) & (p_actual.abs() <= 1e-5)
+                    n_violations = mask.sum().sum()
+
+                    if n_violations > 0:
+                        comp_t[attr] = df_t.where(~mask, 0)
+            if "e_nom" not in df.columns:
+                continue
+            else:
+                for attr in ["e_max_pu", "e_min_pu"]:
+                    if attr not in comp_t or comp_t[attr].empty:
+                        continue
+
+                    df_t = comp_t[attr]
+                    e_nom = df.loc[df_t.columns, "e_nom"]
+                    e_actual = df_t * e_nom
+
+                    mask = (e_actual.abs() > 0) & (e_actual.abs() <= 1e-5)
+                    n_violations = mask.sum().sum()
+
+                    if n_violations > 0:
+                        comp_t[attr] = df_t.where(~mask, 0)
 
     network = etrago.network
 
