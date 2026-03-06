@@ -200,7 +200,8 @@ def iterate_lopf(
         'threshold' and derivation of objective in percent for variable number
         of iteration until the threshold of the objective function is reached.
     drop_small_bounds: bool
-        If True, very small values are dropped to improve the numerical stability.
+        If True, very small values are dropped to improve the numerical
+        stability.
 
     """
 
