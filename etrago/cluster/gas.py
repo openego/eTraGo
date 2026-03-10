@@ -433,7 +433,10 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
 
     if apply_on == "grid_model":
         if settings["k_ch4_busmap"] is False:
-            if etrago.args["network_clustering"]["method"]["algorithm"] == "kmeans":
+            if (
+                etrago.args["network_clustering"]["method"]["algorithm"]
+                == "kmeans"
+            ):
                 busmap.index.name = "bus_id"
                 busmap.name = "cluster"
                 busmap.to_csv(
@@ -1105,7 +1108,9 @@ def run_spatial_clustering_gas(self):
                     cluster_within=self.args["network_clustering"][
                         "gas_grids"
                     ]["cluster_within_focus"],
-                    per_country=self.args['network_clustering']['method']['per_country'],
+                    per_country=self.args["network_clustering"]["method"][
+                        "per_country"
+                    ],
                     cpu_cores=self.args["network_clustering"]["method"][
                         "cpu_cores"
                     ],
@@ -1121,7 +1126,9 @@ def run_spatial_clustering_gas(self):
                         cluster_within=self.args["network_clustering"][
                             "gas_grids"
                         ]["cluster_within_focus"],
-                        per_country=self.args['network_clustering']['method']['per_country'],
+                        per_country=self.args["network_clustering"]["method"][
+                            "per_country"
+                        ],
                         cpu_cores=self.args["network_clustering"]["method"][
                             "cpu_cores"
                         ],

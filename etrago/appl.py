@@ -25,7 +25,6 @@ Define your connection parameters and power flow settings before executing
 the function run_etrago.
 """
 
-
 import datetime
 import os
 import os.path
