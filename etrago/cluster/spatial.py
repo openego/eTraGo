@@ -816,6 +816,7 @@ def focus_weighting(
     weight,
     focus_region,
     cluster_within,
+    per_country,
     cpu_cores,
     func="sigmoid-50",
     save=None,
@@ -876,7 +877,7 @@ def focus_weighting(
     pandas.Series
         Modified bus weighting indexed by bus name. The values are rounded
         up using `np.ceil`.
-    """
+    """    
 
     # prepare focus region gdf
     if isinstance(focus_region, list):
@@ -888,6 +889,11 @@ def focus_weighting(
             from saio.boundaries import vg250_krs
         query = etrago.session.query(vg250_krs)
         krs = saio.as_pandas(query, geometry="geometry")
+        missing = set(focus_region) - set(krs["gen"])
+        if missing:
+            raise ValueError(
+                f"The following focus_region entries are not valid: {missing}"
+            )
         focus_gdf = krs[krs["gen"].isin(focus_region)]
     else:
         focus_gdf = gpd.read_file(focus_region)
@@ -920,6 +926,8 @@ def focus_weighting(
             (network.lines.bus0.isin(inside.index))
             ^ (network.lines.bus1.isin(inside.index))
         ]
+        if per_country:
+            lines_cross = lines_cross[lines_cross.country=='DE']
         border_buses = buses_gdf.loc[
             list(
                 set(lines_cross.bus0).union(lines_cross.bus1)
@@ -933,6 +941,8 @@ def focus_weighting(
             (ch4_links.bus0.isin(inside.index))
             ^ (ch4_links.bus1.isin(inside.index))
         ]
+        if per_country:
+            links_cross = links_cross[links_cross.country=='DE']
         border_buses = buses_gdf.loc[
             list(
                 set(links_cross.bus0).union(links_cross.bus1)
@@ -946,6 +956,8 @@ def focus_weighting(
             (h2_links.bus0.isin(inside.index))
             ^ (h2_links.bus1.isin(inside.index))
         ]
+        if per_country:
+            links_cross = links_cross[links_cross.country=='DE']
         border_buses = buses_gdf.loc[
             list(
                 set(links_cross.bus0).union(links_cross.bus1)
