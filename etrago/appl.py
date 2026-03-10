@@ -120,6 +120,7 @@ args = {
     "network_clustering": {
         "method": {
             "focus_region": None,  # None, shape-file or list with string for Kreise
+            "per_country": True,  # if True, buses are restricted to one cluster per country
             "algorithm": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
             "remove_stubs": False,  # remove stubs before kmeans clustering
             "use_reduced_coordinates": False,  # if True, do not average cluster coordinates (in remove stubs)
@@ -133,8 +134,7 @@ args = {
         "electricity_grid": {
             "active": True,  # choose if clustering is activated
             "cluster_within_focus": False,  # False for very low clustering within focus region
-            "n_clusters": 30,  # total number of resulting AC nodes
-            "cluster_foreign": False,  # take foreign AC buses into account, True or False
+            "n_clusters": 80,  # total number of resulting AC nodes
             "k_elec_busmap": False,  # False or path/to/busmap.csv
         },
         "gas_grids": {
@@ -142,9 +142,7 @@ args = {
             "cluster_within_focus": False,  #  False for very low clustering within focus region
             "n_clusters_ch4": 15,  # total number of resulting CH4 nodes
             "n_clusters_h2": 15,  # total number of resulting H2 nodes
-            "cluster_foreign_ch4": False,  # take foreign CH4 buses into account, True or False
             "k_ch4_busmap": False,  # False or path/to/ch4_busmap.csv
-            "sector_coupled_clustering": True,  # choose if clustering is activated
         },
     },
     "spatial_disaggregation": None,  # None or 'uniform'
@@ -154,7 +152,7 @@ args = {
         "method": "segmentation",  # 'typical_periods' or 'segmentation'
         "extreme_periods": None,  # consideration of extreme timesteps; e.g. 'append'
         "how": "daily",  # type of period - only relevant for 'typical_periods'
-        "storage_constraints": "soc_constraints",  # additional constraints for storages  - only relevant for 'typical_periods'
+        "storage_constraints": "soc_constraints",  # additional constraints for storages - only relevant for 'typical_periods'
         "n_clusters": 5,  # number of periods - only relevant for 'typical_periods'
         "n_segments": 5,  # number of segments - only relevant for segmentation
     },

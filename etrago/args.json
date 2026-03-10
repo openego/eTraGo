@@ -68,6 +68,7 @@
     "network_clustering":  {
         "method": {
             "focus_region": null,
+            "per_country": true, 
             "algorithm": "kmedoids-dijkstra",
             "remove_stubs": false,
             "use_reduced_coordinates": false,
@@ -82,7 +83,6 @@
             "active": true,
             "cluster_within_focus": false,
             "n_clusters": 30,
-            "cluster_foreign": false,
             "k_elec_busmap": false
         },
         "gas_grids": {
@@ -90,9 +90,7 @@
             "cluster_within_focus": false,
             "n_clusters_ch4": 15,
             "n_clusters_h2": 15,
-            "cluster_foreign_ch4": false,
             "k_ch4_busmap": false,
-            "sector_coupled_clustering": true
         }
     },
     "spatial_disaggregation": null,

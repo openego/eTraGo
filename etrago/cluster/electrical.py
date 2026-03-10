@@ -190,8 +190,8 @@ def adjust_no_electric_network(
     # model. It adds one bus per country, which is not useful in this case.
     if apply_on != "market_model":
         if (
-            not etrago.args["network_clustering"]["electricity_grid"][
-                "cluster_foreign"
+            etrago.args["network_clustering"]["method"][
+                "per_country"
             ]
         ) & (cluster_met in ["kmeans", "kmedoids-dijkstra"]):
             buses_orig = network.buses.copy()
@@ -492,7 +492,7 @@ def select_elec_network(etrago, apply_on="grid_model"):
     apply_on: str
         gives information about the objective of the output network. If
         "grid_model" is provided, the value assigned in the args for
-        ["network_clustering"]["electricity_grid"]["cluster_foreign""] will
+        ["network_clustering"]["method"]["per_country""] will
         define if the foreign buses will be included in the network.
         If "market_model" is provided, foreign buses will be always included.
 
@@ -517,7 +517,7 @@ def select_elec_network(etrago, apply_on="grid_model"):
     settings = etrago.args["network_clustering"]["electricity_grid"]
 
     if apply_on == "grid_model":
-        include_foreign = settings["cluster_foreign"]
+        include_foreign = not etrago.args["network_clustering"]["method"]["per_country"]
     elif apply_on == "market_model":
         include_foreign = True
     else:
@@ -900,7 +900,7 @@ def postprocessing(
     )
 
     # merge busmap for foreign buses with the German buses
-    if not settings["cluster_foreign"] and (apply_on == "grid_model"):
+    if etrago.args["network_clustering"]["method"]["per_country"] and (apply_on == "grid_model"):
         for bus in busmap_foreign.index:
             busmap[bus] = busmap_foreign[bus]
             if bus == busmap_foreign[bus]:
@@ -1079,6 +1079,7 @@ def run_spatial_clustering(self):
                 cluster_within=self.args["network_clustering"][
                     "electricity_grid"
                 ]["cluster_within_focus"],
+                per_country=self.args['network_clustering']['method']['per_country'],
                 cpu_cores=self.args["network_clustering"]["method"][
                     "cpu_cores"
                 ],
