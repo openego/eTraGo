@@ -116,6 +116,8 @@ The procedures of the two methods are depicted in the following figure [Esterl20
 
 |
 
+Additionally, there is the option to perform a **clustering with a focus on a defined region**, in which the spatial distribution of clustered buses is intentionally weighted toward the corresponding region. This allows a higher spatial resolution within and around the region of interest, while areas farther away are represented with fewer buses.
+
 In general, the clustering of the **sector-coupled system** is divided into two steps:
 First, the electrical and gas grid are clustered independently using one of the methods described above. Afterwards, nodes of the other sectors (hydrogen, heat, e-mobility and DSM nodes) are mapped according to their connection to electricity or gas buses and aggregated to one node per carrier.
 
