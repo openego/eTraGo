@@ -813,21 +813,8 @@ def preprocessing(etrago, apply_on="grid_model"):
         network_elec.lines = lines_plus_dc.copy()
         network_elec.lines["carrier"] = "AC"
 
-    # State whether to create a bus weighting and save it, create or not save
-    # it, or use a bus weighting from a csv file
-    if settings["electricity_grid"]["bus_weight_tocsv"] is not None:
-        weight = weighting_for_scenario(
-            network=network_elec, save=settings["bus_weight_tocsv"]
-        )
-    elif settings["electricity_grid"]["bus_weight_fromcsv"] is not None:
-        weight = pd.read_csv(
-            settings["electricity_grid"]["bus_weight_fromcsv"],
-            index_col="Bus",
-            squeeze=True,
-        )
-        weight.index = weight.index.astype(str)
-    else:
-        weight = weighting_for_scenario(network=network_elec, save=False)
+    # weight buses for clustering
+    weight = weighting_for_scenario(network=network_elec, save=False)
 
     return network_elec, weight, n_clusters, busmap_foreign
 
@@ -956,7 +943,7 @@ def postprocessing(
                 clustering.network.buses.at[i, "y"] = etrago.network.buses[
                     "y"
                 ].loc[medoid]
-    
+
     if aggregate_links:
         clustering.network.links, clustering.network.links_t = group_links(
             clustering.network
@@ -1084,20 +1071,16 @@ def run_spatial_clustering(self):
             "focus_region"
         ]
         if focus_region:
-
-            func = "sigmoid-200"
-            cluster_within = self.args["network_clustering"][
-                "electricity_grid"
-            ]["cluster_within_focus"]
             weight = focus_weighting(
                 self,
                 elec_network,
                 weight,
-                focus_region,
-                func,
-                cluster_within,
-                save=self.args["network_clustering"]["electricity_grid"][
-                    "bus_weight_tocsv"
+                focus_region=focus_region,
+                cluster_within=self.args["network_clustering"][
+                    "electricity_grid"
+                ]["cluster_within_focus"],
+                cpu_cores=self.args["network_clustering"]["method"][
+                    "cpu_cores"
                 ],
             )
 
