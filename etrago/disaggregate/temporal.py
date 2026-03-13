@@ -21,9 +21,11 @@
 """
 temporal.py defines the methods to run temporal disaggregation on networks.
 """
+
+from datetime import timedelta
 import logging
+import math
 import os
-import time
 
 import pandas as pd
 
@@ -31,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
 
-    from etrago.execute import iterate_lopf
+    from etrago.execute import optimize_with_rolling_horizon
     from etrago.tools.constraints import Constraints
 
 
@@ -46,6 +48,64 @@ __author__ = (
     "ulfmueller, s3pp, wolfbunke, mariusves, lukasol, KathiEsterl, "
     "ClaraBuettner, CarlosEpia, AmeliaNadal"
 )
+
+
+def temp_disagg_soc(n, n_tsa):
+    """Interpolate state of charges for not-optimized snapshots
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network in full temporal resolution without optimization results
+    n_tsa : pypsa.Network
+        Network in reduced temporal resolution with optimization results
+
+    Returns
+    -------
+    stores_e_full_ts : pd.DataFrame
+        Interpolated store-e timeseries for each snapshot
+    su_soc_full_ts : pd.DataFrame
+        Interpolated storage units-soc timeseries for each snapshot
+
+    """
+
+    stores_e_full_ts = pd.DataFrame(index=n.snapshots, columns=n.stores.index)
+    stores_e_full_ts.loc[n_tsa.snapshots] = n_tsa.stores_t.e
+
+    su_soc_full_ts = pd.DataFrame(
+        index=n.snapshots, columns=n.storage_units.index
+    )
+    su_soc_full_ts.loc[n_tsa.snapshots] = n_tsa.storage_units_t.state_of_charge
+
+    n_skip = int(n_tsa.snapshot_weightings.iloc[0, 0])
+
+    for calc_sns in n_tsa.snapshots:
+        next_calc = calc_sns + timedelta(hours=int(n_skip))
+
+        if next_calc in n_tsa.snapshots:
+            next_calc = next_calc
+        else:
+            next_calc = n_tsa.snapshots[0]
+        e_now = stores_e_full_ts.loc[calc_sns]
+        e_next = stores_e_full_ts.loc[next_calc]
+
+        soc_now = su_soc_full_ts.loc[calc_sns]
+        soc_next = su_soc_full_ts.loc[next_calc]
+
+        diff_e = (e_next - e_now) / n_skip
+        diff_soc = (soc_next - soc_now) / n_skip
+
+        for i in range(n_skip - 1):
+            hour = calc_sns + timedelta(hours=1 + i)
+            if hour in stores_e_full_ts.index:
+                stores_e_full_ts.loc[hour] = (
+                    stores_e_full_ts.loc[hour - timedelta(hours=1)] + diff_e
+                )
+                su_soc_full_ts.loc[hour] = (
+                    su_soc_full_ts.loc[hour - timedelta(hours=1)] + diff_soc
+                )
+
+    return stores_e_full_ts, su_soc_full_ts
 
 
 def dispatch_disaggregation(self):
@@ -63,77 +123,71 @@ def dispatch_disaggregation(self):
     """
 
     if self.args["temporal_disaggregation"]["active"]:
-        x = time.time()
 
-        if self.args["temporal_disaggregation"]["no_slices"]:
-            # split dispatch_disaggregation into subproblems
-            # keep some information on soc in beginning and end of slices
-            # to ensure compatibility and to reproduce saisonality
+        horizon = math.ceil(
+            len(self.network_tsa.snapshots)
+            / self.args["temporal_disaggregation"]["no_slices"]
+        )
 
-            # define number of slices and corresponding slice length
-            no_slices = self.args["temporal_disaggregation"]["no_slices"]
-            slice_len = int(len(self.network.snapshots) / no_slices)
+        n = self.network_tsa.copy()
 
-            # transition snapshots defining start and end of slices
-            transits = self.network.snapshots[0::slice_len]
-            if len(transits) > 1:
-                transits = transits[1:]
-            if transits[-1] != self.network.snapshots[-1]:
-                transits = transits.insert(
-                    (len(transits)), self.network.snapshots[-1]
-                )
-            # for stores, exclude emob and dsm because of their special
-            # constraints
-            sto = self.network.stores[
-                ~self.network.stores.carrier.isin(
-                    ["battery_storage", "battery storage", "dsm"]
-                )
-            ]
+        n_tsa = self.network.copy()
 
-            # save state of charge of storage units and stores at those
-            # transition snapshots
-            self.conduct_dispatch_disaggregation = pd.DataFrame(
-                columns=self.network.storage_units.index.append(sto.index),
-                index=transits,
+        if self.args["skip_snapshots"]:
+            n_tsa.stores_t.e, n_tsa.storage_units_t.state_of_charge = (
+                temp_disagg_soc(n, n_tsa)
             )
-            for storage in self.network.storage_units.index:
-                self.conduct_dispatch_disaggregation[storage] = (
-                    self.network.storage_units_t.state_of_charge[storage]
-                )
-            for store in sto.index:
-                self.conduct_dispatch_disaggregation[store] = (
-                    self.network.stores_t.e[store]
-                )
 
-            extra_func = self.args["extra_functionality"]
-            self.args["extra_functionality"] = {}
+        # Avoid infeasibilies in e-Mobility stores
+        e_mob_stores = n.stores[n.stores.carrier == "battery_storage"]
+        max_e_first_hour = (
+            n.stores_t.e_max_pu.iloc[0]
+            .loc[e_mob_stores.index]
+            .mul(e_mob_stores.e_nom)
+        )
 
-        load_shedding = self.args["load_shedding"]
-        if not load_shedding:
-            self.args["load_shedding"] = True
-            self.load_shedding(temporal_disaggregation=True)
+        index = e_mob_stores[e_mob_stores.e_initial > max_e_first_hour].index
+        n.stores.loc[index, "e_initial"] = max_e_first_hour.loc[index]
 
-        iterate_lopf(
-            self,
-            Constraints(
-                self.args, self.conduct_dispatch_disaggregation
+        # Copy extension results
+        n.lines["s_nom"] = n_tsa.lines["s_nom_opt"]
+        n.lines["s_nom_extendable"] = False
+
+        n.links["p_nom"] = n_tsa.links["p_nom_opt"]
+        n.links["p_nom_extendable"] = False
+
+        n.transformers["s_nom"] = n_tsa.transformers["s_nom_opt"]
+        n.transformers.s_nom_extendable = False
+
+        n.storage_units["p_nom"] = n_tsa.storage_units["p_nom_opt"]
+        n.storage_units["p_nom_extendable"] = False
+
+        n.stores["e_nom"] = n_tsa.stores["e_nom_opt"]
+        n.stores["e_nom_extendable"] = False
+
+        n.storage_units.cyclic_state_of_charge = False
+        n.stores.e_cyclic = False
+
+        n = optimize_with_rolling_horizon(
+            n,
+            n_tsa,
+            snapshots=None,
+            horizon=horizon,
+            overlap=2,
+            solver_name=self.args["solver"],
+            extra_functionality=Constraints(
+                self.args, False, apply_on="market_model"
             ).functionality,
-            method=self.args["method"],
+            args=self.args,
+            temporal_disaggregation=True,
         )
 
         # switch to temporally fully resolved network as standard network,
         # temporally reduced network is stored in network_tsa
-        network1 = self.network.copy()
-        self.network = self.network_tsa.copy()
-        self.network_tsa = network1.copy()
-        network1 = 0
+        self.network_tsa = self.network.copy()
+        self.network = n
 
         # keep original settings
-
-        if self.args["temporal_disaggregation"]["no_slices"]:
-            self.args["extra_functionality"] = extra_func
-        self.args["load_shedding"] = load_shedding
-
         self.network.lines["s_nom_extendable"] = self.network_tsa.lines[
             "s_nom_extendable"
         ]
@@ -158,7 +212,3 @@ def dispatch_disaggregation(self):
             path = self.args["csv_export"]
             self.export_to_csv(path)
             self.export_to_csv(path + "/temporal_disaggregaton")
-
-        y = time.time()
-        z = (y - x) / 60
-        logger.info("Time for LOPF [min]: {}".format(round(z, 2)))

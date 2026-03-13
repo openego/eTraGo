@@ -88,7 +88,6 @@ args = {
     "scn_name": "eGon2035_lowflex",  # scenario: eGon2035, eGon100RE or status2019
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
-    "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
     "csv_export": "results",  # save results as csv: False or /path/tofolder
@@ -167,7 +166,7 @@ args = {
     },
     "skip_snapshots": False,  # False or number of snapshots to skip
     "temporal_disaggregation": {
-        "active": False,  # choose if temporally full complex dispatch optimization should be conducted
+        "active": True,  # choose if temporally full complex dispatch optimization should be conducted
         "no_slices": 8,  # number of subproblems optimization is divided into
     },
     # Simplifications:

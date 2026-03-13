@@ -21,6 +21,7 @@
 """
 Extendable.py defines function to set PyPSA components extendable.
 """
+
 from math import sqrt
 import time
 

@@ -2068,10 +2068,8 @@ def get_clustering_data(self, path):
                         self.ch4_h2_mapping.index.astype(str)
                     )
             else:
-                logger.info(
-                    """There is no CH4 to H2 bus mapping data
-                    available in the loaded object."""
-                )
+                logger.info("""There is no CH4 to H2 bus mapping data
+                    available in the loaded object.""")
 
             busmap_path = os.path.join(path_clus, "busmap.json")
             if os.path.exists(busmap_path):
@@ -2531,9 +2529,7 @@ def check_args(etrago):
 
     if "oep.iks.cs.ovgu.de" in str(etrago.engine.url):
         saio.register_schema("tables", etrago.engine)
-        from saio.tables import (
-            edut_00_056 as egon_etrago_bus,
-        )
+        from saio.tables import edut_00_056 as egon_etrago_bus
     else:
         saio.register_schema("grid", etrago.engine)
         from saio.grid import egon_etrago_bus
@@ -2699,16 +2695,6 @@ def check_args(etrago):
             )
             etrago.args["method"]["formulation"] = "pyomo"
 
-    if (etrago.args["method"]["formulation"] != "pyomo") & (
-        etrago.args["temporal_disaggregation"]["active"]
-    ):
-        logger.warning(
-            "Temporal disaggregation is"
-            " not yet correctly implemented without pyomo."
-            " Setting `args['method']['formulation']` to `pyomo`."
-        )
-        etrago.args["method"]["formulation"] = "pyomo"
-
 
 def drop_sectors(self, drop_carriers):
     """
@@ -2854,9 +2840,7 @@ def adjust_CH4_gen_carriers(self):
         try:
             if "oep.iks.cs.ovgu.de" in str(engine.url):
                 saio.register_schema("data", engine)
-                from saio.data import (
-                    edut_00_137 as egon_scenario_parameters,
-                )
+                from saio.data import edut_00_137 as egon_scenario_parameters
             else:
                 saio.register_schema("grid", engine)
                 from saio.grid import egon_scenario_parameters
@@ -2868,13 +2852,11 @@ def adjust_CH4_gen_carriers(self):
             )
             marginal_cost = df["gas_parameters"][0]["marginal_cost"]
         except sqlalchemy.exc.NoSuchTableError as e:
-            logging.warning(
-                f"""
+            logging.warning(f"""
                 The database query failed for
                 'scenario.egon_scenario_parameters'.
                 Fallback values are being used. Error message: {e}
-                """
-            )
+                """)
             marginal_cost = marginal_cost_def
 
         self.network.generators.loc[
@@ -3087,27 +3069,23 @@ def manual_fixes_datamodel(etrago):
 
     # Set r value if missing
     if not etrago.network.lines.loc[etrago.network.lines.r == 0, "r"].empty:
-        logger.info(
-            f"""
+        logger.info(f"""
             There are {len(
                 etrago.network.lines.loc[etrago.network.lines.r == 0, "r"]
                 )} lines without a resistance (r) in the data model.
             The resistance of these lines will be automatically set to 0.0001.
-            """
-        )
+            """)
 
     etrago.network.lines.loc[etrago.network.lines.r == 0, "r"] = 0.0001
 
     if not etrago.network.transformers.loc[
         etrago.network.transformers.r == 0, "r"
     ].empty:
-        logger.info(
-            f"""There are {len(etrago.network.transformers.loc[
+        logger.info(f"""There are {len(etrago.network.transformers.loc[
                 etrago.network.transformers.r == 0, "r"]
                 )} trafos without a resistance (r) in the data model.
             The resistance of these trafos will be automatically set to 0.0001.
-            """
-        )
+            """)
     etrago.network.transformers.loc[
         etrago.network.transformers.r == 0, "r"
     ] = 0.0001
@@ -3130,12 +3108,10 @@ def manual_fixes_datamodel(etrago):
     if (etrago.args["method"]["type"] == "sclopf") & (
         not etrago.network.lines_t.s_max_pu.empty
     ):
-        print(
-            """
+        print("""
             Dynamic line rating is not implemented for the sclopf yet.
             Setting s_max_pu timeseries to 1
-            """
-        )
+            """)
         etrago.network.lines_t.s_max_pu = pd.DataFrame(
             index=etrago.network.snapshots,
         )

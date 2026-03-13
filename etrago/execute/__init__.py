@@ -21,6 +21,7 @@
 """
 execute.py defines optimization and simulation methods for the etrago object.
 """
+
 import os
 
 if "READTHEDOCS" not in os.environ:
@@ -33,7 +34,10 @@ if "READTHEDOCS" not in os.environ:
     import numpy as np
     import pandas as pd
 
-    from etrago.tools.constraints import Constraints
+    from etrago.tools.constraints import (
+        Constraints,
+        _get_crossborder_components,
+    )
 
     logger = logging.getLogger(__name__)
 
@@ -132,112 +136,43 @@ def run_lopf(etrago, extra_functionality, method):
 
     x = time.time()
 
-    if etrago.conduct_dispatch_disaggregation is not False:
-        # parameters defining the start and end per slices
-        no_slices = etrago.args["temporal_disaggregation"]["no_slices"]
-        skipped = etrago.network.snapshot_weightings.iloc[0].objective
-        transits = np.where(
-            etrago.network_tsa.snapshots.isin(
-                etrago.conduct_dispatch_disaggregation.index
-            )
-        )[0]
+    if method["formulation"] == "pyomo":
+        etrago.network.lopf(
+            etrago.network.snapshots,
+            solver_name=etrago.args["solver"],
+            solver_options=etrago.args["solver_options"],
+            pyomo=True,
+            extra_functionality=extra_functionality,
+            formulation=etrago.args["model_formulation"],
+        )
 
-        # repeat the optimization for all slices
-        for i in range(0, no_slices):
-            # keep information on the initial state of charge for the
-            # respectng slice
-            initial = transits[i - 1]
-            soc_initial = etrago.conduct_dispatch_disaggregation.loc[
-                [etrago.network_tsa.snapshots[initial]]
-            ].transpose()
-            etrago.network_tsa.storage_units.state_of_charge_initial = (
-                soc_initial
-            )
-            etrago.network_tsa.stores.e_initial = soc_initial
-            etrago.network_tsa.stores.e_initial.fillna(0, inplace=True)
-            # the state of charge at the end of each slice is set within
-            # split_dispatch_disaggregation_constraints in constraints.py
+        if etrago.network.results["Solver"][0]["Status"] != "ok":
+            raise Exception("LOPF not solved.")
 
-            # adapt start and end snapshot of respecting slice
-            start = transits[i - 1] + skipped
-            end = transits[i] + (skipped - 1)
-            if i == 0:
-                start = 0
-            if i == no_slices - 1:
-                end = len(etrago.network_tsa.snapshots)
+    elif method["formulation"] == "linopy":
+        status, condition = etrago.network.optimize(
+            solver_name=etrago.args["solver"],
+            solver_options=etrago.args["solver_options"],
+            extra_functionality=extra_functionality,
+        )
+        if status != "ok":
+            logger.warning(f"""Optimization failed with status {status}
+                and condition {condition}""")
+            etrago.network.model.print_infeasibilities()
+            import pdb
 
-                if method["formulation"] == "pyomo":
-                    etrago.network_tsa.lopf(
-                        etrago.network_tsa.snapshots[start : end + 1],
-                        solver_name=etrago.args["solver"],
-                        solver_options=etrago.args["solver_options"],
-                        pyomo=True,
-                        extra_functionality=extra_functionality,
-                        formulation=etrago.args["model_formulation"],
-                    )
-
-                    if (
-                        etrago.network_tsa.results["Solver"][0]["Status"]
-                        != "ok"
-                    ):
-                        raise Exception("LOPF not solved.")
-                else:
-                    raise Exception(
-                        """Temporal disaggregation currently only works when
-                        using pyomo."""
-                    )
-                    status, termination_condition = network_lopf(
-                        etrago.network_tsa,
-                        etrago.network_tsa.snapshots[start : end + 1],
-                        solver_name=etrago.args["solver"],
-                        solver_options=etrago.args["solver_options"],
-                        extra_functionality=extra_functionality,
-                        formulation=etrago.args["model_formulation"],
-                    )
-                    if status != "ok":
-                        raise Exception("LOPF not solved.")
-
-        etrago.network_tsa.storage_units.state_of_charge_initial = 0
-        etrago.network_tsa.stores.e_initial = 0
-
+            pdb.set_trace()
     else:
-        if method["formulation"] == "pyomo":
-            etrago.network.lopf(
-                etrago.network.snapshots,
-                solver_name=etrago.args["solver"],
-                solver_options=etrago.args["solver_options"],
-                pyomo=True,
-                extra_functionality=extra_functionality,
-                formulation=etrago.args["model_formulation"],
-            )
+        status, termination_condition = network_lopf(
+            etrago.network,
+            solver_name=etrago.args["solver"],
+            solver_options=etrago.args["solver_options"],
+            extra_functionality=extra_functionality,
+            formulation=etrago.args["model_formulation"],
+        )
 
-            if etrago.network.results["Solver"][0]["Status"] != "ok":
-                raise Exception("LOPF not solved.")
-
-        elif method["formulation"] == "linopy":
-            status, condition = etrago.network.optimize(
-                solver_name=etrago.args["solver"],
-                solver_options=etrago.args["solver_options"],
-                extra_functionality=extra_functionality,
-            )
-            if status != "ok":
-                logger.warning(
-                    f"""Optimization failed with status {status}
-                    and condition {condition}"""
-                )
-                etrago.network.model.print_infeasibilities()
-
-        else:
-            status, termination_condition = network_lopf(
-                etrago.network,
-                solver_name=etrago.args["solver"],
-                solver_options=etrago.args["solver_options"],
-                extra_functionality=extra_functionality,
-                formulation=etrago.args["model_formulation"],
-            )
-
-            if status != "ok":
-                raise Exception("LOPF not solved.")
+        if status != "ok":
+            raise Exception("LOPF not solved.")
 
     y = time.time()
     z = (y - x) / 60
@@ -271,50 +206,14 @@ def iterate_lopf(
     path = args["csv_export"]
     lp_path = args["lpfile"]
 
-    if (
-        args["temporal_disaggregation"]["active"] is True
-        and etrago.conduct_dispatch_disaggregation is False
-    ):
+    if args["temporal_disaggregation"]["active"]:
         if args["csv_export"]:
             path = path + "/temporally_reduced"
 
         if args["lpfile"]:
             lp_path = lp_path[0:-3] + "_temporally_reduced.lp"
 
-    if etrago.conduct_dispatch_disaggregation is not False:
-        if args["lpfile"]:
-            lp_path = lp_path[0:-3] + "_dispatch_disaggregation.lp"
-
-        etrago.network_tsa.lines["s_nom"] = etrago.network.lines["s_nom_opt"]
-        etrago.network_tsa.lines["s_nom_extendable"] = False
-
-        etrago.network_tsa.links["p_nom"] = etrago.network.links["p_nom_opt"]
-        etrago.network_tsa.links["p_nom_extendable"] = False
-
-        etrago.network_tsa.transformers["s_nom"] = etrago.network.transformers[
-            "s_nom_opt"
-        ]
-        etrago.network_tsa.transformers.s_nom_extendable = False
-
-        etrago.network_tsa.storage_units["p_nom"] = (
-            etrago.network.storage_units["p_nom_opt"]
-        )
-        etrago.network_tsa.storage_units["p_nom_extendable"] = False
-
-        etrago.network_tsa.stores["e_nom"] = etrago.network.stores["e_nom_opt"]
-        etrago.network_tsa.stores["e_nom_extendable"] = False
-
-        etrago.network_tsa.storage_units.cyclic_state_of_charge = False
-        etrago.network_tsa.stores.e_cyclic = False
-
-        args["snapshot_clustering"]["active"] = False
-        args["skip_snapshots"] = False
-        args["extendable"] = []
-
-        network = etrago.network_tsa
-
-    else:
-        network = etrago.network
+    network = etrago.network
 
     # if network is extendable, iterate lopf
     # to include changes of electrical parameters
@@ -489,6 +388,310 @@ def optimize(self):
         )
     else:
         print("Method not defined")
+
+
+def optimize_with_rolling_horizon(
+    n,
+    pre_market,
+    snapshots,
+    horizon,
+    overlap,
+    solver_name,
+    extra_functionality,
+    args,
+    temporal_disaggregation=False,
+):
+    """
+    Optimizes the network in a rolling horizon fashion.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+    snapshots : list-like
+        Set of snapshots to consider in the optimization. The default is None.
+    horizon : int
+        Number of snapshots to consider in each iteration. Defaults to 100.
+    overlap : int
+        Number of snapshots to overlap between two iterations. Defaults to 0.
+    **kwargs:
+        Keyword argument used by `linopy.Model.solve`, such as `solver_name`,
+
+    Returns
+    -------
+    None
+    """
+    if snapshots is None:
+        snapshots = n.snapshots
+
+    if horizon <= overlap:
+        raise ValueError("overlap must be smaller than horizon")
+
+    # Make sure that quadratic costs as zero and not NaN
+    n.links.marginal_cost_quadratic = 0.0
+
+    starting_points = range(0, len(snapshots), horizon - overlap)
+    for i, start in enumerate(starting_points):
+        end = min(len(snapshots), start + horizon)
+        sns = snapshots[start:end]
+        logger.info(f"""Optimizing network for snapshot horizon
+            [{sns[0]}:{sns[-1]}] ({i+1}/{len(starting_points)}).""")
+
+        if not n.stores.empty:
+            stores_no_dsm = n.stores[
+                ~n.stores.carrier.isin(
+                    [
+                        "PtH2_waste_heat",
+                        "PtH2_O2",
+                        "dsm",
+                        "battery_storage",
+                        "central_heat_store",
+                        "H2_overground",
+                        "CH4",
+                        "H2_underground",
+                    ]
+                )
+            ].index
+            if start != 0:
+                n.stores.loc[stores_no_dsm, "e_initial"] = n.stores_t.e.loc[
+                    snapshots[start - 1], stores_no_dsm
+                ]
+            else:
+                n.stores.loc[stores_no_dsm, "e_initial"] = (
+                    pre_market.stores_t.e.loc[
+                        snapshots[start - 1], stores_no_dsm
+                    ]
+                )
+
+            # Select seasonal stores
+            seasonal_stores = n.stores.index[
+                n.stores.carrier.isin(
+                    [
+                        "central_heat_store",
+                        "H2_overground",
+                        "CH4",
+                        "H2_underground",
+                    ]
+                )
+            ]
+
+            # Set e_initial from pre_market model for seasonal stores
+            n.stores.e_initial[seasonal_stores] = pre_market.stores_t.e.loc[
+                snapshots[start - 1], seasonal_stores
+            ]
+
+            # Set e at the end of the horizon
+            # by setting e_max_pu and e_min_pu
+            n.stores_t.e_max_pu.loc[
+                snapshots[end - 1], seasonal_stores
+            ] = pre_market.stores_t.e.loc[
+                snapshots[end - 1], seasonal_stores
+            ].div(
+                pre_market.stores.e_nom_opt[seasonal_stores]
+            ).clip(
+                lower=0.0
+            ) * (
+                1 + 1e6
+            )
+            n.stores_t.e_min_pu.loc[
+                snapshots[end - 1], seasonal_stores
+            ] = pre_market.stores_t.e.loc[
+                snapshots[end - 1], seasonal_stores
+            ].div(
+                pre_market.stores.e_nom_opt[seasonal_stores]
+            ).clip(
+                lower=0.0
+            ) * (
+                1 - 1e6
+            )
+            n.stores_t.e_min_pu.fillna(0.0, inplace=True)
+            n.stores_t.e_max_pu.fillna(1.0, inplace=True)
+
+        if not n.storage_units.empty:
+            n.storage_units.state_of_charge_initial = (
+                n.storage_units_t.state_of_charge.loc[snapshots[start - 1]]
+            )
+            # Make sure that state of charge of batteries and pumped hydro
+            # plants are cyclic over the year by using the state_of_charges
+            # from the pre_market_model
+            if i == 0:
+                n.storage_units.state_of_charge_initial = (
+                    pre_market.storage_units_t.state_of_charge.iloc[-1]
+                )
+                seasonal_storage = pre_market.storage_units[
+                    pre_market.storage_units.carrier == "reservoir"
+                ].index
+
+                soc_value = pre_market.storage_units_t.state_of_charge.loc[
+                    snapshots[end - 1], seasonal_storage
+                ]
+
+                args_addition = {
+                    "pre_market_seasonal_soc": soc_value,
+                }
+
+                extra_functionality = Constraints(
+                    {**args, **args_addition}, False, apply_on="market_model"
+                ).functionality
+
+            elif i == len(starting_points) - 1:
+                if len(snapshots) > 1000:
+                    extra_functionality = Constraints(
+                        args, False, apply_on="last_market_model"
+                    ).functionality
+            else:
+                seasonal_storage = pre_market.storage_units[
+                    pre_market.storage_units.carrier == "reservoir"
+                ].index
+
+                soc_value = pre_market.storage_units_t.state_of_charge.loc[
+                    snapshots[end - 1], seasonal_storage
+                ]
+
+                args_addition = {
+                    "pre_market_seasonal_soc": soc_value,
+                }
+
+                extra_functionality = Constraints(
+                    {**args, **args_addition}, False, apply_on="market_model"
+                ).functionality
+
+        if temporal_disaggregation:
+            args = update_extra_functionality_temporal_disaggregation(
+                n, pre_market, args, sns
+            )
+
+        if args["method"]["formulation"] == "linopy":
+            status, condition = n.optimize(
+                sns,
+                solver_name=solver_name,
+                extra_functionality=extra_functionality,
+                assign_all_duals=True,
+                solver_options=args["solver_options"],
+            )
+
+            if status != "ok":
+                logger.warning(f"""Optimization failed with status {status}
+                    and condition {condition}""")
+                n.model.print_infeasibilities()
+                import pdb
+
+                pdb.set_trace()
+
+        else:
+            n.lopf(
+                sns,
+                solver_name=solver_name,
+                solver_options=args["solver_options"],
+                pyomo=True,
+                extra_functionality=extra_functionality,
+                formulation=args["model_formulation"],
+            )
+
+    return n
+
+
+def update_extra_functionality_temporal_disaggregation(n, n_tsa, args, sns):
+
+    for key in args["extra_functionality"].keys():
+        if key == "cross_border_flow_per_country":
+            args = adjust_crossborder_flow_rolling_horizon(n, n_tsa, args, sns)
+            logger.info("Cross border flow constraint adjusted")
+
+        elif key in [
+            "max_line_ext",
+            "max_battery_expansion_germany",
+            "fixed_battery_expansion_germany",
+            "min_ely_capacity_germany",
+        ]:
+            logger.info(
+                "No adjustment for temporal disaggregation in constraint "
+                f"{key} needed."
+            )
+        else:
+            logger.warning(
+                "Adjustment for temporal disaggregation in constraint "
+                f"{key} needed but not implemented yet. Results of "
+                "temporal disaggregation might be incorrect."
+            )
+    return args
+
+
+def adjust_crossborder_flow_rolling_horizon(n, n_tsa, args, sns):
+
+    buses_de, buses_for, cb0, cb1, cb0_link, cb1_link = (
+        _get_crossborder_components(n)
+    )
+
+    line0 = n.lines.loc[cb0]
+    line0["country0"] = n.buses.loc[line0.bus0.values, "country"].values
+    line0["country1"] = n.buses.loc[line0.bus1.values, "country"].values
+
+    line1 = n.lines.loc[cb1]
+    line1["country0"] = n.buses.loc[line1.bus0.values, "country"].values
+    line1["country1"] = n.buses.loc[line1.bus1.values, "country"].values
+
+    link0 = n.links.loc[cb0_link]
+    link0["country0"] = n.buses.loc[link0.bus0.values, "country"].values
+    link0["country1"] = n.buses.loc[link0.bus1.values, "country"].values
+
+    link1 = n.links.loc[cb1_link]
+    link1["country0"] = n.buses.loc[link1.bus0.values, "country"].values
+    link1["country1"] = n.buses.loc[link1.bus1.values, "country"].values
+
+    n_tsa_sns = n_tsa.snapshots[n_tsa.snapshots.isin(sns)]
+    for cntr in args["extra_functionality"][
+        "cross_border_flow_per_country"
+    ].keys():
+        usage_tsa = (
+            (
+                n_tsa.lines_t.p0.loc[
+                    n_tsa_sns, line1[line1.country1 == cntr].index
+                ]
+                .sum(axis=1)
+                .mul(n_tsa.snapshot_weightings.loc[n_tsa_sns, "objective"])
+                .sum()
+            )
+            - (
+                n_tsa.lines_t.p0.loc[
+                    n_tsa_sns, line0[line0.country0 == cntr].index
+                ]
+                .sum(axis=1)
+                .mul(n_tsa.snapshot_weightings.loc[n_tsa_sns, "objective"])
+                .sum()
+            )
+            + (
+                n_tsa.links_t.p0.loc[
+                    n_tsa_sns, link1[link1.country1 == cntr].index
+                ]
+                .sum(axis=1)
+                .mul(n_tsa.snapshot_weightings.loc[n_tsa_sns, "objective"])
+                .sum()
+            )
+            - (
+                n_tsa.links_t.p0.loc[
+                    n_tsa_sns, link0[link0.country0 == cntr].index
+                ]
+                .sum(axis=1)
+                .mul(n_tsa.snapshot_weightings.loc[n_tsa_sns, "objective"])
+                .sum()
+            )
+        )
+        if usage_tsa >= 0:
+            args["extra_functionality"]["cross_border_flow_per_country"][cntr][
+                0
+            ] = (0.99 * usage_tsa)
+            args["extra_functionality"]["cross_border_flow_per_country"][cntr][
+                1
+            ] = (1.01 * usage_tsa)
+        else:
+            args["extra_functionality"]["cross_border_flow_per_country"][cntr][
+                1
+            ] = (0.99 * usage_tsa)
+            args["extra_functionality"]["cross_border_flow_per_country"][cntr][
+                0
+            ] = (1.01 * usage_tsa)
+
+    return args
 
 
 def import_gen_from_links(network, drop_small_capacities=True):
