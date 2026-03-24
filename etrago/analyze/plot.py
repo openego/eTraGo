@@ -30,6 +30,7 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import TwoSlopeNorm
 from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from pyproj import Proj, transform
 from pypsa.plot import draw_map_cartopy
 import geopandas as gpd
@@ -1783,7 +1784,7 @@ def plot_flexibility_usage(
     colors["dlr"] = "orange"
     colors["h2_store"] = colors["H2_underground"]
     colors["heat"] = colors["central_heat_store"]
-
+    colors["home_battery"] = colors["battery"]
     if not buses:
         buses = network.buses.index
 
@@ -1825,6 +1826,28 @@ def plot_flexibility_usage(
 
         su = network.storage_units[
             (network.storage_units.carrier == "battery")
+            & (network.storage_units.bus.isin(buses))
+        ]
+
+        df["p_min"] = su.p_nom_opt.sum() * (-1)
+        df["p_max"] = su.p_nom_opt.sum()
+        df["p"] = (
+            network.storage_units_t.p[su.index].sum(axis=1).loc[snapshots]
+        )
+
+        df["e_min"] = 0
+        df["e_max"] = su.p_nom_opt.mul(su.max_hours).sum()
+        df["e"] = (
+            network.storage_units_t.state_of_charge[su.index]
+            .sum(axis=1)
+            .loc[snapshots]
+        )
+
+    elif flexibility == "home_battery":
+        df = pd.DataFrame(index=snapshots)
+
+        su = network.storage_units[
+            (network.storage_units.carrier == "home_battery")
             & (network.storage_units.bus.isin(buses))
         ]
 
@@ -3723,6 +3746,119 @@ def plot_network_expansion_diff(
         plt.show()
     else:
         plt.savefig(filename)
+        plt.close()
+
+
+def regions_per_bus(etrago):
+    from shapely.geometry import Point
+    import geopandas as gpd
+    import saio
+
+    map_buses = etrago.busmap["orig_network"].buses[
+        [
+            "carrier",
+            "x",
+            "y",
+            "country",
+        ]
+    ]
+    map_buses = map_buses[
+        (map_buses["carrier"] == "AC") & (map_buses["country"] == "DE")
+    ]
+    map_buses["geom"] = map_buses.apply(
+        lambda x: Point(x["x"], x["y"]), axis=1
+    )
+    map_buses["cluster"] = map_buses.index.map(etrago.busmap["busmap"])
+
+    map_buses = gpd.GeoDataFrame(map_buses, geometry="geom", crs="4326")
+
+    if "oep.iks.cs.ovgu.de" in str(etrago.engine.url):
+        saio.register_schema("tables", etrago.engine)
+        from saio.tables import (
+            edut_00_080 as egon_mv_grid_district,
+        )
+    else:
+        saio.register_schema("grid", etrago.engine)
+        from saio.grid import egon_mv_grid_district
+
+    # import mv grid districts
+    mv_grids = saio.as_pandas(
+        query=etrago.session.query(egon_mv_grid_district),
+    )
+
+    join = gpd.sjoin(mv_grids.to_crs(3035), map_buses.to_crs(3035))
+
+    join = join.to_crs(3035)
+
+    geoms = gpd.GeoSeries(index=map_buses.cluster.unique())
+
+    for i in join.cluster.unique():
+        geoms[i] = join[join.cluster == i].geom.unary_union
+
+    return geoms
+
+
+def plot_simplified_distribution_grids(
+    etrago, attribute="expansion_abs", cmap="viridis", filename=None
+):
+
+    dg_links = etrago.network.links[
+        etrago.network.links.carrier == "distribution_grid"
+    ]
+    geoms = regions_per_bus(etrago)
+
+    if attribute == "expansion_abs":
+        to_plot = pd.Series(index=etrago.network.buses.index, data=0.0)
+        to_plot.loc[dg_links.bus0] = (
+            dg_links.p_nom_opt - dg_links.p_nom_min
+        ).values
+        label = "Simplified distribution grid expansion in MW"
+    elif attribute == "expansion_rel":
+        to_plot = pd.Series(index=etrago.network.buses.index, data=0.0)
+        to_plot.loc[dg_links.bus0] = (
+            dg_links.p_nom_opt / dg_links.p_nom_min
+        ).values
+        label = "Simplified distribution grid expansion in p.u."
+    elif attribute == "capacity":
+        to_plot = pd.Series(index=etrago.network.buses.index, data=0.0)
+        to_plot.loc[dg_links.bus0] = (dg_links.p_nom_opt).values
+        label = "Simplified distribution grid capacity in MW"
+    elif attribute == "existing capacity":
+        to_plot = pd.Series(index=etrago.network.buses.index, data=0.0)
+        to_plot.loc[dg_links.bus0] = (dg_links.p_nom_min).values
+        label = "Existing simplified distribution grid capacity in MW"
+    elif attribute == "expansion_costs":
+        to_plot = pd.Series(index=etrago.network.buses.index, data=0.0)
+        to_plot.loc[dg_links.bus0] = (
+            (dg_links.p_nom_opt - dg_links.p_nom_min) * dg_links.capital_cost
+        ).values
+        label = "Simplified distribution grid expansion costs in EUR"
+
+    gdf = gpd.GeoDataFrame(geometry=geoms.values, index=geoms.index)
+    gdf.loc[:, attribute] = to_plot.loc[gdf.index]
+
+    fig, ax = plt.subplots(1, 1, figsize=(10, 8))
+
+    # Create a divider for the colorbar axis
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+
+    gdf.plot(
+        column=attribute,
+        ax=ax,
+        cax=cax,
+        legend=True,
+        edgecolor="grey",
+        linewidth=0.5,
+        cmap=cmap,
+        legend_kwds={"label": label, "orientation": "vertical"},
+    )
+    ax.axis("off")
+    plt.tight_layout()
+    plt.show()
+
+    if filename:
+        plt.savefig(filename, dpi=800)
         plt.close()
 
 

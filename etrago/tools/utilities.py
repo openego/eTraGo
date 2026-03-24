@@ -691,13 +691,11 @@ def load_shedding(
         network.add("Carrier", "load")
         start = (
             network.generators.index.to_series()
-            .str.rsplit(" ")
-            .str[0]
+            .str.extract("(\d+)")
             .astype(int)
-            .sort_values()
             .max()
             + 1
-        )
+        )[0]
 
         if start != start:
             start = 0

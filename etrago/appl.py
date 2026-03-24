@@ -29,7 +29,6 @@ the function run_etrago.
 import datetime
 import os
 import os.path
-import pandas as pd
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -56,16 +55,16 @@ args = {
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
         "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "formulation": "linopy",
-        "market_optimization":
-            {
-                "active": False,
-                "market_zones": "status_quo", # only used if type='market_grid'
-                "rolling_horizon": {# Define parameter of market optimization
-                    "planning_horizon": 168, # number of snapshots in each optimization
-                    "overlap": 120, # number of overlapping hours
-                 },
-                "redispatch": True,
-             }
+        "market_optimization": {
+            "active": True,
+            "market_zones": "status_quo",  # only used if type='market_grid'
+            "rolling_horizon": {  # Define parameter of market optimization
+                "planning_horizon": 168,  # number of snapshots in each optimization
+                "overlap": 120,  # number of overlapping hours
+            },
+            "redispatch": True,
+        },
+        "distribution_grids": False, # False or path to file with edisgo results
     },
     "pf_post_lopf": {
         "active": False,  # choose if perform a pf after lopf
@@ -154,7 +153,7 @@ args = {
     },
     "skip_snapshots": 5,  # False or number of snapshots to skip
     "temporal_disaggregation": {
-        "active": True,  # choose if temporally full complex dispatch optimization should be conducted
+        "active": False,  # choose if temporally full complex dispatch optimization should be conducted
         "no_slices": 8,  # number of subproblems optimization is divided into
     },
     # Simplifications:
@@ -174,7 +173,7 @@ def run_etrago(args, json_path):
     Parameters
     ----------
     db : str
-        Name of Database session setting stored in *config.ini* within 
+        Name of Database session setting stored in *config.ini* within
         *.etrago_database/* in case of local database,
         or  ``'test-oep'`` or ``'oedb'`` to load model from OEP.
     gridversion : None or str
@@ -194,16 +193,30 @@ def run_etrago(args, json_path):
             iterations or set "threshold" and specify a threshold of the
             objective function as abort criteria of the iterative optimization.
             Default: 4.
-        * "threshold" : int
-            In case of extendable lines, several LOPFs have to be performed.
-            You can either set "n_iter" and specify a fixed number of
-            iterations or set "threshold" and specify a threshold of the
-            objective function as abort criteria of the iterative optimization.
-            Per default, "n_iter" of 4 is set.
-        * "pyomo" : bool
-            Set to True, if pyomo is used for model building.
-            Set to False for big optimization problems - currently only
-            possible when solver is "gurobi".
+        * "formulation" : str
+            Select formulation used for model building.
+            You can either choose "pyomo" or "linopy".
+            Default: "linopy".
+        * "market_optimization" : dict
+            Select if a seperate market optimization should be performed before the
+            grid optimization. Otherwise, an integrated optimization is performed.
+            Per default, the following dictionary is set:
+
+            {
+                "active": True,
+                "market_zones": "status_quo",
+                "rolling_horizon": {
+                    "planning_horizon": 168,
+                    "overlap": 120,
+                },
+                "redispatch": True,
+            }
+
+        * "distribution_grids" : str
+            If you want to consider simplyfied distribution grids within the
+            transmission grid optimization, provide a path to the parameters for each
+            distribution grid here.
+            Default: False.
 
     pf_post_lopf : dict
         Settings for option to run a non-linear power flow (PF) directly after
@@ -615,7 +628,7 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
-    etrago.spatial_clustering_gas()    
+    etrago.spatial_clustering_gas()
 
     # snapshot clustering
     etrago.snapshot_clustering()

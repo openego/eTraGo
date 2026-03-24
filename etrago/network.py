@@ -82,6 +82,7 @@ from etrago.execute.sclopf import (
     iterate_sclopf,
     post_contingency_analysis_lopf,
 )
+from etrago.tools.distribution_grids import add_simplified_distribution_grids
 from etrago.tools.extendable import extendable
 from etrago.tools.io import (
     NetworkScenario,
@@ -420,6 +421,8 @@ class Etrago:
 
     levelize_abroad_inland_parameters = levelize_abroad_inland_parameters
 
+    add_simplified_distribution_grids = add_simplified_distribution_grids
+
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)
 
@@ -452,6 +455,10 @@ class Etrago:
             self.add_ch4_h2_correspondence()
 
         logger.info("Imported network from db")
+
+        if self.args["method"]["distribution_grids"]:
+            self.add_simplified_distribution_grids()
+            logger.info("Added simplified distribution grids")
 
     def adjust_network(self):
         """
