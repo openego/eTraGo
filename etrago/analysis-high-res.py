@@ -3,10 +3,126 @@ import numpy as np
 import pandas as pd
 from etrago import Etrago
 
-vorher = Etrago(csv_folder_name= "Zooming-Tests/full-res/AC-20/vor-lpf")
+import pypsa
+from sqlalchemy import create_engine
+import geopandas as gpd
+from shapely.geometry import Point
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
+
+focus_gdf = gpd.read_file("/home/dozeumesk/eTraGo/git/eTraGo/etrago/focus-region/hannover.gpkg")
+focus_gdf = focus_gdf.to_crs(epsg=4326)
+
+# Auswertung
+
+res=[30, 300, 1000, 3000, 5000, 8000, 10000]
+
+full = Etrago(csv_folder_name= "/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming-Tests/full-res/AC-30/lpf")
+buses=full.network.buses        
+buses["geom"] =  buses.apply(lambda x: Point(x["x"], x["y"]), axis=1)
+buses = gpd.GeoDataFrame(buses, geometry="geom", crs=4326)
+buses_full = gpd.clip(buses, focus_gdf)
+
+half = Etrago(csv_folder_name= "/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming-Tests/full-res/AC-300/lpf")
+buses=half.network.buses        
+buses["geom"] =  buses.apply(lambda x: Point(x["x"], x["y"]), axis=1)
+buses = gpd.GeoDataFrame(buses, geometry="geom", crs=4326)
+buses_half = gpd.clip(buses, focus_gdf)
+
+## Lastflussfehler mit Fokus auf Region in Abhängigkeit der räumlichen Auflösung
+
+## Lastflussfehler-Karte
+
+def line_flow_error_clustered(n_ref, n_cluster, busmap):
+    
+    import pdb; pdb.set_trace()
+
+    snapshot = n_ref.snapshots[0]
+
+    # -------------------------
+    # 1. Referenzleitungen laden
+    # -------------------------
+
+    lines = n_ref.lines.copy()
+
+    flows_ref = n_ref.lines_t.p0.loc[snapshot]
+
+    lines["flow"] = flows_ref
+
+    # Clusterzuordnung der Busse
+    lines["cluster0"] = lines.bus0.map(busmap)
+    lines["cluster1"] = lines.bus1.map(busmap)
+
+    # -------------------------
+    # 2. Leitungen innerhalb desselben Clusters entfernen
+    # -------------------------
+
+    lines = lines[lines.cluster0 != lines.cluster1]
+
+    # -------------------------
+    # 3. Referenzflüsse zwischen Clusterpaaren aggregieren
+    # -------------------------
+
+    agg_ref = (
+        lines
+        .groupby(["cluster0", "cluster1"])["flow"]
+        .sum()
+    )
+
+    # auch umgekehrte Richtung berücksichtigen
+    agg_ref_rev = (
+        lines
+        .groupby(["cluster1", "cluster0"])["flow"]
+        .sum()
+    )
+
+    agg_ref = agg_ref.add(agg_ref_rev, fill_value=0)
+
+    # -------------------------
+    # 4. Clusterflüsse
+    # -------------------------
+
+    flows_cluster = n_cluster.lines_t.p0.loc[snapshot]
+
+    cluster_lines = n_cluster.lines.copy()
+
+    cluster_lines["flow_cluster"] = flows_cluster
+
+    # lookup Schlüssel
+    keys = list(zip(cluster_lines.bus0, cluster_lines.bus1))
+
+    ref_flow = pd.Series(
+        [agg_ref.get(k, np.nan) for k in keys],
+        index=cluster_lines.index
+    )
+
+    # -------------------------
+    # 5. relativer Fehler
+    # -------------------------
+
+    eps = 1e-6
+
+    rel_error = (
+        np.abs(np.abs(cluster_lines.flow_cluster) - np.abs(ref_flow))
+        / (np.abs(ref_flow) + eps)
+    )
+
+    return rel_error
+
+busmap = pd.read_csv("/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming-Tests/full-res/kmedoids-dijkstra_elecgrid_busmap_30_result.csv")
+busmap.index=busmap.bus
+busmap=busmap.drop(['foreign', 'medoid_idx', 'bus'], axis=1)
+line_flow_error_clustered(full.network, half.network, busmap=busmap)
+
+# Plausibilitätschecks
+
+vorher = Etrago(csv_folder_name= "Zooming-Tests/full-res/AC-30/vor-lpf")
 n_vorher = vorher.network
 
-lpf = Etrago(csv_folder_name= "Zooming-Tests/full-res/AC-20/lpf")
+lpf = Etrago(csv_folder_name= "Zooming-Tests/full-res/AC-30/lpf")
 n_lpf = lpf.network
 
 def check_p_set_completeness(n):
