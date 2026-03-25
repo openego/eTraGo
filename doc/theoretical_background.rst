@@ -80,7 +80,18 @@ The following extension scenarios are available:
      - computable
      - `Zenodo <https://zenodo.org/records/8376714>`_
 
-   
+
+Consideration of Simplified Distribution Grids
+----------------------------------------------
+To improve flexibility dispatching in the underlying distribution grids, they can be considered in a simplified way within *eTraGo*.
+When this option is selected, distribution grid buses are added to each HV/MV substation in the transmission grid. The transmission and distribution grid buses are connected via a link component. This component is parametrized in terms of capacity and expansion costs, which model the simplified exchange between the two grid levels. These parameters are derived from simulations within *eDisGo* via *eGo*. If you only intend to run *eTraGo*, you can import predefined data from a CSV file.
+Generation, load, and storage unit components are connected to their respective grid levels using original, non-aggregated data from the database. As a result, the modeling concept is adjusted as follows (illustrated here using the *eGon2035* scenario):
+
+.. figure:: images/modeling_concept_simplified_distribution_grids.png
+   :align: center
+   :width: 700
+
+
 Scenario Variation
 ==================
 

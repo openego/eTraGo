@@ -21,10 +21,11 @@
 """
 Constraints.py includes additional constraints for eTraGo-optimizations
 """
+
 import logging
 import os
 
-from pyomo.environ import Constraint
+from pyomo.environ import Constraint, ConstraintList
 from pypsa.descriptors import (
     expand_series,
     get_switchable_as_dense as get_as_dense,
@@ -284,6 +285,7 @@ def _fixed_battery_expansion_germany(self, network, snapshots):
     network.model.min_battery_ext = Constraint(rule=_rule_min)
     network.model.max_battery_ext = Constraint(rule=_rule_max)
 
+
 def _min_ely_capacity_germany(self, network, snapshots):
     """
     Define the overall expanded capacity of batteries in Germany.
@@ -302,18 +304,22 @@ def _min_ely_capacity_germany(self, network, snapshots):
 
     """
     ely_de = network.links[
-        (network.links.carrier=="power_to_H2")
-        &(network.links.bus0.isin(
-            network.buses[network.buses.country=="DE"].index
-            ))        ]
-    def _rule_min(m):
-        ely_opt = sum(
-            m.link_p_nom[index] for index in ely_de.index
+        (network.links.carrier == "power_to_H2")
+        & (
+            network.links.bus0.isin(
+                network.buses[network.buses.country == "DE"].index
+            )
         )
+    ]
+
+    def _rule_min(m):
+        ely_opt = sum(m.link_p_nom[index] for index in ely_de.index)
         return (ely_opt) >= (
             self.args["extra_functionality"]["min_ely_capacity_germany"]
         )
+
     network.model.min_ely_ext_germany = Constraint(rule=_rule_min)
+
 
 def _min_ely_capacity_germany_linopy(self, network, snapshots):
     """
@@ -332,12 +338,16 @@ def _min_ely_capacity_germany_linopy(self, network, snapshots):
     None.
 
     """
-    ely_de = list(network.links[
-        (network.links.carrier=="power_to_H2")
-        &(network.links.bus0.isin(
-            network.buses[network.buses.country=="DE"].index
-            ))        ].index)
-    
+    ely_de = list(
+        network.links[
+            (network.links.carrier == "power_to_H2")
+            & (
+                network.links.bus0.isin(
+                    network.buses[network.buses.country == "DE"].index
+                )
+            )
+        ].index
+    )
 
     if len(ely_de) > 0:
         define_constraints(
@@ -348,6 +358,7 @@ def _min_ely_capacity_germany_linopy(self, network, snapshots):
             "Global",
             "min_electrolysis_germany",
         )
+
 
 def _min_renewable_share_nmp(self, network, snapshots):
     """
@@ -518,10 +529,8 @@ def _max_redispatch(self, network, snapshots):
     if len(ramp_up) > 0 or len(ramp_up_links) > 0:
         network.model.max_redispatch = Constraint(rule=_rule)
     else:
-        print(
-            """Constraint max_redispatch was not added,
-              there are no redispatch generators or links."""
-        )
+        print("""Constraint max_redispatch was not added,
+              there are no redispatch generators or links.""")
 
 
 def _max_redispatch_ramp_down(self, network, snapshots):
@@ -572,10 +581,8 @@ def _max_redispatch_ramp_down(self, network, snapshots):
     if len(ramp_up) > 0 or len(ramp_up_links) > 0:
         network.model.max_redispatch_ramp_down = Constraint(rule=_rule)
     else:
-        print(
-            """Constraint max_redispatch was not added,
-              there are no redispatch generators or links."""
-        )
+        print("""Constraint max_redispatch was not added,
+              there are no redispatch generators or links.""")
 
 
 def _max_redispatch_linopy(self, network, snapshots):
@@ -617,10 +624,8 @@ def _max_redispatch_linopy(self, network, snapshots):
             "max_redispatch",
         )
     else:
-        print(
-            """Constraint max_redispatch_germany was not added,
-              there are no redispatch generators or links."""
-        )
+        print("""Constraint max_redispatch_germany was not added,
+              there are no redispatch generators or links.""")
 
 
 def _max_redispatch_germany(self, network, snapshots):
@@ -684,10 +689,8 @@ def _max_redispatch_germany(self, network, snapshots):
     if len(ramp_up) > 0 or len(ramp_up_links) > 0:
         network.model.max_redispatch = Constraint(rule=_rule)
     else:
-        print(
-            """Constraint max_redispatch_germany was not added,
-              there are no redispatch generators or links."""
-        )
+        print("""Constraint max_redispatch_germany was not added,
+              there are no redispatch generators or links.""")
 
 
 def _max_redispatch_germany_linopy(self, network, snapshots):
@@ -742,10 +745,8 @@ def _max_redispatch_germany_linopy(self, network, snapshots):
             "max_redispatch_germany",
         )
     else:
-        print(
-            """Constraint max_redispatch_germany was not added,
-              there are no redispatch generators or links."""
-        )
+        print("""Constraint max_redispatch_germany was not added,
+              there are no redispatch generators or links.""")
 
 
 def _cross_border_flow(self, network, snapshots):
@@ -1272,6 +1273,7 @@ def _cross_border_flow_per_country_linopy(self, network, snapshots):
                     "Global",
                     "max_cross_border-" + cntr,
                 )
+
 
 def _generation_potential(network, carrier, cntr="all"):
     """
@@ -1920,36 +1922,30 @@ def read_max_gas_generation(self):
         },  # [MWh] Value from reference p-e-s run used in eGon-data
         "powerd2030": {
             "biogas": 58288271,
-            "CH4": 213616374
+            "CH4": 213616374,
         },  # [MWh] Value from reference p-e-s run used in eGon-data
         "powerd2035": {
             "biogas": 191753884,
-            "CH4": 35
+            "CH4": 35,
         },  # [MWh] Value from reference p-e-s run used in eGon-data
     }
     engine = db.connection(section=self.args["db"])
     try:
         if "oep.iks.cs.ovgu.de" in str(engine.url):
             saio.register_schema("tables", self.engine)
-            from saio.tables import (
-                edut_00_137 as egon_scenario_parameters
-                )
+            from saio.tables import edut_00_137 as egon_scenario_parameters
         else:
             saio.register_schema("grid", engine)
-            from saio.grid import (
-                egon_scenario_parameters
-                )
+            from saio.grid import egon_scenario_parameters
         df = saio.as_pandas(
-            self.session.query(egon_scenario_parameters)
-            .filter(
-                egon_scenario_parameters.name ==
-                self.args["scn_name"].split("_")[0]
+            self.session.query(egon_scenario_parameters).filter(
+                egon_scenario_parameters.name
+                == self.args["scn_name"].split("_")[0]
             )
         )
         arg = df["gas_parameters"][0]["max_gas_generation_overtheyear"]
     except sqlalchemy.exc.NoSuchTableError as e:
-        logging.warning(
-            f"""
+        logging.warning(f"""
             The database query failed for
             'scenario.egon_scenario_parameters'.
             Fallback values are being used. Error message: {e}
@@ -2229,34 +2225,34 @@ def add_ch4_constraints_nmp(self, network, snapshots):
 
 
 def add_biomass_constraint(self, network, snapshots):
-    
+
     # Add limits (in MWh) from pypsa-eur run
     limits_per_scenario = {
-        "powerd2025": 170006952, 
+        "powerd2025": 170006952,
         "powerd2030": 561448487,
-        "powerd2035": 656706909      
-        }
+        "powerd2035": 656706909,
+    }
     if network.buses.scn_name.iloc[0] in limits_per_scenario.keys():
         effifiency_rural_biomass_boiler = 0.85
         efficiency_central_biomass_chp_elec = 0.269
-        
+
         to_limit_rural = network.generators[
-            (network.generators.carrier.isin(
-                ["rural_biomass_boiler"]
-                ))
-            &(network.generators.bus.isin(
-                network.buses[network.buses.country=="DE"].index)
-                )            
-            ].index
+            (network.generators.carrier.isin(["rural_biomass_boiler"]))
+            & (
+                network.generators.bus.isin(
+                    network.buses[network.buses.country == "DE"].index
+                )
+            )
+        ].index
 
         to_limit_chp = network.generators[
-            (network.generators.carrier.isin(
-                ["urban_central_biomass_CHP"]
-                ))
-            &(network.generators.bus.isin(
-                network.buses[network.buses.country=="DE"].index)
-                )            
-            ].index
+            (network.generators.carrier.isin(["urban_central_biomass_CHP"]))
+            & (
+                network.generators.bus.isin(
+                    network.buses[network.buses.country == "DE"].index
+                )
+            )
+        ].index
 
         def _rule_max(m):
             dispatch_rural_boiler = sum(
@@ -2271,66 +2267,76 @@ def add_biomass_constraint(self, network, snapshots):
                 for g in to_limit_chp
                 for sn in snapshots
             )
-            return ((dispatch_rural_boiler*effifiency_rural_biomass_boiler 
-                    + dispatch_central_chp*efficiency_central_biomass_chp_elec)
-                    <= limits_per_scenario[self.args["scn_name"]])
+            return (
+                dispatch_rural_boiler * effifiency_rural_biomass_boiler
+                + dispatch_central_chp * efficiency_central_biomass_chp_elec
+            ) <= limits_per_scenario[self.args["scn_name"]]
 
         setattr(
             network.model,
             "max_biomass_germany",
             Constraint(rule=_rule_max),
         )
-        
+
+
 def add_biomass_constraint_linopy(self, network, snapshots):
-    
+
     # Add limits (in MWh) from pypsa-eur run
     limits_per_scenario = {
-        "powerd2025": 170006952, 
+        "powerd2025": 170006952,
         "powerd2030": 561448487,
-        "powerd2035": 656706909      
-        }
+        "powerd2035": 656706909,
+    }
 
     if network.buses.scn_name.iloc[0] in limits_per_scenario.keys():
         factor = limits_per_scenario[network.buses.scn_name.iloc[0]]
         effifiency_rural_biomass_boiler = 0.85
         efficiency_central_biomass_chp_elec = 0.269
-        
+
         to_limit_rural = network.generators[
-            (network.generators.carrier.isin(
-                ["rural_biomass_boiler"]
-                ))
-            &(network.generators.bus.isin(
-                network.buses[network.buses.country=="DE"].index)
-                )            
-            ].index
+            (network.generators.carrier.isin(["rural_biomass_boiler"]))
+            & (
+                network.generators.bus.isin(
+                    network.buses[network.buses.country == "DE"].index
+                )
+            )
+        ].index
 
         to_limit_chp = network.generators[
-            (network.generators.carrier.isin(
-                ["central_biomass_CHP"]
-                ))
-            &(network.generators.bus.isin(
-                network.buses[network.buses.country=="DE"].index)
-                )            
-            ].index
-        generation_boiler = (
-            get_var(network, "Generator", "p")
-            .loc[snapshots, to_limit_rural]
-        )
-        generation_chp = (
-            get_var(network, "Generator", "p")
-            .loc[snapshots, to_limit_chp]
-        )
+            (network.generators.carrier.isin(["central_biomass_CHP"]))
+            & (
+                network.generators.bus.isin(
+                    network.buses[network.buses.country == "DE"].index
+                )
+            )
+        ].index
+        generation_boiler = get_var(network, "Generator", "p").loc[
+            snapshots, to_limit_rural
+        ]
+        generation_chp = get_var(network, "Generator", "p").loc[
+            snapshots, to_limit_chp
+        ]
 
         define_constraints(
             network,
-            linexpr((effifiency_rural_biomass_boiler*network.snapshot_weightings.generators, generation_boiler),
-                    (efficiency_central_biomass_chp_elec*network.snapshot_weightings.generators, generation_chp)
-                    ).sum(),
+            linexpr(
+                (
+                    effifiency_rural_biomass_boiler
+                    * network.snapshot_weightings.generators,
+                    generation_boiler,
+                ),
+                (
+                    efficiency_central_biomass_chp_elec
+                    * network.snapshot_weightings.generators,
+                    generation_chp,
+                ),
+            ).sum(),
             "<=",
             factor,
             "Generator",
             "max_biomass_dispatch_de",
         )
+
 
 def snapshot_clustering_daily_bounds(self, network, snapshots):
     """
@@ -2726,9 +2732,7 @@ def snapshot_clustering_seasonal_storage(
         return (
             m.state_of_charge[s, h]
             == m.state_of_charge_intra[s, h]
-            + m.state_of_charge_inter[
-                s, self.cluster_ts["Candidate_day"][h]
-            ]
+            + m.state_of_charge_inter[s, self.cluster_ts["Candidate_day"][h]]
         )
 
     def total_state_of_charge_store(m, s, h):
@@ -2801,9 +2805,7 @@ def snapshot_clustering_seasonal_storage(
 
         return (
             m.state_of_charge_intra[s, intra_hour]
-            + m.state_of_charge_inter[
-                s, self.cluster_ts["Candidate_day"][h]
-            ]
+            + m.state_of_charge_inter[s, self.cluster_ts["Candidate_day"][h]]
             * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs
             >= 0
         )
@@ -2875,12 +2877,8 @@ def snapshot_clustering_seasonal_storage(
             hrs = 24
 
         return (
-            m.state_of_charge_intra_min[
-                s, self.cluster_ts["Candidate_day"][h]
-            ]
-            + m.state_of_charge_inter[
-                s, self.cluster_ts["Candidate_day"][h]
-            ]
+            m.state_of_charge_intra_min[s, self.cluster_ts["Candidate_day"][h]]
+            + m.state_of_charge_inter[s, self.cluster_ts["Candidate_day"][h]]
             * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs
             >= 0
         )
@@ -2916,7 +2914,9 @@ def snapshot_clustering_seasonal_storage(
                 date = str(
                     network.snapshots[
                         network.snapshots.dayofyear - 1
-                        == self.cluster_temporal["RepresentativeDay"][h.dayofyear]
+                        == self.cluster_temporal["RepresentativeDay"][
+                            h.dayofyear
+                        ]
                     ][0]
                 ).split(" ")[0]
                 hour = str(h).split(" ")[1]
@@ -3011,9 +3011,7 @@ def snapshot_clustering_seasonal_storage(
 
         return (
             m.state_of_charge_intra[s, intra_hour]
-            + m.state_of_charge_inter[
-                s, self.cluster_ts["Candidate_day"][h]
-            ]
+            + m.state_of_charge_inter[s, self.cluster_ts["Candidate_day"][h]]
             * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs
             <= p_nom * network.storage_units.at[s, "max_hours"]
         )
@@ -3085,12 +3083,8 @@ def snapshot_clustering_seasonal_storage(
             p_nom = network.storage_units.p_nom[s]
 
         return (
-            m.state_of_charge_intra_max[
-                s, self.cluster_ts["Candidate_day"][h]
-            ]
-            + m.state_of_charge_inter[
-                s, self.cluster_ts["Candidate_day"][h]
-            ]
+            m.state_of_charge_intra_max[s, self.cluster_ts["Candidate_day"][h]]
+            + m.state_of_charge_inter[s, self.cluster_ts["Candidate_day"][h]]
             * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs
             <= p_nom * network.storage_units.at[s, "max_hours"]
         )
@@ -3113,9 +3107,7 @@ def snapshot_clustering_seasonal_storage(
                         "last_hour_RepresentativeDay"
                     ]
                     first_hour = last_hour - pd.DateOffset(hours=167)
-                    period_start = self.cluster_ts.index[0::168][
-                        candidate - 1
-                    ]
+                    period_start = self.cluster_ts.index[0::168][candidate - 1]
                     delta_t = h - period_start
                     intra_hour = first_hour + delta_t
 
@@ -3125,9 +3117,7 @@ def snapshot_clustering_seasonal_storage(
                         "last_hour_RepresentativeDay"
                     ]
                     first_hour = last_hour - pd.DateOffset(hours=719)
-                    period_start = self.cluster_ts.index[0::720][
-                        candidate - 1
-                    ]
+                    period_start = self.cluster_ts.index[0::720][candidate - 1]
                     delta_t = h - period_start
                     intra_hour = first_hour + delta_t
 
@@ -3614,7 +3604,7 @@ def fixed_storage_unit_soc_at_horizon_end(self, n, sns):
     m = n.model
     c = "StorageUnit"
     assets = n.df(c)
-    assets = assets[assets.carrier=="reservoir"]
+    assets = assets[assets.carrier == "reservoir"]
 
     if assets.empty:
         return
@@ -3638,8 +3628,12 @@ def fixed_storage_unit_soc_at_horizon_end(self, n, sns):
 
 class Constraints:
     def __init__(
-        self, args, conduct_dispatch_disaggregation, apply_on="grid_model",
-        cluster_temporal = None, cluster_ts=None
+        self,
+        args,
+        conduct_dispatch_disaggregation,
+        apply_on="grid_model",
+        cluster_temporal=None,
+        cluster_ts=None,
     ):
         self.args = args
         self.conduct_dispatch_disaggregation = conduct_dispatch_disaggregation
@@ -3660,28 +3654,36 @@ class Constraints:
             List of timesteps considered in the optimization
 
         """
+
+        if (self.args["method"]["distribution_grids"] != False) & (
+            self.apply_on == "grid_model"
+        ):
+            couple_distribution_links(self, network, snapshots)
+
         if "CH4" in network.buses.carrier.values:
             if self.args["method"]["formulation"] == "pyomo":
 
                 if self.args["scn_name"] in [
-                        "eGon100RE", "powerd2025", "powerd2030", "powerd2035"]:
+                    "eGon100RE",
+                    "powerd2025",
+                    "powerd2030",
+                    "powerd2035",
+                ]:
                     add_electrolysis_coupling_constraints(network, snapshots)
                     add_chp_constraints_simplyfied(network, snapshots)
                 else:
                     add_chp_constraints(network, snapshots)
 
-                if (self.args["scn_name"] not in [
-                        "status2019", "status2023"]) & (
-                    len(snapshots) > 1500
-                ):
+                if (
+                    self.args["scn_name"] not in ["status2019", "status2023"]
+                ) & (len(snapshots) > 1500):
                     add_ch4_constraints(self, network, snapshots)
                     add_biomass_constraint(self, network, snapshots)
 
             elif self.args["method"]["formulation"] == "linopy":
-                if (self.args["scn_name"] not in [
-                        "status2019", "status2023"]) & (
-                    len(snapshots) > 1500
-                ):
+                if (
+                    self.args["scn_name"] not in ["status2019", "status2023"]
+                ) & (len(snapshots) > 1500):
                     add_ch4_constraints_linopy(self, network, snapshots)
                     add_biomass_constraint_linopy(self, network, snapshots)
 
@@ -3689,12 +3691,12 @@ class Constraints:
                     fixed_storage_unit_soc_at_the_end(network, snapshots)
                 elif self.apply_on == "market_model":
                     fixed_storage_unit_soc_at_horizon_end(
-                        self, network, snapshots)
+                        self, network, snapshots
+                    )
                 add_chp_constraints_linopy(network, snapshots)
             else:
                 add_chp_constraints_nmp(network)
-                if self.args["scn_name"] not in [
-                        "status2019", "status2023"]:
+                if self.args["scn_name"] not in ["status2019", "status2023"]:
                     add_ch4_constraints_nmp(self, network, snapshots)
 
         for constraint in self.args["extra_functionality"].keys():
@@ -3815,7 +3817,7 @@ class Constraints:
                 )
 
         if self.conduct_dispatch_disaggregation is not False:
-            if self.args["method"]["formulation"]=="pyomo":
+            if self.args["method"]["formulation"] == "pyomo":
                 split_dispatch_disaggregation_constraints(
                     self, network, snapshots
                 )
@@ -3906,15 +3908,19 @@ def add_chp_constraints_nmp(n):
             axes=ax,
         )
 
+
 def add_electrolysis_coupling_constraints(network, snapshots):
     efficiency_waste_heat = 0.2
     efficiency_o2 = 0.015
 
     ely = network.links[
         (network.links.carrier == "power_to_H2")
-        &(network.links.bus0.isin(
-            network.buses[network.buses.country=="DE"].index))
-        ]
+        & (
+            network.links.bus0.isin(
+                network.buses[network.buses.country == "DE"].index
+            )
+        )
+    ]
 
     for e in ely.index:
         if e + "_waste_heat" in network.generators.index:
@@ -3926,12 +3932,12 @@ def add_electrolysis_coupling_constraints(network, snapshots):
                 )
 
                 rhs = sum(
-                    efficiency_waste_heat
-                    * model.link_p[ely, snapshot]
+                    efficiency_waste_heat * model.link_p[ely, snapshot]
                     for ely in [e]
                 )
 
                 return lhs == rhs
+
             setattr(
                 network.model,
                 "ely_waste_heat_" + str(e),
@@ -3947,12 +3953,11 @@ def add_electrolysis_coupling_constraints(network, snapshots):
                 )
 
                 rhs = sum(
-                    efficiency_o2
-                    * model.link_p[ely, snapshot]
-                    for ely in [e]
+                    efficiency_o2 * model.link_p[ely, snapshot] for ely in [e]
                 )
 
                 return lhs == rhs
+
             setattr(
                 network.model,
                 "ely_oxygen_" + str(e),
@@ -3979,18 +3984,15 @@ def add_chp_constraints_simplyfied(network, snapshots):
         heat_chp = elec_chp + "_heat"
 
         def fixed_chp(model, snapshot):
-            lhs = sum(
-                model.generator_p[h_chp, snapshot]
-                for h_chp in heat_chp
-            )
+            lhs = sum(model.generator_p[h_chp, snapshot] for h_chp in heat_chp)
 
             rhs = sum(
-                efficiency_heat
-                * model.link_p[e_chp, snapshot]
+                efficiency_heat * model.link_p[e_chp, snapshot]
                 for e_chp in elec_chp
             )
 
             return lhs == rhs
+
         setattr(
             network.model,
             "chp_constraint_" + str(i),
@@ -4000,40 +4002,48 @@ def add_chp_constraints_simplyfied(network, snapshots):
     efficiency_central_biomass_chp_elec = 0.269
     efficiency_central_biomass_chp_heat = 0.825
     biomass_chp_elec = network.generators[
-        network.generators.carrier=="central_biomass_CHP"]
+        network.generators.carrier == "central_biomass_CHP"
+    ]
     biomass_chp_heat = network.generators[
-        network.generators.carrier=="central_biomass_CHP_heat"]
-    for cntr in network.buses[network.buses.index.isin(
-            biomass_chp_elec.bus.values
-            )].country.unique():
+        network.generators.carrier == "central_biomass_CHP_heat"
+    ]
+    for cntr in network.buses[
+        network.buses.index.isin(biomass_chp_elec.bus.values)
+    ].country.unique():
         biomass_chp_elec_c = biomass_chp_elec[
             biomass_chp_elec.bus.isin(
-                network.buses[network.buses.country==cntr].index
-                )           
-            ].index
+                network.buses[network.buses.country == cntr].index
+            )
+        ].index
         biomass_chp_heat_c = biomass_chp_heat[
             biomass_chp_heat.bus.isin(
-                network.buses[network.buses.country==cntr].index
-                )           
-            ].index
+                network.buses[network.buses.country == cntr].index
+            )
+        ].index
+
         def fixed_chp_biomass(model, snapshot):
             lhs = sum(
                 model.generator_p[h_chp, snapshot]
                 for h_chp in biomass_chp_heat_c
             )
-    
+
             rhs = sum(
-                (efficiency_central_biomass_chp_heat / efficiency_central_biomass_chp_elec)
+                (
+                    efficiency_central_biomass_chp_heat
+                    / efficiency_central_biomass_chp_elec
+                )
                 * model.generator_p[e_chp, snapshot]
                 for e_chp in biomass_chp_elec_c
             )
-    
+
             return lhs == rhs
+
         setattr(
             network.model,
             "biomass_chp_constraint_" + cntr,
             Constraint(list(snapshots), rule=fixed_chp_biomass),
         )
+
 
 def add_chp_constraints(network, snapshots):
     """
@@ -4202,8 +4212,9 @@ def add_chp_constraints_linopy(network, snapshots):
                 define_constraints(
                     network,
                     get_var(network, "Link", "p").loc[snapshot, heat_chp].sum()
-                    + get_var(network, "Link",
-                              "p").loc[snapshot, elec_chp].sum(),
+                    + get_var(network, "Link", "p")
+                    .loc[snapshot, elec_chp]
+                    .sum(),
                     "<=",
                     network.links[
                         (network.links.carrier == "central_gas_CHP")
@@ -4212,3 +4223,124 @@ def add_chp_constraints_linopy(network, snapshots):
                     "Link",
                     "top_iso_fuel_line_" + i + "_" + str(snapshot),
                 )
+
+
+def couple_distribution_links(self, n, snapshots):
+    """
+    Couple bidirectional distribution grid links such that
+    capacity expansion is identical in both directions.
+
+    This ensures that any additional capacity built between
+    transmission and distribution grids is shared physically,
+    i.e. an expansion of e.g. 10 MW applies to both flow
+    directions equally.
+
+    The function automatically detects whether the optimization
+    backend is Pyomo or Linopy based on:
+
+        self.args["method"]  ∈ {"pyomo", "linopy"}
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        The PyPSA network instance.
+
+    snapshots : pandas.Index
+        Snapshots passed by PyPSA during optimization.
+        (Not used directly but required by the interface.)
+
+    Notes
+    -----
+    • Existing capacities (p_nom) are NOT coupled.
+      Only expansion variables are linked.
+
+    • Investment costs should only be assigned to one
+      direction of each link pair to avoid double counting.
+
+    • Link pairs are identified via naming convention:
+
+          {bus}_to_distribution_grid
+          {bus}_from_distribution_grid
+
+    • Only links with carrier == "distribution_grid"
+      are considered.
+
+    Raises
+    ------
+    ValueError
+        If an unknown optimization method is specified.
+    """
+    # --------------------------------------------------
+    # Identify link pairs from the network itself
+    # --------------------------------------------------
+    links = n.links[n.links.carrier == "distribution_grid"]
+
+    # Build mapping: (bus0, bus1) → link_name
+    link_map = {(row.bus0, row.bus1): name for name, row in links.iterrows()}
+
+    # Identify bidirectional pairs
+    link_pairs = []
+
+    for (bus0, bus1), fwd_name in link_map.items():
+
+        rev_key = (bus1, bus0)
+
+        if rev_key in link_map:
+
+            rev_name = link_map[rev_key]
+
+            # Avoid double counting pairs
+            if (rev_name, fwd_name) not in link_pairs:
+                link_pairs.append((fwd_name, rev_name))
+
+    # ==================================================
+    # PYOMO BACKEND
+    # ==================================================
+    if self.args["method"]["formulation"] == "pyomo":
+
+        import pyomo.environ as pyomo
+
+        m = n.model
+        m.dist_link_coupling = pyomo.ConstraintList()
+        p_nom_min = n.links["p_nom_min"]
+
+        for fwd, rev in link_pairs:
+
+            # Ensure both links are extendable
+            if (
+                n.links.at[fwd, "p_nom_extendable"]
+                and n.links.at[rev, "p_nom_extendable"]
+            ):
+
+                m.dist_link_coupling.add(
+                    m.link_p_nom[fwd] - p_nom_min.loc[fwd]
+                    == m.link_p_nom[rev] - p_nom_min.loc[rev]
+                )
+
+    # ==================================================
+    # LINOPY BACKEND
+    # ==================================================
+    elif self.args["method"]["formulation"] == "linopy":
+
+        m = n.model
+        p_nom = m.variables["Link-p_nom"]
+        p_nom_min = n.links["p_nom_min"]
+        for fwd, rev in link_pairs:
+
+            if (
+                n.links.at[fwd, "p_nom_extendable"]
+                and n.links.at[rev, "p_nom_extendable"]
+            ):
+
+                m.add_constraints(
+                    p_nom.loc[fwd] - p_nom_min.loc[fwd]
+                    == p_nom.loc[rev] - p_nom_min.loc[rev]
+                )
+
+    # ==================================================
+    # SAFETY CHECK
+    # ==================================================
+    else:
+        raise ValueError(
+            f"Unknown optimization method: {self.args['method']['formulation']}"
+        )

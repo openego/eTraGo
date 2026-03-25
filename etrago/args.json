@@ -14,7 +14,8 @@
                     "overlap": 120
                  },
                  "redispatch": true
-             }
+             },
+        "distribution_grids": false
     },
     "pf_post_lopf": {
         "active": false,

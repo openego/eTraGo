@@ -142,6 +142,7 @@ def strategies_one_ports():
             "p_nom_extendable": ext_storage,
             "p_nom_max": sum_with_inf,
             "scn_name": "first",
+            "max_hours": "mean",
         },
         "Store": {
             "marginal_cost": "mean",
