@@ -64,7 +64,7 @@ args = {
             },
             "redispatch": True,
         },
-        "distribution_grids": False, # False or path to file with edisgo results
+        "distribution_grids": False,  # False or path to file with edisgo results
     },
     "pf_post_lopf": {
         "active": False,  # choose if perform a pf after lopf
@@ -267,7 +267,7 @@ def run_etrago(args, json_path):
         for larger networks.
         Default: "kirchhoff".
     scn_name : str
-         Choose your scenario. For an overview of available scenarios, see the 
+         Choose your scenario. For an overview of available scenarios, see the
          documentation on Read the Docs.
     scn_extension : None or list of str
 
