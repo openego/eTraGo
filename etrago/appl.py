@@ -133,7 +133,7 @@ args = {
         "electricity_grid": {
             "active": True,  # choose if clustering is activated
             "cluster_within_focus": False,  # False for very low clustering within focus region
-            "n_clusters": 80,  # total number of resulting AC nodes
+            "n_clusters": 30,  # total number of resulting AC nodes
             "k_elec_busmap": False,  # False or path/to/busmap.csv
         },
         "gas_grids": {
@@ -157,7 +157,7 @@ args = {
     },
     "skip_snapshots": 5,  # False or number of snapshots to skip
     "temporal_disaggregation": {
-        "active": True,  # choose if temporally full complex dispatch optimization should be conducted
+        "active": False,  # choose if temporally full complex dispatch optimization should be conducted
         "no_slices": 8,  # number of subproblems optimization is divided into
     },
     # Simplifications:
