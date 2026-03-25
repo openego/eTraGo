@@ -798,7 +798,10 @@ def preprocessing(etrago, apply_on="grid_model"):
 
     network_elec, n_clusters = select_elec_network(etrago, apply_on=apply_on)
 
-    if settings["method"]["algorithm"] == "kmedoids-dijkstra":
+    if (
+        settings["method"]["algorithm"] == "kmedoids-dijkstra"
+        or settings["method"]["focus_region"] is not None
+    ):
         lines_col = network_elec.lines.columns
 
         # The Dijkstra clustering works using the shortest electrical path
