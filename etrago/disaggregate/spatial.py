@@ -418,8 +418,8 @@ class Disaggregation:
                     if k in series.get(bustype, {})
                 )
             ):
-                for snap in partial_network.snapshots:
-                    orig_buses[key].loc[snap].update(part_buses[key].loc[snap])
+
+                orig_buses[key].values[:] = part_buses[key].values
 
     def solve_partial_network(
         self, cluster, partial_network, scenario, solver=None
