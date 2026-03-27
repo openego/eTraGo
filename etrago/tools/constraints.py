@@ -1929,16 +1929,18 @@ def read_max_gas_generation(self):
             "CH4": 35,
         },  # [MWh] Value from reference p-e-s run used in eGon-data
     }
+
     engine = db.connection(section=self.args["db"])
     try:
         if "oep.iks.cs.ovgu.de" in str(engine.url):
-            saio.register_schema("tables", self.engine)
+            saio.register_schema("tables", engine)
             from saio.tables import edut_00_137 as egon_scenario_parameters
         else:
             saio.register_schema("grid", engine)
             from saio.grid import egon_scenario_parameters
+        session = sqlalchemy.orm.sessionmaker(bind=engine)()
         df = saio.as_pandas(
-            self.session.query(egon_scenario_parameters).filter(
+            session.query(egon_scenario_parameters).filter(
                 egon_scenario_parameters.name
                 == self.args["scn_name"].split("_")[0]
             )
