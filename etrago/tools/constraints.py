@@ -30,7 +30,7 @@ from pypsa.descriptors import (
     expand_series,
     get_switchable_as_dense as get_as_dense,
 )
-from pypsa.optimization.compat import get_var, define_constraints, linexpr
+from pypsa.optimization.compat import define_constraints, get_var, linexpr
 import numpy as np
 import pandas as pd
 import pyomo.environ as po
