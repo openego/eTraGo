@@ -25,7 +25,6 @@ Define your connection parameters and power flow settings before executing
 the function run_etrago.
 """
 
-
 import datetime
 import os
 import os.path
@@ -64,7 +63,7 @@ args = {
             },
             "redispatch": True,
         },
-        "distribution_grids": False, # False or path to file with edisgo results
+        "distribution_grids": False,  # False or path to file with edisgo results
     },
     "pf_post_lopf": {
         "active": False,  # choose if perform a pf after lopf
@@ -120,7 +119,7 @@ args = {
     "network_clustering": {
         "method": {
             "focus_region": None,  # None, shape-file or list with string for Kreise
-            "per_country": True,  # if True, buses are restricted to one cluster per country
+            "per_country": True,  # if True, buses are restricted to one cluster per foreign country
             "algorithm": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
             "remove_stubs": False,  # remove stubs before kmeans clustering
             "use_reduced_coordinates": False,  # if True, do not average cluster coordinates (in remove stubs)
@@ -422,6 +421,11 @@ def run_etrago(args, json_path):
                 Enter a path to a shape-file or add a list of strings with Kreisnamen.
                 Needs to be one connected region with defined CRS.
                 Default: None.
+            * "per_country": bool
+                If True, the clusters are constrained to one cluster per foreign
+                country. If set to False, the AC buses outside and inside Germany
+                are clustered in one process.
+                Default: True.
             * "algortihm": dict
                 Algorithm used for clustering. You can choose between two
                 clustering methods:
@@ -478,13 +482,6 @@ def run_etrago(args, json_path):
                 nodes if `cluster_foreign_AC` is set to True, otherwise only DE
                 nodes.
                 Default: 30.
-            * "cluster_foreign" : bool
-                If set to False, the AC buses outside Germany are not clustered
-                and the buses inside Germany are clustered to complete
-                ``'n_clusters'``. If set to True, foreign AC buses are clustered
-                as well and included in number of clusters specified through
-                ``'n_clusters'``.
-                Default: False.
             * "k_elec_busmap" : bool or str
                 With this option you can load cluster coordinates from a previous
                 AC clustering run. Options are False, in which case no previous
@@ -512,13 +509,6 @@ def run_etrago(args, json_path):
                 foreign nodes if `cluster_foreign_gas` is set to True, otherwise
                 only DE nodes.
                 Default: 15.
-            "cluster_foreign_ch4" : bool
-                If set to False, the gas buses outside Germany are not clustered
-                and the buses inside Germany are clustered to complete
-                ``'n_clusters_gas'``. If set to True, foreign gas buses are
-                clustered as well and included in number of clusters specified
-                through ``'n_clusters_ch4'``.
-                Default: False.
             * "k_ch4_busmap" : bool or str
                 With this option you can load cluster coordinates from a previous
                 gas clustering run. Options are False, in which case no previous
