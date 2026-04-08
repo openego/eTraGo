@@ -4,7 +4,7 @@
     "method": { 
         "type": "lopf",  
         "n_iter": 1,
-        "formulation": "linopy",
+        "formulation": "pyomo",
         "market_optimization":
             {
                 "active": false,
@@ -13,8 +13,9 @@
                     "planning_horizon": 168,
                     "overlap": 120
                  },
-                 "redispatch": true
-             }
+                 "redispatch": true                 
+             },
+             "distribution_grids": false
     },
     "pf_post_lopf": {
         "active": false,
@@ -32,7 +33,8 @@
     "csv_export": false,
     "extendable": {
         "extendable_components": [
-            "as_in_db"
+            "as_in_db",
+            "foreign_storage"
         ],
         "upper_bounds_grid": {
             "grid_max_D": null,
