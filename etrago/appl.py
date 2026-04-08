@@ -28,6 +28,7 @@ the function run_etrago.
 import datetime
 import os
 import os.path
+import resource
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -653,7 +654,14 @@ def run_etrago(args, json_path):
 if __name__ == "__main__":
     # execute etrago function
     print(datetime.datetime.now())
+
     etrago = run_etrago(args, json_path=None)
+
+    # RAM tracking
+    self_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    children_peak = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
+    total_peak = self_peak + children_peak
+    print(f"Peak RAM usage:    {total_peak / 10**6:.2f} GB")
 
     print(datetime.datetime.now())
     etrago.session.close()
