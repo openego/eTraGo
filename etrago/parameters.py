@@ -818,6 +818,8 @@ class EtragoArgs(BaseModel):
         Free-text comments for the run.
     """
 
+    model_config = {"validate_assignment": True}
+
     # --- Setup & configuration ---
     db: Literal["oep", "local"] = Field(
         "oep",
@@ -872,7 +874,13 @@ class EtragoArgs(BaseModel):
     )
 
     # --- Scenario ---
-    scn_name: str = Field(
+    scn_name: Literal[
+        "eGon2035",
+        "eGon2035_lowflex",
+        "eGon100RE",
+        "eGon100RE_lowflex",
+        "status2019",
+    ] = Field(
         "eGon2035",
         description="Scenario name (see Read the Docs for available options).",
     )
@@ -980,5 +988,5 @@ def load_etrago_config(path: str) -> EtragoArgs:
 
 
 if __name__ == "__main__":
-    config = load_etrago_config("etrago_args_default.yml")
+    config = load_etrago_config("args_default.yml")
     print(config.model_dump_json(indent=2))
