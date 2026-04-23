@@ -2492,13 +2492,13 @@ def plot_grid(
 
     elif (osm is False) and cartopy_present:
         fig, ax = plt.subplots(
-            subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(5, 5)
+            subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(15, 5),
         )
 
     else:
-        fig, ax = plt.subplots(figsize=(5, 5))
+        fig, ax = plt.subplots(figsize=(15, 5))
 
-    fig.set_tight_layout(True)
+    #fig.set_tight_layout(True)
 
     # Set line colors
     if line_colors == "line_loading":
@@ -2969,15 +2969,19 @@ def plot_grid(
                         color=network.carriers.color[i], label=i
                     )
                     handles.append(patch)
-
+            
             l3 = plt.legend(
                 handles=handles,
                 loc="upper left",
-                ncol=2,
-                bbox_to_anchor=(0, 0),
+                ncol=1,
+                bbox_to_anchor=(1.01, 1),
+                bbox_transform=ax.transAxes,  # statt transform=fig.transFigure
+                borderaxespad=0,
             )
-            ax.add_artist(l3)
-
+            #ax.add_artist(l3)
+                        
+    if l3 is not None:
+        ax.set_position([0.05, 0.05, 0.70, 0.90])
     if type(line_colors) is not str:
         # Set fixed boundaries if selected in parameters
         if not boundaries:
@@ -2994,14 +2998,22 @@ def plot_grid(
             l_collection.set_clim(boundaries[0], boundaries[1])
 
         # colorbar for line heatmap
+        # Colorbar-Position manuell festlegen, relativ zur ax-Position
+        ax_pos = ax.get_position()
+        cax = fig.add_axes([
+            ax_pos.x0,           # gleiche linke Kante wie der Plot
+            ax_pos.y0 - 0.12,    # unterhalb des Plots
+            ax_pos.width,        # gleiche Breite wie der Plot
+            0.07                 # Höhe der Colorbar
+        ])
         cb = plt.colorbar(
             ll[1],
             values=v,
             ticks=v[0:101:10],
-            # fraction=0.028,
-            pad=0.04,
             orientation="horizontal",
+            cax=cax,
         )
+
         # Set legend label
         cb.set_label(label)
 
@@ -3011,11 +3023,24 @@ def plot_grid(
             ll[0], fraction=0.04, pad=0.004, label="correlation factor", ax=ax
         )
 
-    # Show plot or save to file
     if filename is None:
         if not isinstance(bus_sizes, (pd.Series, float)):
             logger.warning("Legend of bus sizes will change when zooming")
-        plt.tight_layout()
+        
+        if l3 is not None:
+            handles = l3.legend_handles
+            labels = [t.get_text() for t in l3.get_texts()]
+            l3.remove()
+            
+            legend_ax = fig.add_axes([0.65, 0.05, 0.22, 0.90])
+            legend_ax.axis('off')
+            legend_ax.legend(
+                handles=handles,
+                labels=labels,
+                loc='upper left',
+                ncol=1,
+            )
+        
         plt.show()
     else:
         from matplotlib import pylab
