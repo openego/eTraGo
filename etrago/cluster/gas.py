@@ -38,6 +38,7 @@ import pypsa.io as io
 if "READTHEDOCS" not in os.environ:
     from etrago.cluster.spatial import (
         drop_nan_values,
+        focus_weighting,
         group_links,
         kmedoids_dijkstra_clustering,
         strategies_buses,
@@ -81,7 +82,7 @@ def preprocessing(etrago, carrier, apply_on="grid_model"):
     Raises
     ------
     ValueError
-        If "n_clusters_gas" or "n_clusters_h2" is less than or equal to the
+        If "n_clusters_ch4" or "n_clusters_h2" is less than or equal to the
         number of neighboring country gas buses.
     """
 
@@ -109,11 +110,11 @@ def preprocessing(etrago, carrier, apply_on="grid_model"):
     network_gas.buses["country"] = buses_gas.country
 
     # Cluster buses
-    settings = etrago.args["network_clustering"]
+    settings = etrago.args["network_clustering"]["gas_grids"]
 
     if apply_on == "grid_model":
         if carrier == "CH4":
-            total_clusters = settings["n_clusters_gas"]
+            total_clusters = settings["n_clusters_ch4"]
         else:
             total_clusters = settings["n_clusters_h2"]
     else:
@@ -142,7 +143,7 @@ def preprocessing(etrago, carrier, apply_on="grid_model"):
 
     # select buses dependent on whether they should be clustered in
     # (only DE or DE+foreign)
-    if not settings["cluster_foreign_gas"]:
+    if etrago.args["network_clustering"]["method"]["per_country"]:
         network_gas.buses = network_gas.buses.loc[
             gas_filter & (network_gas.buses["country"].values == "DE")
         ]
@@ -237,24 +238,9 @@ def preprocessing(etrago, carrier, apply_on="grid_model"):
             weightings.to_csv(save)
         return weightings
 
-    # State whether to create a bus weighting and save it, create or not save
-    # it, or use a bus weighting from a csv file
-    if settings["gas_weight_tocsv"] is not None:
-        weight_gas = weighting_for_scenario(
-            network_gas.buses,
-            settings["gas_weight_tocsv"],
-        )
-    elif settings["gas_weight_fromcsv"] is not None:
-        # create DataFrame with uniform weightings for all ch4_buses
-        weight_gas = pd.DataFrame([1] * len(buses_gas), index=buses_gas.index)
-        loaded_weights = pd.read_csv(
-            settings["gas_weight_fromcsv"], index_col=0
-        )
-        # load weights into previously created DataFrame
-        loaded_weights.index = loaded_weights.index.astype(str)
-        weight_gas.loc[loaded_weights.index] = loaded_weights
-    else:
-        weight_gas = weighting_for_scenario(network_gas.buses, save=False)
+    # weight buses for clustering
+    weight_gas = weighting_for_scenario(network_gas.buses, save=False)
+
     return network_gas, weight_gas.squeeze(axis=1), n_clusters
 
 
@@ -283,7 +269,7 @@ def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
     None
         None is returned because k-means clustering makes no use of medoids
     """
-    settings = etrago.args["network_clustering"]
+    settings = etrago.args["network_clustering"]["method"]
 
     busmap = busmap_by_kmeans(
         network_ch4,
@@ -323,7 +309,7 @@ def get_h2_clusters(etrago, busmap_ch4):
     )
 
     # Create unique H2 cluster IDs
-    n_gas = etrago.args["network_clustering"]["n_clusters_gas"]
+    n_gas = etrago.args["network_clustering"]["gas_grids"]["n_clusters_ch4"]
     busmap_h2 = (busmap_h2.astype(int) + n_gas).astype(str)
 
     busmap_h2 = busmap_h2.squeeze()
@@ -458,17 +444,20 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
     busmap : pd.Series
         A Pandas Series mapping each bus to its corresponding cluster ID.
     """
-    settings = etrago.args["network_clustering"]
+    settings = etrago.args["network_clustering"]["gas_grids"]
     scn = etrago.args["scn_name"]
 
     if apply_on == "grid_model":
-        if settings["k_gas_busmap"] is False:
-            if settings["method_gas"] == "kmeans":
+        if settings["k_ch4_busmap"] is False:
+            if (
+                etrago.args["network_clustering"]["method"]["algorithm"]
+                == "kmeans"
+            ):
                 busmap.index.name = "bus_id"
                 busmap.name = "cluster"
                 busmap.to_csv(
                     "kmeans_gasgrid_busmap_"
-                    + str(settings["n_clusters_gas"])
+                    + str(settings["n_clusters_ch4"])
                     + "_result.csv"
                 )
 
@@ -485,7 +474,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
                 export.index.name = "bus_id"
                 export.to_csv(
                     "kmedoids-dijkstra_gasgrid_busmap_"
-                    + str(settings["n_clusters_gas"])
+                    + str(settings["n_clusters_ch4"])
                     + "_result.csv"
                 )
         network = etrago.network
@@ -613,7 +602,11 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
     network_gasgrid_c.determine_network_topology()
 
     # Adjust x and y coordinates of 'CH4' and 'H2_grid' medoids
-    if settings["method_gas"] == "kmedoids-dijkstra" and len(medoid_idx) > 0:
+    if (
+        etrago.args["network_clustering"]["method"]["algorithm"]
+        == "kmedoids-dijkstra"
+        and len(medoid_idx) > 0
+    ):
         for cluster in medoid_idx:
             network_gasgrid_c.buses.loc[busmap[cluster], "x"] = (
                 network.buses.loc[cluster, "x"]
@@ -1104,10 +1097,10 @@ def run_spatial_clustering_gas(self):
     if ("CH4" in self.network.buses.carrier.values) | (
         "H2_grid" in self.network.buses.carrier.values
     ):
-        settings = self.args["network_clustering"]
+        settings = self.args["network_clustering"]["gas_grids"]
 
         if settings["active"]:
-            method = settings["method_gas"]
+            method = self.args["network_clustering"]["method"]["algorithm"]
             logger.info(f"Start {method} clustering GAS")
 
             ch4_network, weight_ch4, n_clusters_ch4 = preprocessing(
@@ -1118,10 +1111,49 @@ def run_spatial_clustering_gas(self):
                     self, "H2_grid"
                 )
 
+            focus_region = self.args["network_clustering"]["method"][
+                "focus_region"
+            ]
+            if focus_region:
+
+                weight_ch4 = focus_weighting(
+                    self,
+                    ch4_network,
+                    weight_ch4,
+                    focus_region,
+                    cluster_within=self.args["network_clustering"][
+                        "gas_grids"
+                    ]["cluster_within_focus"],
+                    per_country=self.args["network_clustering"]["method"][
+                        "per_country"
+                    ],
+                    cpu_cores=self.args["network_clustering"]["method"][
+                        "cpu_cores"
+                    ],
+                )
+
+                if "H2_grid" in self.network.links.carrier.unique():
+
+                    weight_h2 = focus_weighting(
+                        self,
+                        h2_network,
+                        weight_h2,
+                        focus_region,
+                        cluster_within=self.args["network_clustering"][
+                            "gas_grids"
+                        ]["cluster_within_focus"],
+                        per_country=self.args["network_clustering"]["method"][
+                            "per_country"
+                        ],
+                        cpu_cores=self.args["network_clustering"]["method"][
+                            "cpu_cores"
+                        ],
+                    )
+
             if method == "kmeans":
-                if settings["k_gas_busmap"]:
+                if settings["k_ch4_busmap"]:
                     busmap = pd.read_csv(
-                        settings["k_gas_busmap"],
+                        settings["k_ch4_busmap"],
                         index_col="bus_id",
                         dtype=pd.StringDtype(),
                     ).squeeze()
@@ -1136,9 +1168,9 @@ def run_spatial_clustering_gas(self):
                         )
 
             elif method == "kmedoids-dijkstra":
-                if settings["k_gas_busmap"]:
+                if settings["k_ch4_busmap"]:
                     busmap = pd.read_csv(
-                        settings["k_gas_busmap"],
+                        settings["k_ch4_busmap"],
                         index_col="bus_id",
                         dtype=pd.StringDtype(),
                     )
@@ -1158,14 +1190,15 @@ def run_spatial_clustering_gas(self):
                         n_clusters_ch4,
                     )
                     if "H2_grid" in self.network.links.carrier.unique():
-                        busmap_h2, medoid_idx_h2 = (
-                            kmedoids_dijkstra_clustering(
-                                self,
-                                h2_network.buses,
-                                h2_network.links,
-                                weight_h2,
-                                n_clusters_h2,
-                            )
+                        (
+                            busmap_h2,
+                            medoid_idx_h2,
+                        ) = kmedoids_dijkstra_clustering(
+                            self,
+                            h2_network.buses,
+                            h2_network.links,
+                            weight_h2,
+                            n_clusters_h2,
                         )
 
             else:

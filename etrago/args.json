@@ -23,7 +23,7 @@
         "q_allocation": "p_nom"
     },
     "start_snapshot": 1,
-    "end_snapshot": 2,
+    "end_snapshot": 168,
     "solver": "gurobi",
     "solver_options": {},
     "model_formulation": "kirchhoff",
@@ -63,31 +63,36 @@
     "extra_functionality": {},
     "network_clustering_ehv": {
         "active": false,
-        "busmap": false
+        "busmap": false,
+        "cpu_cores": 4
     },
-    "network_clustering": {
-        "active": true,
-        "method": "kmedoids-dijkstra",
-        "n_clusters_AC": 30,
-        "cluster_foreign_AC": false,
-        "method_gas": "kmedoids-dijkstra",
-        "n_clusters_gas": 15,
-        "n_clusters_h2": 15,
-        "cluster_foreign_gas": false,
-        "k_elec_busmap": false,
-        "k_gas_busmap": false,
-        "bus_weight_tocsv": null,
-        "bus_weight_fromcsv": null,
-        "gas_weight_tocsv": null,
-        "gas_weight_fromcsv": null,
-        "line_length_factor": 1,
-        "remove_stubs": false,
-        "use_reduced_coordinates": false,
-        "random_state": 42,
-        "n_init": 10,
-        "max_iter": 100,
-        "tol": 1e-6,
-        "CPU_cores": 4
+    "network_clustering":  {
+        "method": {
+            "focus_region": null,
+            "per_country": true, 
+            "algorithm": "kmedoids-dijkstra",
+            "remove_stubs": false,
+            "use_reduced_coordinates": false,
+            "line_length_factor": 1,
+            "random_state": 42,
+            "n_init": 10,
+            "max_iter": 100,
+            "tol": 1e-6,
+            "cpu_cores": 4
+        },
+        "electricity_grid": {
+            "active": true,
+            "cluster_within_focus": false,
+            "n_clusters": 30,
+            "k_elec_busmap": false
+        },
+        "gas_grids": {
+            "active": true,
+            "cluster_within_focus": false,
+            "n_clusters_ch4": 15,
+            "n_clusters_h2": 15,
+            "k_ch4_busmap": false,
+        }
     },
     "spatial_disaggregation": null,
     "snapshot_clustering": {
