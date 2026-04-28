@@ -69,7 +69,7 @@ __author__ = (
 
 
 # Aggregation strategies:
-# PyPSA provides default strategies, which often rely on capacity-weighted aggregation.
+# PyPSA provides default strategies, often capacity-weighted strategies.
 # This is only appropriate for non-extendable components.
 # Therefore, we define and use custom strategies instead.
 
@@ -281,11 +281,6 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
     weighting = links.p_nom.groupby(grouper, axis=0).transform(
         normed_or_uniform
     )
-    weighted_dynamic = [
-        col
-        for col, strat in strategies.items()
-        if col in network.links_t and not network.links_t[col].empty
-    ]
 
     new_df = links.groupby(grouper).agg(strategies)
     new_df.index = flatten_multiindex(new_df.index).rename("name")

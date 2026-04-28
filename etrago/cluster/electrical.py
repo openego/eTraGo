@@ -941,7 +941,8 @@ def postprocessing(
     network.generators["weight"] = network.generators["p_nom"]
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard("Generator")
-    # only apply capacity weighted aggregation strategies if generators are not extendable
+    # only apply capacity weighted aggregation strategies
+    # if generators are not extendable
     if network.generators.p_nom_extendable.any():
         strategies_gen = strategies_generators_ext()
     else:
