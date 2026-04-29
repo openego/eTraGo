@@ -938,7 +938,9 @@ def postprocessing(
                 medoid_idx[bus] = bus
             medoid_idx.index = medoid_idx.index.astype("int")
 
+    mask = network.generators["carrier"].isin(["load shedding", "negative load shedding"])
     network.generators["weight"] = network.generators["p_nom"]
+    network.generators.loc[mask, "weight"] = 0
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard("Generator")
     # only apply capacity weighted aggregation strategies
