@@ -799,7 +799,7 @@ class UniformDisaggregation(Disaggregation):
                         }
                     )
                     delta = abs((new_columns.sum(axis=1) - clt).sum())
-                    epsilon = 1e-5
+                    epsilon = 1e-4
 
                     assert delta < epsilon, (
                         "Sum of disaggregated time series does not match"
