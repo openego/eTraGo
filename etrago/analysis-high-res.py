@@ -13,7 +13,159 @@ import matplotlib.colors as mcolors
 focus_gdf = gpd.read_file("/home/dozeumesk/eTraGo/git/eTraGo/etrago/focus-region/hannover.gpkg")
 focus_gdf = focus_gdf.to_crs(epsg=4326)
 
-# Auswertung
+# Plausibilitätschecks
+
+res=30
+
+vorher = Etrago(csv_folder_name= 'Zooming-Tests/full-res/Server1/AC-'+str(res)+'/vor-lpf')
+n_vorher = vorher.network
+
+lpf = Etrago(csv_folder_name= 'Zooming-Tests/full-res/Server1/AC-'+str(res)+'/lpf')
+n_lpf = lpf.network
+
+def check_completeness(n, n_lpf, atol=1e-3):
+
+    components = {
+        "Generator":   ("generators",    "generators_t",    "p_set", "p"),
+        "Link":        ("links",         "links_t",         "p_set", "p0"),
+        "StorageUnit": ("storage_units", "storage_units_t", "p_set", "p"),
+        "Store":       ("stores",        "stores_t",        "p_set", "p"),
+    }
+
+    n_snapshots = len(n.snapshots)
+
+    # ------------------------------------------------------------------ #
+    print("=" * 60)
+    print("Schritt 1: Haben alle Komponenten in n_vorher ein p_set?")
+    print("=" * 60)
+
+    for comp, (component, container, set_attr, lpf_attr) in components.items():
+        df_comp = getattr(n, component, None)
+        df      = getattr(n, container, None)
+
+        if df_comp is None or df_comp.empty:
+            print(f"  [{comp}] — keine Assets vorhanden, übersprungen")
+            continue
+
+        no_timeseries  = []  # Asset nicht in Zeitreihe
+        incomplete     = []  # Asset in Zeitreihe, aber NaN vorhanden
+
+        if df is None or set_attr not in df:
+            # gar keine Zeitreihe vorhanden → alle Assets fehlen
+            no_timeseries = list(df_comp.index)
+        else:
+            p_set = df[set_attr]
+            for idx in df_comp.index:
+                if idx not in p_set.columns:
+                    no_timeseries.append(idx)
+                else:
+                    n_valid = p_set[idx].count()
+                    if n_valid < n_snapshots:
+                        incomplete.append((idx, n_valid, n_snapshots))
+
+        n_total     = len(df_comp)
+        n_ok        = n_total - len(no_timeseries) - len(incomplete)
+
+        print(f"\n  [{comp}] — {n_total} Assets total")
+        print(f"    ✓ vollständig:          {n_ok}")
+        print(f"    ✗ kein Zeitreihen-p_set: {len(no_timeseries)}", end="")
+        if no_timeseries:
+            if "carrier" in df_comp.columns:
+                carriers = df_comp.loc[no_timeseries, "carrier"].unique()
+                print(f"  → Carrier: {list(carriers)}", end="")
+            else:
+                sample = no_timeseries[:3]
+                print(f"  → z.B. {sample}{'...' if len(no_timeseries) > 3 else ''}", end="")
+        print()
+
+    # ------------------------------------------------------------------ #
+    print()
+    print("=" * 60)
+    print("Schritt 2: Übereinstimmung n_vorher ↔ n_lpf")
+    print("=" * 60)
+
+    for comp, (component, container, set_attr, lpf_attr) in components.items():
+        print(f"\n  [{comp}]")
+
+        df_n   = getattr(n,     container, None)
+        df_lpf = getattr(n_lpf, container, None)
+
+        # ---- a) Komponenten vollständig in n_lpf vorhanden? ----------- #
+        if df_n is None or set_attr not in df_n:
+            print(f"    a) ✗ kein p_set in n_vorher — übersprungen")
+            continue
+
+        assets_n = df_n[set_attr].columns if not isinstance(df_n[set_attr], pd.Series) else [df_n[set_attr].name]
+
+        if df_lpf is None:
+            print(f"    a) ✗ Container '{container}' fehlt komplett in n_lpf")
+            continue
+
+        if set_attr not in df_lpf:
+            assets_lpf = []
+        else:
+            assets_lpf = df_lpf[set_attr].columns if not isinstance(df_lpf[set_attr], pd.Series) else [df_lpf[set_attr].name]
+
+        only_in_n   = set(assets_n) - set(assets_lpf)
+        only_in_lpf = set(assets_lpf) - set(assets_n)
+
+        if not only_in_n and not only_in_lpf:
+            print(f"    a) ✓ alle {len(assets_n)} Assets in beiden Netzen vorhanden")
+        else:
+            print(f"    a) ✗ Differenz: {len(only_in_n)} nur in n_vorher, {len(only_in_lpf)} nur in n_lpf")
+            if only_in_n:
+                sample = list(only_in_n)[:3]
+                print(f"         nur in n_vorher: {sample}{'...' if len(only_in_n) > 3 else ''}")
+            if only_in_lpf:
+                sample = list(only_in_lpf)[:3]
+                print(f"         nur in n_lpf:    {sample}{'...' if len(only_in_lpf) > 3 else ''}")
+
+        # ---- b) p_set(n_vorher) == p_set(n_lpf)? --------------------- #
+        if set_attr not in df_lpf:
+            print(f"    b) ✗ kein p_set in n_lpf")
+        else:
+            p_set_n   = df_n[set_attr]
+            p_set_lpf = df_lpf[set_attr]
+            common_b  = p_set_n.columns.intersection(p_set_lpf.columns)
+
+            if len(common_b) == 0:
+                print(f"    b) ✗ keine gemeinsamen Assets für Vergleich")
+            else:
+                diff_b       = (p_set_n[common_b] - p_set_lpf[common_b]).abs()
+                max_b        = diff_b.max()
+                n_mismatch_b = (max_b > atol).sum()
+                if n_mismatch_b == 0:
+                    print(f"    b) ✓ p_set identisch in n_vorher und n_lpf ({len(common_b)} Assets)")
+                else:
+                    print(f"    b) ✗ p_set weicht ab: {n_mismatch_b}/{len(common_b)} Assets, max Δ={max_b.max():.4f}")
+
+        # ---- c) p(n_lpf) == p_set(n_lpf)? ---------------------------- #
+        if set_attr not in df_lpf or lpf_attr not in df_lpf:
+            print(f"    c) ✗ p_set oder {lpf_attr} fehlt in n_lpf")
+        else:
+            p_set_lpf2 = df_lpf[set_attr]
+            p_lpf      = df_lpf[lpf_attr]
+            common_c   = p_set_lpf2.columns.intersection(p_lpf.columns)
+
+            if len(common_c) == 0:
+                print(f"    c) ✗ keine gemeinsamen Assets für Vergleich")
+            else:
+                diff_c       = (p_set_lpf2[common_c] - p_lpf[common_c]).abs()
+                max_c        = diff_c.max()
+                n_mismatch_c = (max_c > atol).sum()
+                if n_mismatch_c == 0:
+                    print(f"    c) ✓ p == p_set in n_lpf ({len(common_c)} Assets)")
+                else:
+                    print(f"    c) ✗ p ≠ p_set in n_lpf: {n_mismatch_c}/{len(common_c)} Assets, max Δ={max_c.max():.4f}")
+
+    print()
+    print("=" * 60)
+    print("Prüfung abgeschlossen.")
+    print("=" * 60)
+
+check_completeness(n_vorher, n_lpf)
+
+'''# Auswertung
 
 res=[30, 300, 1000, 3000, 5000, 8000, 10000]
 
@@ -112,107 +264,5 @@ def line_flow_error_clustered(n_ref, n_cluster, busmap):
 busmap = pd.read_csv("/home/dozeumesk/eTraGo/git/eTraGo/etrago/Zooming-Tests/full-res/kmedoids-dijkstra_elecgrid_busmap_30_result.csv")
 busmap.index=busmap.bus
 busmap=busmap.drop(['foreign', 'medoid_idx', 'bus'], axis=1)
-line_flow_error_clustered(full.network, half.network, busmap=busmap)
+line_flow_error_clustered(full.network, half.network, busmap=busmap)'''
 
-# Plausibilitätschecks
-
-vorher = Etrago(csv_folder_name= "Zooming-Tests/full-res/AC-30/vor-lpf")
-n_vorher = vorher.network
-
-lpf = Etrago(csv_folder_name= "Zooming-Tests/full-res/AC-30/lpf")
-n_lpf = lpf.network
-
-def check_p_set_completeness(n):
-    
-    components = {
-        "Generator": "generators_t",
-        "Link": "links_t",
-        "StorageUnit": "storage_units_t",
-        "Store": "stores_t"
-    }
-    
-    result = {}
-    n_snapshots = len(n.snapshots)
-    
-    for comp, container in components.items():
-        df = getattr(n, container, None)
-        info = {'exists': False, 'complete': False, 'missing': []}
-        
-        if df is not None:
-            # Prüfen ob 'p_set' vorhanden ist
-            if 'p_set' in df:
-                info['exists'] = True
-                
-                p_set = df['p_set']
-                
-                # Wenn Series → ein Asset, ansonsten DataFrame
-                if isinstance(p_set, pd.Series):
-                    if p_set.count() == n_snapshots:
-                        info['complete'] = True
-                    else:
-                        info['missing'] = [p_set.name]
-                else:
-                    # DataFrame
-                    missing_cols = [col for col in p_set.columns if p_set[col].count() < n_snapshots]
-                    info['missing'] = missing_cols
-                    info['complete'] = len(missing_cols) == 0
-        
-        result[comp] = info
-    
-    return result
-
-status = check_p_set_completeness(n_vorher)
-
-for comp, info in status.items():
-    print(f"{comp}: exists={info['exists']}, complete={info['complete']}, missing={info['missing']}")
-
-
-def check_lpf_vs_pset(n_vorher, n_lpf, atol=1e-3):
-
-    mapping = {
-        "Generator": ("generators_t", "p_set", "p"),
-        "StorageUnit": ("storage_units_t", "p_set", "p"),
-        "Store": ("stores_t", "p_set", "p"),
-        "Link": ("links_t", "p_set", "p0"),
-    }
-
-    results = []
-
-    for comp, (container, set_attr, lpf_attr) in mapping.items():
-
-        df_set = getattr(n_vorher, container, None)
-        df_lpf = getattr(n_lpf, container, None)
-
-        if df_set is None or df_lpf is None:
-            results.append([comp, 0, 0, 0, np.nan])
-            continue
-
-        if set_attr not in df_set or lpf_attr not in df_lpf:
-            results.append([comp, 0, 0, 0, np.nan])
-            continue
-
-        p_set = df_set[set_attr]
-        p_lpf = df_lpf[lpf_attr]
-
-        common = p_set.columns.intersection(p_lpf.columns)
-
-        if len(common) == 0:
-            results.append([comp, 0, 0, 0, np.nan])
-            continue
-
-        diff = (p_set[common] - p_lpf[common]).abs()
-        max_diff_asset = diff.max()
-
-        n_total = len(common)
-        n_match = (max_diff_asset <= atol).sum()
-        n_mismatch = n_total - n_match
-        max_delta = max_diff_asset.max()
-
-        results.append([comp, n_total, n_match, n_mismatch, max_delta])
-
-    return pd.DataFrame(
-        results,
-        columns=["Component", "Assets", "Match", "Mismatch", "Max Δ"]
-    )
-
-summary = check_lpf_vs_pset(n_vorher, n_lpf)
