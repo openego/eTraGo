@@ -25,10 +25,10 @@ Define your connection parameters and power flow settings before executing
 the function run_etrago.
 """
 
-
 import datetime
 import os
 import os.path
+import resource
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -159,7 +159,7 @@ args = {
     },
     "skip_snapshots": False,  # False or number of snapshots to skip
     "temporal_disaggregation": {
-        "active": True,  # choose if temporally full complex dispatch optimization should be conducted
+        "active": False,  # choose if temporally full complex dispatch optimization should be conducted
         "no_slices": 8,  # number of subproblems optimization is divided into
     },
     # Simplifications:
@@ -421,6 +421,7 @@ def run_etrago(args, json_path):
                 Defines a focus region for clustering. A higher spatial resolution
                 will be applied inside and around this region.
                 Enter a path to a shape-file or add a list of strings with Kreisnamen.
+                Needs to be one connected region with defined CRS.
                 Default: None.
             * "per_country": bool
                 If True, the clusters are constrained to one cluster per foreign
