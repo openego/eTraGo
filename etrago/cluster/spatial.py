@@ -67,7 +67,11 @@ __author__ = (
     "pieterhexen, fwitte, AmeliaNadal, cjbernal071421"
 )
 
-# TODO: Workaround because of agg
+
+# Aggregation strategies:
+# PyPSA provides default strategies, often capacity-weighted strategies.
+# This is only appropriate for non-extendable components.
+# Therefore, we define and use custom strategies instead.
 
 
 def _make_consense_links(x):
@@ -133,45 +137,48 @@ def strategies_lines():
 def strategies_one_ports():
     return {
         "StorageUnit": {
-            "marginal_cost": "mean",
-            "capital_cost": "mean",
-            "efficiency_dispatch": "mean",
-            "standing_loss": "mean",
-            "efficiency_store": "mean",
-            "p_min_pu": "min",
-            "p_nom_extendable": ext_storage,
-            "p_nom_max": sum_with_inf,
             "scn_name": "first",
+            "p_nom_extendable": ext_storage,
+            "capital_cost": "mean",
+            "marginal_cost": "mean",
+            "p_min_pu": "mean",
+            "p_max_pu": "mean",
+            "state_of_charge_initial": "sum",
+            "standing_loss": "mean",
+            "efficiency_dispatch": "mean",
+            "efficiency_store": "mean",
             "max_hours": "mean",
         },
         "Store": {
-            "marginal_cost": "mean",
+            "scn_name": "first",
+            "e_nom_extendable": ext_storage,
             "capital_cost": "mean",
-            "standing_loss": "mean",
-            "e_nom": "sum",
-            "e_nom_min": "sum",
-            "e_nom_max": sum_with_inf,
+            "marginal_cost": "mean",
             "e_initial": "sum",
+            "e_initial_per_period": "sum",
             "e_min_pu": "mean",
             "e_max_pu": "mean",
-            "scn_name": "first",
+            "standing_loss": "mean",
         },
     }
 
 
 def strategies_generators():
     return {
-        "p_nom_min": "min",
-        "p_nom_max": sum_with_inf,
-        "weight": "sum",
-        "p_nom": "sum",
-        "p_set": "sum",
-        "p_nom_opt": "sum",
-        "marginal_cost": "mean",
-        "capital_cost": "mean",
-        "e_nom_max": sum_with_inf,
-        "up_time_before": "mean",
         "scn_name": "first",
+        "up_time_before": "capacity_weighted_average",
+    }
+
+
+def strategies_generators_ext():
+    return {
+        "scn_name": "first",
+        "up_time_before": "mean",
+        "p_nom_extendable": "any",
+        "capital_cost": "mean",
+        "marginal_cost": "mean",
+        "p_min_pu": "mean",
+        "p_max_pu": "mean",
     }
 
 
@@ -180,32 +187,32 @@ def strategies_links():
         "scn_name": "first",
         "bus0": _make_consense_links,
         "bus1": _make_consense_links,
+        "length": "mean",
         "carrier": _make_consense_links,
         "p_nom": "sum",
         "p_nom_extendable": "any",
+        "p_nom_opt": "sum",
         "p_nom_max": sum_with_inf,
-        "capital_cost": "mean",
-        "length": "mean",
-        "geom": nan_links,
-        "topo": nan_links,
-        "type": nan_links,
-        "efficiency": "mean",
         "p_nom_min": "sum",
-        "p_set": "sum",
         "p_min_pu": "mean",
         "p_max_pu": "mean",
+        "p_set": "sum",
+        "efficiency": "mean",
+        "capital_cost": "mean",
         "marginal_cost": "mean",
         "marginal_cost_quadratic": "mean",
-        "terrain_factor": _make_consense_links,
-        "p_nom_opt": "mean",
-        "country": nan_links,
-        "build_year": "mean",
-        "lifetime": "mean",
         "min_up_time": "mean",
         "min_down_time": "mean",
         "up_time_before": "mean",
         "down_time_before": "mean",
         "committable": "all",
+        "type": nan_links,
+        "geom": nan_links,
+        "topo": nan_links,
+        "country": nan_links,
+        "terrain_factor": _make_consense_links,
+        "build_year": "mean",
+        "lifetime": "mean",
     }
 
 
@@ -257,7 +264,7 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
 
         return network
 
-    #network = arrange_dc_bus0_bus1(network)
+    network = arrange_dc_bus0_bus1(network)
 
     if carriers is None:
         carriers = network.links.carrier.unique()
@@ -266,13 +273,14 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
     links = network.links.loc[links_agg_b]
     grouper = [links.bus0, links.bus1, links.carrier]
 
-    weighting = links.p_nom.groupby(grouper, axis=0).transform(
-        normed_or_uniform
-    )
     strategies = strategies_links()
     strategies.update(cus_strateg)
     strategies.pop("topo")
     strategies.pop("geom")
+
+    weighting = links.p_nom.groupby(grouper, axis=0).transform(
+        normed_or_uniform
+    )
 
     new_df = links.groupby(grouper).agg(strategies)
     new_df.index = flatten_multiindex(new_df.index).rename("name")
@@ -294,7 +302,9 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
                     df_agg = df_agg.multiply(
                         weighting.loc[df_agg.columns], axis=1
                     )
-                pnl_df = df_agg.T.groupby(grouper).sum().T
+                    pnl_df = df_agg.T.groupby(grouper).sum().T
+                else:
+                    pnl_df = df_agg.T.groupby(grouper).agg(strategies).T
                 pnl_df.columns = flatten_multiindex(pnl_df.columns).rename(
                     "name"
                 )
@@ -1047,7 +1057,7 @@ def focus_weighting(
     weight = weight * factor
     weight = weight.apply(np.ceil)
 
-    if cluster_within == False:
+    if cluster_within is False:
         weight.loc[inside.index] = 100000
 
     if save:

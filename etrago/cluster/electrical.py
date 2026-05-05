@@ -48,6 +48,7 @@ if "READTHEDOCS" not in os.environ:
         kmedoids_dijkstra_clustering,
         strategies_buses,
         strategies_generators,
+        strategies_generators_ext,
         strategies_lines,
         strategies_one_ports,
     )
@@ -937,9 +938,19 @@ def postprocessing(
                 medoid_idx[bus] = bus
             medoid_idx.index = medoid_idx.index.astype("int")
 
+    mask = network.generators["carrier"].isin(
+        ["load shedding", "negative load shedding"]
+    )
     network.generators["weight"] = network.generators["p_nom"]
+    network.generators.loc[mask, "weight"] = 0
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard("Generator")
+    # only apply capacity weighted aggregation strategies
+    # if generators are not extendable
+    if network.generators.p_nom_extendable.any():
+        strategies_gen = strategies_generators_ext()
+    else:
+        strategies_gen = strategies_generators()
 
     clustering = get_clustering_from_busmap(
         network,
@@ -947,7 +958,7 @@ def postprocessing(
         aggregate_generators_weighted=True,
         aggregate_generators_carriers=aggregate_generators_carriers,
         one_port_strategies=strategies_one_ports(),
-        generator_strategies=strategies_generators(),
+        generator_strategies=strategies_gen,
         aggregate_one_ports=aggregate_one_ports,
         line_length_factor=etrago.args["network_clustering"]["method"][
             "line_length_factor"
