@@ -55,7 +55,7 @@ args = {
     "method": {  # choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
         "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        "formulation": "linopy",
+        "formulation": "pyomo",
         "market_optimization": {
             "active": False,
             "market_zones": "status_quo",  # only used if type='market_grid'
@@ -658,25 +658,25 @@ if __name__ == "__main__":
     
     import sys
 
-    old_stdout = sys.stdout
-    log_file = open('console.log',"w")
-    sys.stdout = log_file
+    # old_stdout = sys.stdout
+    # log_file = open('console.log',"w")
+    # sys.stdout = log_file
 
     print(datetime.datetime.now())
     
-    spatial_resolution = [30, 300, 10000]
+    spatial_resolution = [30]#, 300, 10000]
     
     for i in range (0, len(spatial_resolution)):
             
         args['network_clustering']['electricity_grid']['n_clusters'] = spatial_resolution[i]
         
-        args['csv_export'] = 'Zooming-Tests/full-res/AC-'+str(args['network_clustering']['electricity_grid']['n_clusters'])
+        args['csv_export'] = 'Zooming-Tests/full-res/tests/AC-'+str(args['network_clustering']['electricity_grid']['n_clusters'])
         
-        old_stdout = sys.stdout
-        path_log = args['csv_export']
-        os.makedirs(path_log, exist_ok=True)
-        log_file = open(args['csv_export']+'/console.log',"w")
-        sys.stdout = log_file
+        # old_stdout = sys.stdout
+        # path_log = args['csv_export']
+        # os.makedirs(path_log, exist_ok=True)
+        # log_file = open(args['csv_export']+'/console.log',"w")
+        # sys.stdout = log_file
         
         print(datetime.datetime.now())
                     
@@ -684,8 +684,8 @@ if __name__ == "__main__":
         
         print(datetime.datetime.now())
         
-        sys.stdout = old_stdout
-        log_file.close()
+        # sys.stdout = old_stdout
+        # log_file.close()
         
     etrago.session.close()
     # plots: more in tools/plot.py
