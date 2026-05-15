@@ -89,7 +89,7 @@
             "cluster_within_focus": false,
             "n_clusters_ch4": 15,
             "n_clusters_h2": 15,
-            "k_ch4_busmap": false,
+            "k_ch4_busmap": false
         }
     },
     "spatial_disaggregation": null,
