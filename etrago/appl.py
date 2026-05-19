@@ -46,25 +46,37 @@ if "READTHEDOCS" not in os.environ:
     # Do not import internal packages directly
 
     from etrago import Etrago
-    from etrago.parameters import load_etrago_config
     from etrago.parameters import EtragoArgs
 
 
-args = EtragoArgs()
+args = EtragoArgs(
+    scn_name="eGon2035",
+    start_snapshot=1,
+    end_snapshot=24,
+    method={"market_optimization": {"active": False}},
+    network_clustering={"electricity_grid":{"n_clusters":30}},
+    )
 
 args = args.model_dump()
 
-def run_etrago(args, json_path):
-    """Function to conduct optimization considering the following arguments.
+def run_etrago(args, config_path=None):
+    """Conduct a full eTraGo optimisation run.
+
+    Parameters
+    ----------
+    args : dict or EtragoArgs
+        Scenario settings and optimisation parameters.
+    config_path : str, optional
+        Path to a JSON or YAML config file whose settings are merged
+        into args. Default: None.
 
     Returns
     -------
-    etrago : etrago object
-        eTraGo containing all network information and a PyPSA network
-        <https://www.pypsa.org/doc/components.html#network>`_
-
+    etrago : Etrago
+        eTraGo object containing all network information and a PyPSA
+        network <https://www.pypsa.org/doc/components.html#network>`_.
     """
-    etrago = Etrago(args, json_path=json_path)
+    etrago = Etrago(args=args, config_path=config_path)
 
     # import network from database
     etrago.build_network_from_db()
@@ -107,7 +119,7 @@ if __name__ == "__main__":
     # execute etrago function
     print(datetime.datetime.now())
 
-    etrago = run_etrago(args, json_path=None)
+    etrago = run_etrago(args)
 
     # RAM tracking
     self_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
