@@ -22,8 +22,7 @@
 Utilities.py includes a wide range of useful functions.
 """
 
-from collections.abc import Mapping
-from copy import deepcopy
+
 from pathlib import Path
 from urllib.request import urlretrieve
 import json
@@ -1975,64 +1974,6 @@ def ramp_limits(network):
         network.generators.start_up_cost * network.generators.p_nom
     )
     network.generators.committable = True
-
-
-def get_args_setting(self, jsonpath="scenario_setting.json"):
-    """
-    Get and open json file with scenaio settings of eTraGo ``args``.
-    The settings includes all eTraGo specific settings of arguments and
-    parameters for a reproducible calculation.
-
-    Parameters
-    ----------
-    json_file : str
-        Default: ``scenario_setting.json``
-        Name of scenario setting json file
-
-    Returns
-    -------
-    args : dict
-        Dictionary of json file
-    """
-
-    if jsonpath is not None:
-        if os.path.exists(jsonpath):
-            with open(jsonpath) as f:
-                if "args" in locals():
-                    self.args = merge_dicts(self.args, json.load(f))
-                else:
-                    self.args = json.load(f)
-        else:
-            self.args = None
-
-
-def merge_dicts(dict1, dict2):
-    """
-    Return a new dictionary by merging two dictionaries recursively.
-
-    Parameters
-    ----------
-    dict1 : dict
-        dictionary 1.
-    dict2 : dict
-        dictionary 2.
-
-    Returns
-    -------
-    result : dict
-        Union of dict1 and dict2
-
-    """
-
-    result = deepcopy(dict1)
-
-    for key, value in dict2.items():
-        if isinstance(value, Mapping):
-            result[key] = merge_dicts(result.get(key, {}), value)
-        else:
-            result[key] = deepcopy(dict2[key])
-
-    return result
 
 
 def get_clustering_data(self, path):

@@ -9,7 +9,11 @@ from typing import Any, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, model_validator
 
+from copy import deepcopy
 
+from collections.abc import Mapping
+
+import os
 # ---------------------------------------------------------------------------
 # Sub-models: Method
 # ---------------------------------------------------------------------------
@@ -986,6 +990,87 @@ def load_etrago_config(path: str) -> EtragoArgs:
         raw = yaml.safe_load(fh)
     return EtragoArgs(**raw)
 
+
+
+def get_args_setting(self, path="scenario_setting.json"):
+    """
+    Load scenario settings for eTraGo ``args`` from a JSON or YAML file.
+
+    The settings include all eTraGo specific arguments and parameters for
+    a reproducible calculation. The file format is detected automatically
+    from the file extension (``.json``, ``.yml``, ``.yaml``).
+
+    Parameters
+    ----------
+    path : str
+        Path to the scenario settings file (JSON or YAML).
+        Default: ``'scenario_setting.json'``
+
+    Returns
+    -------
+    None
+        Sets ``self.args`` to the loaded (and optionally merged) settings,
+        or ``None`` if the file does not exist.
+    """
+    if path is None:
+        return
+
+    ext = os.path.splitext(path)[-1].lower()
+
+    with open(path) as f:
+        if ext == ".json":
+            import json
+            data = json.load(f)
+        elif ext in (".yml", ".yaml"):
+            import yaml
+            data = yaml.safe_load(f)
+        else:
+            raise ValueError(
+                f"Unsupported file format '{ext}'. Use '.json', '.yml', or '.yaml'."
+            )
+
+    if hasattr(self, "args") and self.args is not None:
+        self.args = merge_dicts(self.args, data)
+    else:
+        self.args = data
+
+
+def merge_dicts(dict1, dict2):
+    """
+    Return a new dictionary by merging two dictionaries recursively.
+
+    Parameters
+    ----------
+    dict1 : dict
+        dictionary 1.
+    dict2 : dict
+        dictionary 2.
+
+    Returns
+    -------
+    result : dict
+        Union of dict1 and dict2
+
+    """
+
+    result = deepcopy(dict1)
+
+    for key, value in dict2.items():
+        if isinstance(value, Mapping):
+            result[key] = merge_dicts(result.get(key, {}), value)
+        else:
+            result[key] = deepcopy(dict2[key])
+
+    return result
+
+
+def find_args_file(folder: str, stem: str = "args") -> str | None:
+    """Return the first matching args file in *folder*, or None if not found."""
+    for ext in (".json", ".yml", ".yaml"):
+        candidate = os.path.join(folder, stem + ext)
+        if os.path.exists(candidate):
+            return candidate
+    return None
 
 if __name__ == "__main__":
     config = load_etrago_config("args_default.yml")
