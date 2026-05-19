@@ -1889,6 +1889,103 @@ def _capacity_factor_per_gen_cntr_nmp(self, network, snapshots):
                 )
 
 
+def drop_small_rhs_pyomo(n, snapshots, threshold: float = 1e-8):
+    """
+    Zero out very small RHS values in all Pyomo constraints.
+
+    Pyomo stores constraints as expressions of the form
+        lb  <=  body  <=  ub
+    where `lb` and `ub` are the numeric RHS bounds (constants).
+    Any bound satisfying 0 < |bound| < threshold is replaced with exactly 0.
+
+    Parameters
+    ----------
+    n          : pypsa.Network
+    snapshots  : pd.Index   (passed automatically by PyPSA)
+    threshold  : float      absolute threshold below which RHS is zeroed
+                            (default 1e-8)
+    """
+    model = n.model  # the Pyomo ConcreteModel
+    dropped = 0
+
+    for con_data in model.component_data_objects(
+        ctype=__import__("pyomo.core", fromlist=["Constraint"]).Constraint,
+        active=True,
+    ):
+        # Pyomo stores lb / ub as numeric values or None
+        lb = con_data.lb
+        ub = con_data.ub
+
+        if lb is not None and abs(lb) < threshold and lb != 0.0:
+            con_data.set_value((0.0, con_data.body, ub))
+            dropped += 1
+
+        if ub is not None and abs(ub) < threshold and ub != 0.0:
+            lb_current = con_data.lb  # re-read in case lb was just modified
+            con_data.set_value((lb_current, con_data.body, 0.0))
+            dropped += 1
+
+    logger.info(
+        f"[drop_small_rhs_pyomo] {dropped} RHS bound(s) with |rhs| < {threshold} "
+        f"set to 0."
+    )
+
+
+def drop_small_rhs_linopy(n, snapshots, threshold: float = 1e-8):
+    """
+    Zero out very small RHS values in all Linopy constraints.
+
+    Linopy stores RHS values as an xarray.DataArray (.rhs attribute)
+    on each constraint object. Entries satisfying 0 < |rhs| < threshold
+    are overwritten with 0 directly in the DataArray.
+
+    This function must be called AFTER the model has been built
+    (create_model) but BEFORE it is sent to the solver.
+
+    Parameters
+    ----------
+    n          : pypsa.Network   (n.model must already be a Linopy model instance)
+    snapshots  : pd.Index        (passed automatically by PyPSA)
+    threshold  : float           absolute threshold below which RHS is zeroed
+                                 (default 1e-8)
+    """
+    m = n.model  # linopy.Model instance
+    total_dropped = 0
+
+    for con_name, con in m.constraints.items():
+        rhs = con.rhs  # xarray.DataArray of RHS constants
+
+        # Mask: non-zero entries whose absolute value is below the threshold
+        mask = (np.abs(rhs) < threshold) & (rhs != 0.0)
+        n_dropped = int(mask.sum())
+
+        if n_dropped > 0:
+            # xarray DataArrays are immutable, so work on the underlying
+            # numpy array and wrap it back into a new DataArray
+            rhs_values = rhs.values.copy()
+            rhs_values[mask.values] = 0.0
+
+            # Update the constraint RHS in-place
+            # (linopy >= 0.3 / PyPSA 0.26 uses a Dataset-based internal structure)
+            import xarray as xr
+
+            new_rhs = xr.DataArray(
+                rhs_values, coords=rhs.coords, dims=rhs.dims
+            )
+            m.constraints[con_name].data["rhs"] = new_rhs
+
+            logger.info(
+                f"[drop_small_rhs_linopy] Constraint '{con_name}': "
+                f"{n_dropped} RHS entry/entries with |rhs| < {threshold} set to 0."
+            )
+            total_dropped += n_dropped
+
+    logger.info(
+        f"[drop_small_rhs_linopy] Total: {total_dropped} RHS value(s) "
+        f"with |rhs| < {threshold} set to 0."
+    )
+
+
 def read_max_gas_generation(self):
     """Return the values limiting the gas production in Germany
 
@@ -3682,6 +3779,8 @@ class Constraints:
                     add_ch4_constraints(self, network, snapshots)
                     add_biomass_constraint(self, network, snapshots)
 
+                drop_small_rhs_pyomo(network, snapshots)
+
             elif self.args["method"]["formulation"] == "linopy":
                 if (
                     self.args["scn_name"] not in ["status2019", "status2023"]
@@ -3696,6 +3795,8 @@ class Constraints:
                         self, network, snapshots
                     )
                 add_chp_constraints_linopy(network, snapshots)
+                drop_small_rhs_linopy(network, snapshots)
+
             else:
                 add_chp_constraints_nmp(network)
                 if self.args["scn_name"] not in ["status2019", "status2023"]:
