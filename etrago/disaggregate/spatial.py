@@ -874,6 +874,20 @@ def run_disaggregation(self):
         disagg = self.args.get("spatial_disaggregation")
         skip = () if self.args["pf_post_lopf"]["active"] else ("q",)
         t = time.time()
+
+        # no disaggregation of load shedding will be performed
+        mask = self.network.generators.carrier.isin(
+            ["load shedding", "negative load shedding"]
+        )
+        self.network.mremove("Generator", self.network.generators.index[mask])
+        mask_desag = self.disaggregated_network.generators.carrier.isin(
+            ["load shedding", "negative load shedding"]
+        )
+        self.disaggregated_network.mremove(
+            "Generator",
+            self.disaggregated_network.generators.index[mask_desag],
+        )
+
         if disagg:
             if disagg == "mini":
                 disaggregation = MiniSolverDisaggregation(
