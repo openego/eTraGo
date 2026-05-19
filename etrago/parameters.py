@@ -5,15 +5,13 @@ Pydantic models for eTraGo grid calculation arguments.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from copy import deepcopy
 from typing import Any, Literal, Optional, Union
+import os
 
 from pydantic import BaseModel, Field, model_validator
 
-from copy import deepcopy
-
-from collections.abc import Mapping
-
-import os
 # ---------------------------------------------------------------------------
 # Sub-models: Method
 # ---------------------------------------------------------------------------
@@ -100,7 +98,9 @@ class Method(BaseModel):
         "linopy",
         description="Model-building formulation backend: 'pyomo' or 'linopy'.",
     )
-    market_optimization: MarketOptimization = Field(default_factory=MarketOptimization)
+    market_optimization: MarketOptimization = Field(
+        default_factory=MarketOptimization
+    )
     distribution_grids: Union[bool, str] = Field(
         False,
         description=(
@@ -391,7 +391,9 @@ class ClusteringMethod(BaseModel):
             "to derive new line lengths."
         ),
     )
-    random_state: int = Field(42, description="Random seed for reproducibility.")
+    random_state: int = Field(
+        42, description="Random seed for reproducibility."
+    )
     n_init: int = Field(
         10,
         description="Number of algorithm initialisations (see sklearn docs).",
@@ -485,8 +487,12 @@ class GasGrids(BaseModel):
         False,
         description="If False, gas grid buses in the focus region are barely clustered.",
     )
-    n_clusters_ch4: int = Field(15, ge=1, description="Target number of CH4 nodes.")
-    n_clusters_h2: int = Field(15, ge=1, description="Target number of H2 nodes.")
+    n_clusters_ch4: int = Field(
+        15, ge=1, description="Target number of CH4 nodes."
+    )
+    n_clusters_h2: int = Field(
+        15, ge=1, description="Target number of H2 nodes."
+    )
     k_ch4_busmap: Union[bool, str] = Field(
         False,
         description=(
@@ -556,7 +562,9 @@ class SnapshotClustering(BaseModel):
         Default: ``5``.
     """
 
-    active: bool = Field(False, description="If True, activate snapshot clustering.")
+    active: bool = Field(
+        False, description="If True, activate snapshot clustering."
+    )
     method: Literal["typical_periods", "segmentation"] = Field(
         "segmentation",
         description="Clustering method: 'typical_periods' or 'segmentation'.",
@@ -649,12 +657,14 @@ class ForeignLines(BaseModel):
         "AC",
         description="Model foreign lines as 'AC' or as 'DC' links.",
     )
-    capacity: Literal["osmTGmod", "tyndp2020", "ntc_acer", "thermal_acer"] = Field(
-        "osmTGmod",
-        description=(
-            "Capacity data source for foreign lines: 'osmTGmod', 'tyndp2020', "
-            "'ntc_acer', or 'thermal_acer'."
-        ),
+    capacity: Literal["osmTGmod", "tyndp2020", "ntc_acer", "thermal_acer"] = (
+        Field(
+            "osmTGmod",
+            description=(
+                "Capacity data source for foreign lines: 'osmTGmod', 'tyndp2020', "
+                "'ntc_acer', or 'thermal_acer'."
+            ),
+        )
     )
 
 
@@ -674,11 +684,15 @@ class SolverOptions(BaseModel):
     solver-specific keys.
     """
 
-    BarConvTol: float = Field(1e-5, description="Barrier convergence tolerance.")
+    BarConvTol: float = Field(
+        1e-5, description="Barrier convergence tolerance."
+    )
     FeasibilityTol: float = Field(1e-5, description="Feasibility tolerance.")
     method: int = Field(2, description="Algorithm method (2 = barrier).")
     crossover: int = Field(0, description="Crossover strategy (0 = disabled).")
-    logFile: str = Field("solver_etrago.log", description="Path to solver log file.")
+    logFile: str = Field(
+        "solver_etrago.log", description="Path to solver log file."
+    )
     threads: int = Field(4, ge=1, description="Number of solver threads.")
     BarHomogeneous: int = Field(
         1,
@@ -709,8 +723,18 @@ class BranchCapacityFactor(BaseModel):
         Derating factor for eHV lines.  Default: ``0.7``.
     """
 
-    HV: float = Field(0.5, ge=0.0, le=1.0, description="Branch derating factor for HV lines [p.u.].")
-    eHV: float = Field(0.7, ge=0.0, le=1.0, description="Branch derating factor for eHV lines [p.u.].")
+    HV: float = Field(
+        0.5,
+        ge=0.0,
+        le=1.0,
+        description="Branch derating factor for HV lines [p.u.].",
+    )
+    eHV: float = Field(
+        0.7,
+        ge=0.0,
+        le=1.0,
+        description="Branch derating factor for eHV lines [p.u.].",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -869,12 +893,14 @@ class EtragoArgs(BaseModel):
         description="Solver: 'glpk' (open-source), 'cplex', or 'gurobi'.",
     )
     solver_options: SolverOptions = Field(default_factory=SolverOptions)
-    model_formulation: Literal["angles", "cycles", "kirchhoff", "ptdf"] = Field(
-        "kirchhoff",
-        description=(
-            "PyPSA model formulation: 'angles', 'cycles', 'kirchhoff', or 'ptdf'. "
-            "'kirchhoff' is recommended for large networks."
-        ),
+    model_formulation: Literal["angles", "cycles", "kirchhoff", "ptdf"] = (
+        Field(
+            "kirchhoff",
+            description=(
+                "PyPSA model formulation: 'angles', 'cycles', 'kirchhoff', or 'ptdf'. "
+                "'kirchhoff' is recommended for large networks."
+            ),
+        )
     )
 
     # --- Scenario ---
@@ -931,14 +957,18 @@ class EtragoArgs(BaseModel):
     network_clustering_ehv: NetworkClusteringEhv = Field(
         default_factory=NetworkClusteringEhv
     )
-    network_clustering: NetworkClustering = Field(default_factory=NetworkClustering)
+    network_clustering: NetworkClustering = Field(
+        default_factory=NetworkClustering
+    )
     spatial_disaggregation: Optional[Literal["uniform"]] = Field(
         None,
         description="None to skip spatial disaggregation, or 'uniform'.",
     )
 
     # --- Temporal complexity ---
-    snapshot_clustering: SnapshotClustering = Field(default_factory=SnapshotClustering)
+    snapshot_clustering: SnapshotClustering = Field(
+        default_factory=SnapshotClustering
+    )
     skip_snapshots: Union[bool, int] = Field(
         5,
         description=(
@@ -963,7 +993,9 @@ class EtragoArgs(BaseModel):
     foreign_lines: ForeignLines = Field(default_factory=ForeignLines)
 
     # --- Misc ---
-    comments: Optional[str] = Field(None, description="Free-text run comments.")
+    comments: Optional[str] = Field(
+        None, description="Free-text run comments."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -989,7 +1021,6 @@ def load_etrago_config(path: str) -> EtragoArgs:
     with open(path) as fh:
         raw = yaml.safe_load(fh)
     return EtragoArgs(**raw)
-
 
 
 def get_args_setting(self, path="scenario_setting.json"):
@@ -1020,9 +1051,11 @@ def get_args_setting(self, path="scenario_setting.json"):
     with open(path) as f:
         if ext == ".json":
             import json
+
             data = json.load(f)
         elif ext in (".yml", ".yaml"):
             import yaml
+
             data = yaml.safe_load(f)
         else:
             raise ValueError(
@@ -1071,6 +1104,7 @@ def find_args_file(folder: str, stem: str = "args") -> str | None:
         if os.path.exists(candidate):
             return candidate
     return None
+
 
 if __name__ == "__main__":
     config = load_etrago_config("args_default.yml")

@@ -22,7 +22,6 @@
 Utilities.py includes a wide range of useful functions.
 """
 
-
 from pathlib import Path
 from urllib.request import urlretrieve
 import json

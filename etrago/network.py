@@ -82,7 +82,6 @@ from etrago.execute.sclopf import (
     iterate_sclopf,
     post_contingency_analysis_lopf,
 )
-
 from etrago.parameters import find_args_file, get_args_setting
 from etrago.tools.distribution_grids import add_simplified_distribution_grids
 from etrago.tools.extendable import extendable
@@ -178,13 +177,17 @@ class Etrago:
         self.network_tsa = Network()
         self.disaggregated_network = Network()
         self.__re_carriers = [
-            "wind_onshore", "wind_offshore", "solar",
-            "biomass", "run_of_river", "reservoir",
+            "wind_onshore",
+            "wind_offshore",
+            "solar",
+            "biomass",
+            "run_of_river",
+            "reservoir",
         ]
         self.__vre_carriers = ["wind_onshore", "wind_offshore", "solar"]
         self.busmap = {}
         self.ch4_h2_mapping = {}
-    
+
         if args is not None:
             self._init_from_args(args, config_path)
         elif csv_folder_name is not None:
@@ -194,8 +197,7 @@ class Etrago:
                 "Either 'args' (dict or EtragoArgs) or "
                 "'csv_folder_name' must be provided."
             )
-    
-    
+
     def _init_from_args(self, args, config_path=None):
         """Initialise from an args dict or EtragoArgs object."""
         self.args = args if isinstance(args, dict) else args.model_dump()
@@ -204,8 +206,7 @@ class Etrago:
         self.engine = conn
         self.session = sessionmaker(bind=conn)()
         self.check_args()
-    
-    
+
     def _init_from_csv(self, csv_folder_name, name, ignore_standard_types):
         """Initialise from a CSV export folder."""
         # look for an args file (json, yml, yaml)
@@ -217,28 +218,38 @@ class Etrago:
             logger.warning(
                 f"No args configuration file found in '{csv_folder_name}'."
             )
-    
+
         # load main network
         self.network = Network(csv_folder_name, name, ignore_standard_types)
-    
+
         # load optional sub-networks
-        self._load_optional_networks(csv_folder_name, name, ignore_standard_types)
-    
+        self._load_optional_networks(
+            csv_folder_name, name, ignore_standard_types
+        )
+
         self.get_clustering_data(csv_folder_name)
-    
-    
-    def _load_optional_networks(self, csv_folder_name, name, ignore_standard_types):
+
+    def _load_optional_networks(
+        self, csv_folder_name, name, ignore_standard_types
+    ):
         """Load disaggregated network and market model if available."""
         if self.args:
             if self.args.get("spatial_disaggregation") is not None:
                 self.disaggregated_network = Network(
                     csv_folder_name + "/disaggregated_network",
-                    name, ignore_standard_types,
+                    name,
+                    ignore_standard_types,
                 )
-            if self.args.get("method", {}).get("market_optimization", {}).get("active"):
+            if (
+                self.args.get("method", {})
+                .get("market_optimization", {})
+                .get("active")
+            ):
                 try:
                     self.market_model = Network(
-                        csv_folder_name + "/market", name, ignore_standard_types
+                        csv_folder_name + "/market",
+                        name,
+                        ignore_standard_types,
                     )
                 except ValueError:
                     logger.warning(
@@ -248,13 +259,23 @@ class Etrago:
         else:
             # no args available — try both sub-networks optionally
             for attr, subdir, label in [
-                ("disaggregated_network", "/disaggregated_network", "Disaggregated network"),
-                ("market_model",          "/market",                 "Market model"),
+                (
+                    "disaggregated_network",
+                    "/disaggregated_network",
+                    "Disaggregated network",
+                ),
+                ("market_model", "/market", "Market model"),
             ]:
                 try:
-                    setattr(self, attr, Network(
-                        csv_folder_name + subdir, name, ignore_standard_types
-                    ))
+                    setattr(
+                        self,
+                        attr,
+                        Network(
+                            csv_folder_name + subdir,
+                            name,
+                            ignore_standard_types,
+                        ),
+                    )
                 except ValueError:
                     logger.info(f"{label} not available.")
 
