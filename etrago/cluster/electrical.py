@@ -231,7 +231,7 @@ def adjust_no_electric_network(
                 busmap3.at[bus_ne, "elec_bus"] = find_de_closest(
                     network, bus_ne
                 )
-        except:  # noqa: E722
+        except (IndexError, KeyError):
             no_elec_conex.append(bus_ne)
             busmap3.at[bus_ne, "elec_bus"] = bus_ne
 
