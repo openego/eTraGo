@@ -3708,7 +3708,7 @@ class Constraints:
                     logger.info(
                         "Added extra_functionality {}".format(constraint)
                     )
-                except:
+                except NameError:
                     logger.warning(
                         "Constraint {} not defined".format(constraint)
                         + ". New constraints can be defined in"
@@ -3722,7 +3722,7 @@ class Constraints:
                     logger.info(
                         "Added extra_functionality {}".format(constraint)
                     )
-                except:
+                except NameError:
                     logger.warning(
                         "Constraint {} not defined for linopy formulation".format(
                             constraint
