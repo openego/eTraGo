@@ -763,6 +763,7 @@ def set_control_strategies(network):
         network.generators.carrier.isin(
             [
                 "load shedding",
+                "negative load shedding",
                 "CH4",
                 "CH4_biogas",
                 "CH4_NG",
