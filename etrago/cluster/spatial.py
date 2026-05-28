@@ -161,19 +161,7 @@ def strategies_one_ports():
             "e_min_pu": "capacity_weighted_average",
             "e_max_pu": "capacity_weighted_average",
             "standing_loss": "capacity_weighted_average",
-        },
-        "Store": {
-            "scn_name": "first",
-            "e_nom_extendable": ext_sto,
-            "e_nom_max": sum_with_inf,
-            "capital_cost": "capacity_weighted_average",
-            "marginal_cost": "capacity_weighted_average",
-            "e_initial": "sum",
-            "e_initial_per_period": "sum",
-            "e_min_pu": "capacity_weighted_average",
-            "e_max_pu": "capacity_weighted_average",
-            "standing_loss": "capacity_weighted_average",
-        },
+        }
     }
 
 

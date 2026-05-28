@@ -955,7 +955,7 @@ def postprocessing(
         ],
     )
 
-    # drop timeseries for links which are non-existant in clustered network anymore
+    # drop timeseries for links which are non-existant in clustered net anymore
     for attr, df in clustering.network.links_t.items():
         clustering.network.links_t[attr] = df.loc[
             :, df.columns.intersection(clustering.network.links.index)
