@@ -161,7 +161,7 @@ def strategies_one_ports():
             "e_min_pu": "capacity_weighted_average",
             "e_max_pu": "capacity_weighted_average",
             "standing_loss": "capacity_weighted_average",
-        }
+        },
     }
 
 
@@ -324,6 +324,10 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
             else:
                 new_pnl[attr] = network.links_t[attr]
     new_pnl = pypsa.descriptors.Dict(new_pnl)
+
+    import pdb
+
+    pdb.set_trace()
 
     return new_df, new_pnl
 
