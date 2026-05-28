@@ -103,7 +103,7 @@ def nan_links(x):
     return np.nan
 
 
-def ext_storage(x):
+def ext_sto(x):
     v = any(x[x])
     return v
 
@@ -138,27 +138,41 @@ def strategies_one_ports():
     return {
         "StorageUnit": {
             "scn_name": "first",
-            "p_nom_extendable": ext_storage,
-            "capital_cost": "mean",
-            "marginal_cost": "mean",
-            "p_min_pu": "mean",
-            "p_max_pu": "mean",
+            "p_nom_extendable": ext_sto,
+            "p_nom_max": sum_with_inf,
+            "capital_cost": "capacity_weighted_average",
+            "marginal_cost": "capacity_weighted_average",
+            "p_min_pu": "capacity_weighted_average",
+            "p_max_pu": "capacity_weighted_average",
             "state_of_charge_initial": "sum",
-            "standing_loss": "mean",
-            "efficiency_dispatch": "mean",
-            "efficiency_store": "mean",
-            "max_hours": "mean",
+            "standing_loss": "capacity_weighted_average",
+            "efficiency_dispatch": "capacity_weighted_average",
+            "efficiency_store": "capacity_weighted_average",
+            "max_hours": "capacity_weighted_average",
         },
         "Store": {
             "scn_name": "first",
-            "e_nom_extendable": ext_storage,
-            "capital_cost": "mean",
-            "marginal_cost": "mean",
+            "e_nom_extendable": ext_sto,
+            "e_nom_max": sum_with_inf,
+            "capital_cost": "capacity_weighted_average",
+            "marginal_cost": "capacity_weighted_average",
             "e_initial": "sum",
             "e_initial_per_period": "sum",
-            "e_min_pu": "mean",
-            "e_max_pu": "mean",
-            "standing_loss": "mean",
+            "e_min_pu": "capacity_weighted_average",
+            "e_max_pu": "capacity_weighted_average",
+            "standing_loss": "capacity_weighted_average",
+        },
+        "Store": {
+            "scn_name": "first",
+            "e_nom_extendable": ext_sto,
+            "e_nom_max": sum_with_inf,
+            "capital_cost": "capacity_weighted_average",
+            "marginal_cost": "capacity_weighted_average",
+            "e_initial": "sum",
+            "e_initial_per_period": "sum",
+            "e_min_pu": "capacity_weighted_average",
+            "e_max_pu": "capacity_weighted_average",
+            "standing_loss": "capacity_weighted_average",
         },
     }
 
@@ -167,18 +181,11 @@ def strategies_generators():
     return {
         "scn_name": "first",
         "up_time_before": "capacity_weighted_average",
-    }
-
-
-def strategies_generators_ext():
-    return {
-        "scn_name": "first",
-        "up_time_before": "mean",
         "p_nom_extendable": "any",
-        "capital_cost": "mean",
-        "marginal_cost": "mean",
-        "p_min_pu": "mean",
-        "p_max_pu": "mean",
+        "capital_cost": "capacity_weighted_average",
+        "marginal_cost": "capacity_weighted_average",
+        "p_min_pu": "capacity_weighted_average",
+        "p_max_pu": "capacity_weighted_average",
     }
 
 
@@ -187,32 +194,32 @@ def strategies_links():
         "scn_name": "first",
         "bus0": _make_consense_links,
         "bus1": _make_consense_links,
-        "length": "mean",
+        "length": "capacity_weighted_average",
         "carrier": _make_consense_links,
         "p_nom": "sum",
         "p_nom_extendable": "any",
         "p_nom_opt": "sum",
         "p_nom_max": sum_with_inf,
         "p_nom_min": "sum",
-        "p_min_pu": "mean",
-        "p_max_pu": "mean",
+        "p_min_pu": "capacity_weighted_average",
+        "p_max_pu": "capacity_weighted_average",
         "p_set": "sum",
-        "efficiency": "mean",
-        "capital_cost": "mean",
-        "marginal_cost": "mean",
-        "marginal_cost_quadratic": "mean",
-        "min_up_time": "mean",
-        "min_down_time": "mean",
-        "up_time_before": "mean",
-        "down_time_before": "mean",
+        "efficiency": "capacity_weighted_average",
+        "capital_cost": "capacity_weighted_average",
+        "marginal_cost": "capacity_weighted_average",
+        "marginal_cost_quadratic": "capacity_weighted_average",
+        "min_up_time": "capacity_weighted_average",
+        "min_down_time": "capacity_weighted_average",
+        "up_time_before": "capacity_weighted_average",
+        "down_time_before": "capacity_weighted_average",
         "committable": "all",
         "type": nan_links,
         "geom": nan_links,
         "topo": nan_links,
         "country": nan_links,
         "terrain_factor": _make_consense_links,
-        "build_year": "mean",
-        "lifetime": "mean",
+        "build_year": "capacity_weighted_average",
+        "lifetime": "capacity_weighted_average",
     }
 
 
@@ -247,6 +254,12 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
             else pd.Series(1.0 / len(x), x.index)
         )
 
+    def align_strategies(strategies, keys):  # component nicht mehr nötig
+        strategies |= {
+            k: _make_consense_links for k in set(keys).difference(strategies)
+        }
+        return {k: strategies[k] for k in keys}
+
     def arrange_dc_bus0_bus1(network):
         dc_links = network.links[network.links.carrier == "DC"].copy()
         dc_links["n0"] = dc_links.apply(
@@ -275,14 +288,20 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
 
     strategies = strategies_links()
     strategies.update(cus_strateg)
-    strategies.pop("topo")
-    strategies.pop("geom")
+    # strategies.pop("topo")
+    # strategies.pop("geom")
+    columns = links.columns
+    static_strategies = align_strategies(strategies, columns)
 
-    weighting = links.p_nom.groupby(grouper, axis=0).transform(
+    capacity_weights = links.p_nom.groupby(grouper, axis=0).transform(
         normed_or_uniform
     )
+    for k, v in static_strategies.items():
+        if v == "capacity_weighted_average":
+            links[k] = links[k] * capacity_weights
+            static_strategies[k] = "sum"
 
-    new_df = links.groupby(grouper).agg(strategies)
+    new_df = links.groupby(grouper).agg(static_strategies)
     new_df.index = flatten_multiindex(new_df.index).rename("name")
     new_df = pd.concat(
         [new_df, network.links.loc[~links_agg_b]], axis=0, sort=False
@@ -292,19 +311,21 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
     new_df.set_index("new_id", inplace=True)
     new_df.index = new_df.index.rename("Link")
 
+    # timeseries
     new_pnl = dict()
     if with_time:
-        for attr, df in network.links_t.items():
+        dynamic_strategies = align_strategies(strategies, network.pnl("Link"))
+        for attr, df in network.pnl("Link").items():
             pnl_links_agg_b = df.columns.to_series().map(links_agg_b)
             df_agg = df.loc[:, pnl_links_agg_b].astype(float)
             if not df_agg.empty:
-                if attr in ["efficiency", "p_max_pu", "p_min_pu"]:
-                    df_agg = df_agg.multiply(
-                        weighting.loc[df_agg.columns], axis=1
-                    )
+                df_agg = network.get_switchable_as_dense("Link", attr)
+                strategy = dynamic_strategies[attr]
+                if strategy == "capacity_weighted_average":
+                    df_agg = df_agg * capacity_weights
                     pnl_df = df_agg.T.groupby(grouper).sum().T
                 else:
-                    pnl_df = df_agg.T.groupby(grouper).agg(strategies).T
+                    pnl_df = df_agg.T.groupby(grouper).agg(strategy).T
                 pnl_df.columns = flatten_multiindex(pnl_df.columns).rename(
                     "name"
                 )
@@ -314,7 +335,6 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
                 new_pnl[attr].columns = new_pnl[attr].columns.map(cluster_id)
             else:
                 new_pnl[attr] = network.links_t[attr]
-
     new_pnl = pypsa.descriptors.Dict(new_pnl)
 
     return new_df, new_pnl
@@ -605,9 +625,6 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
         if kmean_settings["method"]["remove_stubs"]:
             network.determine_network_topology()
             busmap = busmap_by_stubs(network)
-            network.generators["weight"] = network.generators["p_nom"]
-            aggregate_one_ports = network.one_port_components.copy()
-            aggregate_one_ports.discard("Generator")
 
             # reset coordinates to the new reduced guys, rather than taking an
             # average (copied from pypsa.networkclustering)
@@ -622,13 +639,14 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
                 network,
                 busmap,
                 aggregate_generators_weighted=True,
-                one_port_strategies=strategies_one_ports(),
                 generator_strategies=strategies_generators(),
-                aggregate_one_ports=aggregate_one_ports,
-                line_length_factor=kmean_settings["method"][
-                    "line_length_factor"
-                ],
+                one_port_strategies=strategies_one_ports(),
+                aggregate_one_ports=network.one_port_components.copy(),
+                bus_strategies=strategies_buses(),
+                line_strategies=strategies_lines(),
+                line_length_factor=1,
             )
+
             etrago.network = clustering.network
 
             weight = weight.groupby(busmap.values).sum()
