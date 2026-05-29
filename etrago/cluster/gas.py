@@ -421,7 +421,13 @@ def sector_coupled_clustering_strategy(etrago):
     return strategy
 
 
-def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
+def gas_postprocessing(
+    etrago,
+    busmap,
+    medoid_idx=None,
+    apply_on="grid_model",
+    aggregate_generators_carriers=None,
+):
     """
     Performs the postprocessing for the gas grid clustering based on the
     provided busmap
@@ -530,17 +536,12 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
     busmap = busmap.astype(str)
     busmap.index = busmap.index.astype(str)
 
-    if apply_on == "market_model":
-        aggregate_generators_carriers = []
-    else:
-        aggregate_generators_carriers = None
-
     network_gasgrid_c = get_clustering_from_busmap(
         network,
         busmap,
-        aggregate_generators_carriers=aggregate_generators_carriers,
-        one_port_strategies=strategies_one_ports(),
+        aggregate_generators_carriers,
         generator_strategies=strategies_generators(),
+        one_port_strategies=strategies_one_ports(),
         bus_strategies=strategies_buses(),
     )
 
@@ -1005,6 +1006,7 @@ def get_clustering_from_busmap(
             io.import_series_from_dataframe(
                 network_gasgrid_c, df, one_port, attr
             )
+
     # Aggregate links
     new_links = (
         network.links.assign(
@@ -1037,8 +1039,9 @@ def get_clustering_from_busmap(
     if with_time:
         for attr, df in network.links_t.items():
             if not df.empty:
+                filtered_df = df[df.columns.intersection(new_links.index)]
                 io.import_series_from_dataframe(
-                    network_gasgrid_c, df, "Link", attr
+                    network_gasgrid_c, filtered_df, "Link", attr
                 )
 
     return network_gasgrid_c

@@ -124,7 +124,7 @@ args = {
             "algorithm": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
             "remove_stubs": False,  # remove stubs before kmeans clustering
             "use_reduced_coordinates": False,  # if True, do not average cluster coordinates (in remove stubs)
-            "line_length_factor": 1,  # Factor to multiply distance between new buses for new line lengths
+            "line_length_factor": 1.15,  # Factor to multiply distance between new buses for new line lengths
             "random_state": 42,  # random state for replicability of clustering results
             "n_init": 10,  # affects clustering algorithm, only change when neccesary
             "max_iter": 100,  # affects clustering algorithm, only change when neccesary
@@ -446,7 +446,7 @@ def run_etrago(args, json_path):
             * "line_length_factor" : float
                 Defines the factor to multiply the crow-flies distance
                 between new buses by, in order to get new line lengths.
-                Default: 1.
+                Default: 1.15.
             * "random_state" : int
                 Random state for replicability of clustering results. Default: 42.
             * "n_init" : int
