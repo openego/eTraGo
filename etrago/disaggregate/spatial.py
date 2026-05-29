@@ -875,6 +875,13 @@ def run_disaggregation(self):
         skip = () if self.args["pf_post_lopf"]["active"] else ("q",)
         t = time.time()
 
+        # If pf_post_lopf was performed, disaggregate p_set as p
+        # to exclude distributed slack from dispatch of generators
+        if self.args["pf_post_lopf"]["active"]:
+            self.network.generators_t["p"] = self.network.generators_t[
+                "p_set"
+            ].copy()
+
         # no disaggregation of load shedding will be performed
         mask = self.network.generators.carrier.isin(
             ["load shedding", "negative load shedding"]
