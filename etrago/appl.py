@@ -446,7 +446,7 @@ def run_etrago(args, json_path):
             * "line_length_factor" : float
                 Defines the factor to multiply the crow-flies distance
                 between new buses by, in order to get new line lengths.
-                Default: 1.
+                Default: 1.15.
             * "random_state" : int
                 Random state for replicability of clustering results. Default: 42.
             * "n_init" : int
