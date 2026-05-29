@@ -42,6 +42,7 @@ if "READTHEDOCS" not in os.environ:
         group_links,
         kmedoids_dijkstra_clustering,
         strategies_buses,
+        strategies_generators,
         strategies_one_ports,
     )
     from etrago.tools.utilities import set_control_strategies
@@ -539,6 +540,7 @@ def gas_postprocessing(
         network,
         busmap,
         aggregate_generators_carriers,
+        generator_strategies=strategies_generators(),
         one_port_strategies=strategies_one_ports(),
         bus_strategies=strategies_buses(),
     )

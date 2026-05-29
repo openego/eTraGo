@@ -242,7 +242,8 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
             else pd.Series(1.0 / len(x), x.index)
         )
 
-    def align_strategies(strategies, keys):  # component nicht mehr nötig
+    def align_strategies(strategies, keys):
+        # Aligns the given strategies with the given keys.
         strategies |= {
             k: _make_consense_links for k in set(keys).difference(strategies)
         }
@@ -276,8 +277,6 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
 
     strategies = strategies_links()
     strategies.update(cus_strateg)
-    # strategies.pop("topo")
-    # strategies.pop("geom")
     columns = links.columns
     static_strategies = align_strategies(strategies, columns)
 
