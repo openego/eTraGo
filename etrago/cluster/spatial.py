@@ -68,12 +68,6 @@ __author__ = (
 )
 
 
-# Aggregation strategies:
-# PyPSA provides default strategies, often capacity-weighted strategies.
-# This is only appropriate for non-extendable components.
-# Therefore, we define and use custom strategies instead.
-
-
 def _make_consense_links(x):
     """
     Ensure that all elements in the input Series `x` are identical, or that
