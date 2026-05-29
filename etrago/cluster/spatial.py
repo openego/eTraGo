@@ -325,10 +325,6 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
                 new_pnl[attr] = network.links_t[attr]
     new_pnl = pypsa.descriptors.Dict(new_pnl)
 
-    import pdb
-
-    pdb.set_trace()
-
     return new_df, new_pnl
 
 
