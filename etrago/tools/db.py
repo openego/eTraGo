@@ -192,7 +192,7 @@ def connection(filepath=None, section="oep"):
 
         try:
             pw = cfg.get(section, "password")
-        except:
+        except cp.NoOptionError:
             pw = keyring.get_password(section, cfg.get(section, "username"))
             if pw is None:
                 pw = getpass.getpass(

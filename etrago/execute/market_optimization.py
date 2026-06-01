@@ -583,5 +583,9 @@ def gas_clustering_market_model(self):
     self.geolocation_buses(apply_on="pre_market_model")
 
     self.pre_market_model, busmap_new = gas_postprocessing(
-        self, busmap, medoid_idx=medoid_idx, apply_on="market_model"
+        self,
+        busmap,
+        medoid_idx=medoid_idx,
+        apply_on="market_model",
+        aggregate_generators_carriers=[],
     )

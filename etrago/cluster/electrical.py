@@ -48,7 +48,6 @@ if "READTHEDOCS" not in os.environ:
         kmedoids_dijkstra_clustering,
         strategies_buses,
         strategies_generators,
-        strategies_generators_ext,
         strategies_lines,
         strategies_one_ports,
     )
@@ -232,7 +231,7 @@ def adjust_no_electric_network(
                 busmap3.at[bus_ne, "elec_bus"] = find_de_closest(
                     network, bus_ne
                 )
-        except:
+        except (IndexError, KeyError):
             no_elec_conex.append(bus_ne)
             busmap3.at[bus_ne, "elec_bus"] = bus_ne
 
@@ -938,34 +937,29 @@ def postprocessing(
                 medoid_idx[bus] = bus
             medoid_idx.index = medoid_idx.index.astype("int")
 
-    mask = network.generators["carrier"].isin(
-        ["load shedding", "negative load shedding"]
-    )
-    network.generators["weight"] = network.generators["p_nom"]
-    network.generators.loc[mask, "weight"] = 0
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard("Generator")
-    # only apply capacity weighted aggregation strategies
-    # if generators are not extendable
-    if network.generators.p_nom_extendable.any():
-        strategies_gen = strategies_generators_ext()
-    else:
-        strategies_gen = strategies_generators()
 
     clustering = get_clustering_from_busmap(
         network,
         busmap,
         aggregate_generators_weighted=True,
         aggregate_generators_carriers=aggregate_generators_carriers,
+        generator_strategies=strategies_generators(),
         one_port_strategies=strategies_one_ports(),
-        generator_strategies=strategies_gen,
         aggregate_one_ports=aggregate_one_ports,
+        bus_strategies=strategies_buses(),
+        line_strategies=strategies_lines(),
         line_length_factor=etrago.args["network_clustering"]["method"][
             "line_length_factor"
         ],
-        bus_strategies=strategies_buses(),
-        line_strategies=strategies_lines(),
     )
+
+    # drop timeseries for links which are non-existant in clustered net anymore
+    for attr, df in clustering.network.links_t.items():
+        clustering.network.links_t[attr] = df.loc[
+            :, df.columns.intersection(clustering.network.links.index)
+        ]
 
     # Drop nan values after clustering
     drop_nan_values(clustering.network)
@@ -1053,7 +1047,7 @@ def weighting_for_scenario(network, save=None):
 
     # Add weighting of generators attached to transmission grid bus
     gen = network.generators[
-        (network.generators.carrier != "load shedding")
+        (~network.generators.carrier.str.contains("load shedding"))
         & (network.generators.bus.isin(weight.index))
     ][["bus", "carrier", "p_nom"]].copy()
     gen["cf"] = gen.apply(calc_availability_factor, axis=1)
