@@ -1018,9 +1018,15 @@ def pf_post_lopf(etrago, calc_losses=False):
 
     if not pf_solve[~pf_solve.converged].count().max() == 0:
         logger.warning(
-            "PF of %d snapshots not converged.",
+            "PF of %d snapshots not converged. \n"
+            "Generation time series are set to zero for these time steps.",
             pf_solve[~pf_solve.converged].count().max(),
         )
+        network.generators_t.p.loc[~pf_solve.converged, :] *= 0
+        network.generators_t.q.loc[~pf_solve.converged, :] *= 0
+        network.storage_units_t.p.loc[~pf_solve.converged, :] *= 0
+        network.storage_units_t.q.loc[~pf_solve.converged, :] *= 0
+
     if calc_losses:
         calc_line_losses(network, pf_solve["converged"])
 
