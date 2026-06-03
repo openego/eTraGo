@@ -1925,10 +1925,48 @@ def drop_small_rhs_pyomo(n, snapshots, threshold: float = 1e-8):
             con_data.set_value((lb_current, con_data.body, 0.0))
             dropped += 1
 
-    logger.info(
-        f"[drop_small_rhs_pyomo] {dropped} RHS bound(s) with |rhs| < {threshold} "
-        f"set to 0."
-    )
+
+def drop_small_bounds_pyomo(n, snapshots, threshold: float = 1e-8):
+    """
+    Zero out very small variable bounds in all Pyomo Var objects.
+
+    Iterates over all active VarData objects in n.model using
+    Pyomo's component_data_objects() API. For each variable, checks
+    .lb and .ub individually. Any non-zero bound satisfying
+    0 < |bound| < threshold is replaced with exactly 0.0 via
+    .setlb() / .setub().
+
+    Note: This only affects bounds, not the variable's current value.
+    Bounds of exactly 0 or None (unbounded) are left untouched.
+
+    Parameters
+    ----------
+    n          : pypsa.Network
+    snapshots  : pd.Index   (passed automatically by PyPSA)
+    threshold  : float      absolute threshold below which bound is zeroed
+                            (default 1e-8)
+    """
+    from pyomo.core import Var
+
+    model = n.model
+    dropped_lb = 0
+    dropped_ub = 0
+
+    for var_data in model.component_data_objects(
+        ctype=Var,
+        active=True,
+        descend_into=True,
+    ):
+        lb = var_data.lb
+        ub = var_data.ub
+
+        if lb is not None and lb != 0.0 and abs(lb) < threshold:
+            var_data.setlb(0.0)
+            dropped_lb += 1
+
+        if ub is not None and ub != 0.0 and abs(ub) < threshold:
+            var_data.setub(0.0)
+            dropped_ub += 1
 
 
 def drop_small_rhs_linopy(n, snapshots, threshold: float = 1e-8):
@@ -1974,16 +2012,67 @@ def drop_small_rhs_linopy(n, snapshots, threshold: float = 1e-8):
             )
             m.constraints[con_name].data["rhs"] = new_rhs
 
-            logger.info(
-                f"[drop_small_rhs_linopy] Constraint '{con_name}': "
-                f"{n_dropped} RHS entry/entries with |rhs| < {threshold} set to 0."
-            )
             total_dropped += n_dropped
 
-    logger.info(
-        f"[drop_small_rhs_linopy] Total: {total_dropped} RHS value(s) "
-        f"with |rhs| < {threshold} set to 0."
-    )
+
+def drop_small_bounds_linopy(n, snapshots, threshold: float = 1e-8):
+    """
+    Zero out very small variable bounds in all Linopy variables.
+
+    Linopy stores lower and upper bounds as xarray.DataArrays (.lower
+    and .upper attributes) on each Variable object. Entries satisfying
+    0 < |bound| < threshold are overwritten with 0.
+
+    Bounds of exactly 0 or NaN (unbounded/not set) are left untouched.
+
+    This function must be called AFTER the model has been built
+    (create_model) but BEFORE it is sent to the solver.
+
+    Parameters
+    ----------
+    n          : pypsa.Network   (n.model must already be a Linopy model instance)
+    snapshots  : pd.Index        (passed automatically by PyPSA)
+    threshold  : float           absolute threshold below which bound is zeroed
+                                 (default 1e-8)
+    """
+    import xarray as xr
+
+    m = n.model
+    total_lb = 0
+    total_ub = 0
+
+    for var_name, var in m.variables.items():
+        lower = var.lower  # xarray.DataArray, NaN where unbounded
+        upper = var.upper  # xarray.DataArray, NaN where unbounded
+
+        # --- lower bound ---
+        # NaN means unbounded; skip those. Also skip exact zeros.
+        mask_lb = (
+            np.isfinite(lower) & (lower != 0.0) & (np.abs(lower) < threshold)
+        )
+        n_lb = int(mask_lb.sum())
+        if n_lb > 0:
+            lb_values = lower.values.copy()
+            lb_values[mask_lb.values] = 0.0
+            new_lower = xr.DataArray(
+                lb_values, coords=lower.coords, dims=lower.dims
+            )
+            m.variables[var_name].data["lower"] = new_lower
+            total_lb += n_lb
+
+        # --- upper bound ---
+        mask_ub = (
+            np.isfinite(upper) & (upper != 0.0) & (np.abs(upper) < threshold)
+        )
+        n_ub = int(mask_ub.sum())
+        if n_ub > 0:
+            ub_values = upper.values.copy()
+            ub_values[mask_ub.values] = 0.0
+            new_upper = xr.DataArray(
+                ub_values, coords=upper.coords, dims=upper.dims
+            )
+            m.variables[var_name].data["upper"] = new_upper
+            total_ub += n_ub
 
 
 def read_max_gas_generation(self):
@@ -3780,6 +3869,7 @@ class Constraints:
                     add_biomass_constraint(self, network, snapshots)
 
                 drop_small_rhs_pyomo(network, snapshots)
+                drop_small_bounds_pyomo(network, snapshots)
 
             elif self.args["method"]["formulation"] == "linopy":
                 if (
@@ -3796,6 +3886,7 @@ class Constraints:
                     )
                 add_chp_constraints_linopy(network, snapshots)
                 drop_small_rhs_linopy(network, snapshots)
+                drop_small_bounds_linopy(network, snapshots)
 
             else:
                 add_chp_constraints_nmp(network)
