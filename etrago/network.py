@@ -91,7 +91,6 @@ from etrago.tools.io import (
     extension,
 )
 from etrago.tools.utilities import (
-    add_missing_components,
     adjust_CH4_gen_carriers,
     adjust_chp_model,
     adjust_PtH2_model,
@@ -282,8 +281,6 @@ class Etrago:
     check_args = check_args
 
     geolocation_buses = geolocation_buses
-
-    add_missing_components = add_missing_components
 
     load_shedding = load_shedding
 

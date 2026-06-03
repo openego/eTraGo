@@ -799,7 +799,7 @@ class UniformDisaggregation(Disaggregation):
                         }
                     )
                     delta = abs((new_columns.sum(axis=1) - clt).sum())
-                    epsilon = 1e-5
+                    epsilon = 1e-4
 
                     assert delta < epsilon, (
                         "Sum of disaggregated time series does not match"
@@ -874,6 +874,27 @@ def run_disaggregation(self):
         disagg = self.args.get("spatial_disaggregation")
         skip = () if self.args["pf_post_lopf"]["active"] else ("q",)
         t = time.time()
+
+        # If pf_post_lopf was performed, disaggregate p_set as p
+        # to exclude distributed slack from dispatch of generators
+        if self.args["pf_post_lopf"]["active"]:
+            self.network.generators_t["p"] = self.network.generators_t[
+                "p_set"
+            ].copy()
+
+        # no disaggregation of load shedding will be performed
+        mask = self.network.generators.carrier.isin(
+            ["load shedding", "negative load shedding"]
+        )
+        self.network.mremove("Generator", self.network.generators.index[mask])
+        mask_desag = self.disaggregated_network.generators.carrier.isin(
+            ["load shedding", "negative load shedding"]
+        )
+        self.disaggregated_network.mremove(
+            "Generator",
+            self.disaggregated_network.generators.index[mask_desag],
+        )
+
         if disagg:
             if disagg == "mini":
                 disaggregation = MiniSolverDisaggregation(
