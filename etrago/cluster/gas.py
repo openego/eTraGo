@@ -1044,11 +1044,31 @@ def get_clustering_from_busmap(
                     network_gasgrid_c, filtered_df, "Link", attr
                 )
         ### only keep timeseries of new links
-        for attr in list(network_gasgrid_c.links_t.keys()):
-            network_gasgrid_c.links_t[attr] = network_gasgrid_c.links_t[attr].reindex(
-            columns=new_links.index,
-            fill_value=0.0
-            )
+        # for attr in list(network_gasgrid_c.links_t.keys()):
+        #     network_gasgrid_c.links_t[attr] = network_gasgrid_c.links_t[attr].reindex(
+        #     columns=new_links.index,
+        #     fill_value=0.0
+        #     )
+            
+        for attr in list(network_gasgrid_c.links_t.keys()): 
+            # network_gasgrid_c.links_t[attr] = network_gasgrid_c.links_t[attr].reindex(
+            # columns=new_links.index,
+            # fill_value=0.0
+            # )
+            df = network_gasgrid_c.links_t[attr]
+            if df.empty:
+                # Leeren DataFrame komplett weglassen
+                del network_gasgrid_c.links_t[attr]
+                continue
+            # Nur Links behalten, die tatsächlich eine Zeitreihe hatten
+            existing_cols = df.columns.intersection(new_links.index)
+            if existing_cols.empty:
+                del network_gasgrid_c.links_t[attr]
+            else:
+                network_gasgrid_c.links_t[attr] = df.reindex(
+                    columns=existing_cols
+                    # kein fill_value=0.0 !
+                )
 
     return network_gasgrid_c
 
