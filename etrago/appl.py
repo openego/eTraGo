@@ -620,6 +620,10 @@ def run_etrago(args, json_path):
     # define calculation case for power flow
     egon_path = "ego-big-results/ehvhv_level/lowflex_network_1_hour.nc"
     import_egon_results(etrago, egon_path)
+    
+    if args["csv_export"]:
+        path = args["csv_export"] + "/vor-cluster"
+        etrago.export_to_csv(path)
 
     # ehv network clustering
     #etrago.ehv_clustering()
