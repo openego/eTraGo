@@ -142,7 +142,7 @@ def strategies_one_ports():
             "standing_loss": "capacity_weighted_average",
             "efficiency_dispatch": "capacity_weighted_average",
             "efficiency_store": "capacity_weighted_average",
-            "max_hours": "capacity_weighted_average",
+            "max_hours": "mean",
         },
         "Store": {
             "scn_name": "first",
