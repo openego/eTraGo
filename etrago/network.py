@@ -58,6 +58,9 @@ from etrago.analyze.plot import (
     plot_heat_loads,
     plot_heat_summary,
     shifted_energy,
+    total_load_by_zone,
+    total_load_and_renewables_by_zone,
+    total_load_wind_and_solar_by_zone,
 )
 from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
 from etrago.cluster.gas import run_spatial_clustering_gas
@@ -111,6 +114,8 @@ from etrago.tools.utilities import (
     set_trafo_costs,
     update_busmap,
 )
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -371,6 +376,13 @@ class Etrago:
     post_contingency_analysis = post_contingency_analysis_lopf
 
     sclopf = iterate_sclopf
+    
+    total_load_by_zone = total_load_by_zone
+
+    total_load_and_renewables_by_zone = total_load_and_renewables_by_zone
+
+    total_load_wind_and_solar_by_zone = total_load_wind_and_solar_by_zone
+
 
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)

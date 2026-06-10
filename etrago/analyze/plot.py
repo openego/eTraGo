@@ -33,6 +33,12 @@ import matplotlib
 import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
+import matplotlib.colors as mcolors
+
+from etrago.tools.market_zones import (
+    assign_market_zone_column_to_network,
+    load_market_zones_from_zenodo,
+)
 
 cartopy_present = True
 try:
@@ -51,6 +57,7 @@ if "READTHEDOCS" not in os.environ:
     import tilemapbase
 
     from etrago.execute import import_gen_from_links
+  
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -63,6 +70,20 @@ __author__ = """ulfmueller, MarlonSchlemminger, mariusves, lukasol,
 ClaraBuettner, CarlosEpia, pieterhexen, gnn, fwitte, lukasol, KathiEsterl,
 BartelsJ"""
 
+
+
+def _save_or_show_plot(filename=None, dpi=600):
+    """
+    Save the current matplotlib figure if filename is given.
+    Otherwise show it on screen.
+    """
+    plt.tight_layout()
+
+    if filename is not None:
+        plt.savefig(filename, dpi=dpi, bbox_inches="tight")
+        plt.close()
+    else:
+        plt.show()
 
 def set_epsg_network(network):
     """
@@ -4309,778 +4330,1203 @@ def total_load(self):
     print(f"Statische Lasten Netz {ac_loads_net.sum().sum()*5*1e-6} TWh\n Flexible Lasten Netz {link_ac_loads_net.sum().sum()*5*1e-6} TWh")
     return  
 
-def assign_market_zones_to_buses(network, market_zones):
-    import geopandas as gpd
-    import pandas as pd
-    from shapely.geometry import Point
+def _load_market_zone_geometries(market_zones, allow_none=True):
+    """
+    Load DE2, DE3, DE4, or DE5 market-zone geometries from Zenodo.
 
-    if market_zones == "DE2":
-        shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_2_DE2.shp"
-    elif market_zones == "DE3":
-        shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_12_DE3.shp"
-    elif market_zones == "DE4":
-        shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_13_DE4.shp"
-    elif market_zones == "DE5":
-        shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_14_DE5.shp"
-    elif market_zones == "none":
-        shapefile_path = None
-    else:
-        raise ValueError("Ungültiger Wert für market_zone. Erlaubt sind: 'DE2', 'DE3', 'DE4', 'DE5', oder 'none'.")
+    Parameters
+    ----------
+    market_zones : str
+        One of 'DE2', 'DE3', 'DE4', 'DE5', or 'none'.
+    allow_none : bool
+        If True, return None for market_zones='none'.
 
+    Returns
+    -------
+    geopandas.GeoDataFrame or None
+    """
+    market_zones = str(market_zones).upper()
 
-    if shapefile_path is None:
-        raise ValueError("Ungültiger Wert für market_zones")
+    if market_zones == "NONE":
+        if allow_none:
+            return None
+        raise ValueError(
+            "This function requires one of 'DE2', 'DE3', 'DE4', or 'DE5'."
+        )
 
-    zones = gpd.read_file(shapefile_path).to_crs(epsg=4326)
+    if market_zones in ["DE2", "DE3", "DE4", "DE5"]:
+        return load_market_zones_from_zenodo(market_zones)
 
-    # Buserstellen mit Geometrie
-    buses = network.buses.copy()
-    bus_points = gpd.GeoDataFrame(
-        buses,
-        geometry=gpd.points_from_xy(buses.x, buses.y),
-        crs="EPSG:4326"
+    raise ValueError(
+        "Invalid value for market_zones. "
+        "Allowed values are: 'DE2', 'DE3', 'DE4', 'DE5', or 'none'."
     )
 
-    # Spatial Join: Busse mit Zonen verbinden
-    joined = gpd.sjoin(bus_points, zones, how="left", predicate="within")
 
-    # 'id' ist hier die Zone
-    network.buses["zone"] = joined["id"]
-
-    # Diagnose
-    missing = network.buses["zone"].isna().sum()
-    print(f"{missing} Bussen konnte keine Zone zugewiesen werden.")
-
-    return network
-
-
-def total_load_by_zone(self, market_zones="DE4", plot=True):
+def _add_market_zone_colors(zones):
     """
-    Berechnet und plottet die Gesamtlast je Zone (Netz- und Marktmodell).
-
-    Parameter
-    ---------
-    etrago_obj : object
-        Das eTraGo-Objekt mit .network und .market_model
-    market_zones : str
-        Marktzonenkonfiguration ('DE2', 'DE3', 'DE4', 'DE5')
-    plot : bool
-        Wenn True, wird eine Karte mit Lasten je Zone angezeigt
+    Add a color column to market-zone geometries for plotting.
     """
-    import geopandas as gpd
-    import matplotlib.pyplot as plt
-    import matplotlib.colors as mcolors
-    import cartopy.crs as ccrs
+    zones = zones.copy()
+    colors = plt.cm.tab20(range(len(zones)))
+    zones["color"] = [mcolors.rgb2hex(color[:3]) for color in colors]
+    return zones
 
-    assign_market_zones_to_buses(self.market_model, market_zones)
-    #network = german_network(etrago_obj.network)
-    market_model = german_network(self.market_model)
 
-    #buses_net = network.buses
-    buses_market = market_model.buses
-    #loads_net = network.loads_t.p
-    loads_market = market_model.loads_t.p
-    #links_net = network.links
-    links_market = market_model.links
-    #link_loads_net = network.links_t.p0
-    link_loads_market = market_model.links_t.p0
+def _plot_market_zone_geometries(ax, market_zones, alpha=0.3):
+    """
+    Load market-zone geometries from Zenodo and plot them on an existing axis.
 
-    #if 'zone' not in buses_net.columns or 'zone' not in buses_market.columns:
-    if 'zone' not in buses_market.columns:
-        raise ValueError("Spalte 'zone' fehlt in den buses. Bitte zuerst Zonen zuweisen.")
+    Returns
+    -------
+    geopandas.GeoDataFrame or None
+    """
+    zones = _load_market_zone_geometries(market_zones, allow_none=True)
 
-    zones_list = sorted(buses_market['zone'].dropna().unique())
-    results = {}
+    if zones is None:
+        return None
 
-    for zone in zones_list:
-        # --- Netz ---
-        #ac_buses_net = buses_net[(buses_net['carrier'] == 'AC') & (buses_net['zone'] == zone)].index.astype(str)
-        #ac_columns_net = [col for col in loads_net.columns if col.split()[0] in ac_buses_net and col.split()[1] == 'AC']
-        #ac_loads_net = loads_net[ac_columns_net]
-        #links_to_ac_net = links_net[links_net['bus0'].isin(ac_buses_net)]
-        #links_to_ac_net = links_to_ac_net[links_to_ac_net.carrier != "DC"]
-        #link_ac_loads_net = link_loads_net[link_loads_net.columns.intersection(links_to_ac_net.index)]
-        #total_net = ac_loads_net.sum().sum() * 5 * 1e-6 + link_ac_loads_net.sum().sum() * 5 * 1e-6
+    zones = _add_market_zone_colors(zones)
 
-        # --- Markt ---
-        ac_buses_market = buses_market[(buses_market['carrier'] == 'AC') & (buses_market['zone'] == zone)].index.astype(str)
-        ac_columns_market = [col for col in loads_market.columns if col.split()[0] in ac_buses_market and col.split()[1] == 'AC']
-        ac_loads_market = loads_market[ac_columns_market].iloc[::5]
-        links_to_ac_market = links_market[links_market['bus0'].isin(ac_buses_market)]
-        links_to_ac_market = links_to_ac_market[links_to_ac_market.carrier != "DC"]
-        link_ac_loads_market = link_loads_market[link_loads_market.columns.intersection(links_to_ac_market.index)].iloc[::5]
-        total_market = ac_loads_market.sum().sum() * 5 * 1e-6 + link_ac_loads_market.sum().sum() * 5 * 1e-6
+    zones.boundary.plot(ax=ax, edgecolor="black", linewidth=0.5)
+    zones.plot(ax=ax, facecolor=zones["color"], alpha=alpha)
 
-        results[zone] = {'Netz': total_net, 'Markt': total_market}
+    return zones
 
-    # --- Druck in Konsole ---
-    print(f"\n--- Gesamtlast je Zone ({market_zones}) ---")
-    
-    for zone, data in results.items():
-        print(f"Zone {zone}: Netzmodell = {data['Netz']:.2f} TWh, Marktmodell = {data['Markt']:.2f} TWh")
 
-        # --- Plot (einfach wie in total_dispatch_by_zone) ---
-    
-    # Shape laden
-    if market_zones == "DE2":
-        shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_2_DE2.shp"
-    elif market_zones == "DE3":
-        shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_12_DE3.shp"
-    elif market_zones == "DE4":
-        shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_13_DE4.shp"
-    elif market_zones == "DE5":
-        shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_14_DE5.shp"
-    else:
-        raise ValueError("Ungültiger Wert für market_zones.")
 
-    zones = gpd.read_file(shapefile_path).to_crs(epsg=4326)
 
-    # Farben zuweisen wie in total_dispatch_by_zone
+def assign_market_zones_to_buses(network, market_zones):
+    """
+    Assign DE2, DE3, DE4, or DE5 market zones to network.buses
+    using Zenodo shapefiles.
+
+    Adds:
+    - network.buses["zone"]
+    - network.buses["marketzone"]
+    """
+    return assign_market_zone_column_to_network(network, market_zones)
+
+
+def _normalise_market_zones(market_zones, allow_none=True):
+    """
+    Normalise and validate market-zone input.
+    """
+    market_zones = str(market_zones).upper()
+
+    if market_zones == "NONE":
+        if allow_none:
+            return market_zones
+        raise ValueError(
+            "This function requires one of 'DE2', 'DE3', 'DE4', or 'DE5'."
+        )
+
+    if market_zones in ["DE2", "DE3", "DE4", "DE5"]:
+        return market_zones
+
+    raise ValueError(
+        "Invalid value for market_zones. "
+        "Allowed values are: 'DE2', 'DE3', 'DE4', 'DE5', or 'none'."
+    )
+
+
+def _zone_key(value):
+    """
+    Convert zone IDs to stable keys.
+
+    Shapefile IDs and bus zone IDs can appear as int, float, or numpy types.
+    This makes comparisons stable.
+    """
+    if pd.isna(value):
+        return value
+
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return value
+
+
+def _safe_percentage(value, total):
+    """
+    Calculate a percentage and avoid division by zero.
+    """
+    if total == 0:
+        return 0.0
+
+    return 100 * value / total
+
+
+def _load_zones_from_zenodo_for_plot(market_zones, allow_none=False):
+    """
+    Load market-zone geometries from Zenodo for plotting.
+    """
+    market_zones = _normalise_market_zones(
+        market_zones,
+        allow_none=allow_none,
+    )
+
+    if market_zones == "NONE":
+        return None
+
+    return load_market_zones_from_zenodo(market_zones)
+
+
+def _add_zone_colors_for_plot(zones):
+    """
+    Add a color column to market-zone geometries.
+    """
+    zones = zones.copy()
     colors = plt.cm.tab20(range(len(zones)))
     zones["color"] = [mcolors.rgb2hex(color[:3]) for color in colors]
 
-    # Plot vorbereiten
-    fig, ax = plt.subplots(figsize=(10, 6), dpi=600, subplot_kw={"projection": ccrs.PlateCarree()})
+    return zones
 
-    # Zonen einfärben
-    zones.boundary.plot(ax=ax, edgecolor="black", linewidth=0.5)
-    zones.plot(ax=ax, facecolor=zones["color"], alpha=0.3)
-    
-    # Netz zeichnen wie in plot_marketzone_clustering
-    etrago_obj.market_model.plot(
+
+def _plot_zones(ax, zones, alpha=0.3):
+    """
+    Plot market-zone boundaries and filled polygons.
+    """
+    zones.boundary.plot(
         ax=ax,
-        link_widths=0,
-        bus_sizes=0
+        edgecolor="black",
+        linewidth=0.5,
+    )
+    zones.plot(
+        ax=ax,
+        facecolor=zones["color"],
+        alpha=alpha,
     )
 
-    # Zahlen plotten (Markt oben, Netz unten)
-    for _, row in zones.iterrows():
-        zone = row["id"]
-        if zone not in results:
+
+def _select_ac_load_columns(loads, ac_buses):
+    """
+    Select load columns belonging to AC buses.
+
+    Existing code assumes load columns are named like:
+    '<bus_id> AC'
+    """
+    ac_buses = set(pd.Index(ac_buses).astype(str))
+
+    selected_columns = []
+
+    for column in loads.columns:
+        parts = str(column).split()
+
+        if len(parts) < 2:
             continue
-        centroid = row.geometry.centroid
-        markt = results[zone]["Markt"]
-        netz = results[zone]["Netz"]
 
-        ax.text(centroid.x, centroid.y + 0.2,
-                f"{markt:.1f} TWh", color="blue",
-                fontsize=20, ha="center", weight="bold")
-        ax.text(centroid.x, centroid.y - 0.2,
-                f"{netz:.1f} TWh", color="saddlebrown",
-                fontsize=20, ha="center", weight="bold")
+        bus_id = parts[0]
+        carrier = parts[1]
 
-    # Legende
-    from matplotlib.lines import Line2D
-    legend_elements = [
-        Line2D([0], [0], color="blue", lw=4, label="Marktmodell"),
-        Line2D([0], [0], color="saddlebrown", lw=4, label="Netzmodell"),
+        if bus_id in ac_buses and carrier == "AC":
+            selected_columns.append(column)
+
+    return selected_columns
+
+
+def _calculate_total_load_for_ac_buses(model, ac_buses):
+    """
+    Calculate total electricity load for selected AC buses in TWh.
+
+    This keeps the original 5-hour sampling logic:
+    values are sampled with iloc[::5] and multiplied by 5.
+    """
+    ac_buses = pd.Index(ac_buses).astype(str)
+    ac_bus_set = set(ac_buses)
+
+    loads = model.loads_t.p
+    links = model.links
+    link_loads = model.links_t.p0
+
+    ac_columns = _select_ac_load_columns(loads, ac_buses)
+    ac_loads = loads[ac_columns].iloc[::5]
+    direct_load = ac_loads.sum().sum() * 5 * 1e-6
+
+    links_to_ac = links[
+        links["bus0"].astype(str).isin(ac_bus_set)
     ]
-    ax.legend(handles=legend_elements, loc="upper right", fontsize=20)
+    links_to_ac = links_to_ac[links_to_ac.carrier != "DC"]
 
-    ax.set_extent([5.5, 15.5, 47, 55.5], crs=ccrs.PlateCarree())
+    link_columns = link_loads.columns.intersection(links_to_ac.index)
+    link_ac_loads = link_loads[link_columns].iloc[::5]
+    link_load = link_ac_loads.sum().sum() * 5 * 1e-6
+
+    return direct_load + link_load
+
+
+def _calculate_capacity_for_ac_buses(model, ac_buses, carriers):
+    """
+    Calculate installed generator capacity for selected AC buses in GW.
+    """
+    ac_bus_set = set(pd.Index(ac_buses).astype(str))
+
+    generators = model.generators[
+        model.generators["bus"].astype(str).isin(ac_bus_set)
+    ]
+
+    return (
+        generators[
+            generators.carrier.isin(carriers)
+        ]["p_nom"].sum()
+        * 1e-3
+    )
+
+
+def _calculate_load_and_capacity_for_zone(
+    model,
+    buses,
+    zone,
+    carriers,
+):
+    """
+    Calculate total load and installed capacity for one zone.
+    """
+    ac_buses = buses[
+        (buses["carrier"] == "AC")
+        & (buses["_zone_key"] == zone)
+    ].index.astype(str)
+
+    total_load = _calculate_total_load_for_ac_buses(
+        model,
+        ac_buses,
+    )
+
+    capacity = _calculate_capacity_for_ac_buses(
+        model,
+        ac_buses,
+        carriers,
+    )
+
+    return total_load, capacity
+
+
+def _prepare_zone_results(model, market_zones, carriers):
+    """
+    Assign zones and calculate load/capacity results per market zone.
+    """
+    assign_market_zones_to_buses(model, market_zones)
+
+    model_de = german_network(model)
+    buses = model_de.buses.copy()
+
+    if "zone" not in buses.columns:
+        raise ValueError(
+            "Column 'zone' is missing in buses. "
+            "Please assign market zones first."
+        )
+
+    buses["_zone_key"] = buses["zone"].apply(_zone_key)
+    zones_list = sorted(buses["_zone_key"].dropna().unique())
+
+    results = {}
+
+    for zone in zones_list:
+        total_load, capacity = _calculate_load_and_capacity_for_zone(
+            model_de,
+            buses,
+            zone,
+            carriers,
+        )
+
+        results[zone] = {
+            "Total Load": total_load,
+            "Capacity": capacity,
+        }
+
+    return results, model_de
+
+
+def total_load_by_zone(self, market_zones="DE4", plot=True, filename=None):
+    """
+    Calculate and plot total load per market zone for the market model and,
+    if available, the grid/network model.
+
+    Parameters
+    ----------
+    self : object
+        eTraGo object with .market_model and optionally .network.
+    market_zones : str
+        Market-zone configuration: 'DE2', 'DE3', 'DE4', or 'DE5'.
+    plot : bool
+        If True, plot a map with load values per zone.
+
+    Returns
+    -------
+    dict
+        Total load per zone in TWh.
+    """
+    from matplotlib.lines import Line2D
+
+    market_zones = _normalise_market_zones(
+        market_zones,
+        allow_none=False,
+    )
+
+    assign_market_zones_to_buses(self.market_model, market_zones)
+    market_model = german_network(self.market_model)
+    buses_market = market_model.buses.copy()
+
+    if "zone" not in buses_market.columns:
+        raise ValueError(
+            "Column 'zone' is missing in market_model.buses. "
+            "Please assign zones first."
+        )
+
+    buses_market["_zone_key"] = buses_market["zone"].apply(_zone_key)
+    zones_list = sorted(buses_market["_zone_key"].dropna().unique())
+
+    network_model = None
+    buses_network = None
+
+    if hasattr(self, "network") and self.network is not None:
+        assign_market_zones_to_buses(self.network, market_zones)
+        network_model = german_network(self.network)
+        buses_network = network_model.buses.copy()
+
+        if "zone" in buses_network.columns:
+            buses_network["_zone_key"] = buses_network["zone"].apply(_zone_key)
+        else:
+            buses_network = None
+
+    results = {}
+
+    for zone in zones_list:
+        ac_buses_market = buses_market[
+            (buses_market["carrier"] == "AC")
+            & (buses_market["_zone_key"] == zone)
+        ].index.astype(str)
+
+        total_market = _calculate_total_load_for_ac_buses(
+            market_model,
+            ac_buses_market,
+        )
+
+        total_network = None
+
+        if network_model is not None and buses_network is not None:
+            ac_buses_network = buses_network[
+                (buses_network["carrier"] == "AC")
+                & (buses_network["_zone_key"] == zone)
+            ].index.astype(str)
+
+            total_network = _calculate_total_load_for_ac_buses(
+                network_model,
+                ac_buses_network,
+            )
+
+        results[zone] = {
+            "Market": total_market,
+            "Network": total_network,
+        }
+
+    print(f"\n--- Total load per zone ({market_zones}) ---")
+
+    for zone, data in results.items():
+        if data["Network"] is None:
+            print(
+                f"Zone {zone}: "
+                f"Market model = {data['Market']:.2f} TWh"
+            )
+        else:
+            print(
+                f"Zone {zone}: "
+                f"Network model = {data['Network']:.2f} TWh, "
+                f"Market model = {data['Market']:.2f} TWh"
+            )
+
+    if plot:
+        zones = _load_zones_from_zenodo_for_plot(
+            market_zones,
+            allow_none=False,
+        )
+        zones = _add_zone_colors_for_plot(zones)
+
+        fig, ax = plt.subplots(
+            figsize=(10, 6),
+            dpi=600,
+            subplot_kw={"projection": ccrs.PlateCarree()},
+        )
+
+        _plot_zones(ax, zones)
+
+        self.market_model.plot(
+            ax=ax,
+            link_widths=0,
+            bus_sizes=0,
+        )
+
+        for _, row in zones.iterrows():
+            zone = _zone_key(row["id"])
+
+            if zone not in results:
+                continue
+
+            centroid = row.geometry.centroid
+            market_value = results[zone]["Market"]
+            network_value = results[zone]["Network"]
+
+            ax.text(
+                centroid.x,
+                centroid.y + 0.2,
+                f"{market_value:.1f} TWh",
+                color="blue",
+                fontsize=20,
+                ha="center",
+                weight="bold",
+            )
+
+            if network_value is not None:
+                ax.text(
+                    centroid.x,
+                    centroid.y - 0.2,
+                    f"{network_value:.1f} TWh",
+                    color="saddlebrown",
+                    fontsize=20,
+                    ha="center",
+                    weight="bold",
+                )
+
+        legend_elements = [
+            Line2D(
+                [0],
+                [0],
+                color="blue",
+                lw=4,
+                label="Market model",
+            ),
+            Line2D(
+                [0],
+                [0],
+                color="saddlebrown",
+                lw=4,
+                label="Network model",
+            ),
+        ]
+
+        ax.legend(
+            handles=legend_elements,
+            loc="upper right",
+            fontsize=20,
+        )
+
+        ax.set_extent(
+            [5.5, 15.5, 47, 55.5],
+            crs=ccrs.PlateCarree(),
+        )
+        ax.axis("off")
+        plt.tight_layout()
+        _save_or_show_plot(filename)
+        
+    return results
+
+
+def total_load_and_renewables_by_zone(self, market_zones="DE4", plot=True, filename=None):
+    """
+    Calculate total load and installed renewable capacity per zone.
+
+    If market_zones is 'none', calculate the values for Germany as one zone.
+
+    Parameters
+    ----------
+    self : object
+        eTraGo object with .market_model.
+    market_zones : str
+        Market-zone configuration: 'DE2', 'DE3', 'DE4', 'DE5', or 'none'.
+    plot : bool
+        If True, plot a map with percentage shares.
+
+    Returns
+    -------
+    dict
+        Total load and renewable capacity per zone or Germany.
+    """
+    from matplotlib.lines import Line2D
+
+    market_zones = _normalise_market_zones(
+        market_zones,
+        allow_none=True,
+    )
+
+    renewable_carriers = [
+        "solar",
+        "solar_rooftop",
+        "wind_offshore",
+        "wind_onshore",
+        "reservoir",
+        "run_of_river",
+        "biomass",
+        "central_biomass_CHP",
+        "industrial_biomass_CHP",
+    ]
+
+    if market_zones != "NONE":
+        results_raw, _ = _prepare_zone_results(
+            self.market_model,
+            market_zones,
+            renewable_carriers,
+        )
+
+        results = {
+            zone: {
+                "Total Load": values["Total Load"],
+                "Renewable Capacity": values["Capacity"],
+            }
+            for zone, values in results_raw.items()
+        }
+
+        total_load_germany = sum(
+            data["Total Load"] for data in results.values()
+        )
+        total_renewables_germany = sum(
+            data["Renewable Capacity"] for data in results.values()
+        )
+
+        print(f"\n--- Percentage shares per zone ({market_zones}) ---")
+
+        for zone, data in results.items():
+            load_pct = _safe_percentage(
+                data["Total Load"],
+                total_load_germany,
+            )
+            renew_pct = _safe_percentage(
+                data["Renewable Capacity"],
+                total_renewables_germany,
+            )
+
+            print(
+                f"Zone {zone}: "
+                f"Load = {load_pct:.1f} %, "
+                f"Renewable capacity = {renew_pct:.1f} %"
+            )
+
+    else:
+        market_model = german_network(self.market_model)
+        ac_buses = market_model.buses[
+            market_model.buses["carrier"] == "AC"
+        ].index.astype(str)
+
+        total_load = _calculate_total_load_for_ac_buses(
+            market_model,
+            ac_buses,
+        )
+        renewable_capacity = _calculate_capacity_for_ac_buses(
+            market_model,
+            ac_buses,
+            renewable_carriers,
+        )
+
+        results = {
+            "Germany": {
+                "Total Load": total_load,
+                "Renewable Capacity": renewable_capacity,
+            }
+        }
+
+        print("\n--- Total load and renewable capacity for Germany ---")
+        print(
+            f"Total load = {total_load:.2f} TWh, "
+            f"Renewable capacity = {renewable_capacity:.2f} GW"
+        )
+
+    if plot:
+        fig, ax = plt.subplots(
+            figsize=(10, 6),
+            dpi=600,
+            subplot_kw={"projection": ccrs.PlateCarree()},
+        )
+
+        if market_zones != "NONE":
+            zones = _load_zones_from_zenodo_for_plot(
+                market_zones,
+                allow_none=False,
+            )
+            zones = _add_zone_colors_for_plot(zones)
+
+            _plot_zones(ax, zones)
+
+            self.market_model.plot(
+                ax=ax,
+                link_widths=0,
+                bus_sizes=0,
+            )
+
+            for _, row in zones.iterrows():
+                zone = _zone_key(row["id"])
+
+                if zone not in results:
+                    continue
+
+                centroid = row.geometry.centroid
+                load_pct = _safe_percentage(
+                    results[zone]["Total Load"],
+                    total_load_germany,
+                )
+                renew_pct = _safe_percentage(
+                    results[zone]["Renewable Capacity"],
+                    total_renewables_germany,
+                )
+
+                ax.text(
+                    centroid.x,
+                    centroid.y + 0.2,
+                    f"{load_pct:.1f}%",
+                    color="blue",
+                    fontsize=20,
+                    ha="center",
+                    weight="bold",
+                )
+
+                ax.text(
+                    centroid.x,
+                    centroid.y - 0.2,
+                    f"{renew_pct:.1f}%",
+                    color="green",
+                    fontsize=20,
+                    ha="center",
+                    weight="bold",
+                )
+
+        else:
+            self.market_model.plot(
+                ax=ax,
+                link_widths=0,
+                bus_sizes=0,
+            )
+
+            center_x, center_y = 10.5, 50.0
+
+            ax.text(
+                center_x,
+                center_y + 1.0,
+                f"{results['Germany']['Total Load']:.1f} TWh",
+                color="blue",
+                fontsize=20,
+                ha="center",
+                weight="bold",
+            )
+
+            ax.text(
+                center_x,
+                center_y,
+                f"{results['Germany']['Renewable Capacity']:.1f} GW",
+                color="green",
+                fontsize=20,
+                ha="center",
+                weight="bold",
+            )
+
+        legend_elements = [
+            Line2D(
+                [0],
+                [0],
+                color="blue",
+                lw=2,
+                label="Annual electricity demand",
+            ),
+            Line2D(
+                [0],
+                [0],
+                color="green",
+                lw=2,
+                label="Installed renewable capacity",
+            ),
+        ]
+
+        ax.legend(
+            handles=legend_elements,
+            loc="upper left",
+            fontsize=20,
+        )
+
+        ax.set_extent(
+            [5.5, 15.5, 47, 55.5],
+            crs=ccrs.PlateCarree(),
+        )
+        ax.axis("off")
+        plt.tight_layout()
+        _save_or_show_plot(filename)
+
+    return results
+
+
+def total_load_wind_and_solar_by_zone(self, market_zones="DE4", plot=True, filename=None):
+    """
+    Calculate total load, installed solar capacity, and installed wind capacity
+    per zone.
+
+    If market_zones is 'none', calculate the values for Germany as one zone.
+
+    Parameters
+    ----------
+    self : object
+        eTraGo object with .market_model.
+    market_zones : str
+        Market-zone configuration: 'DE2', 'DE3', 'DE4', 'DE5', or 'none'.
+    plot : bool
+        If True, plot a map with percentage shares.
+
+    Returns
+    -------
+    dict
+        Total load, solar capacity, and wind capacity per zone or Germany.
+    """
+    from matplotlib.lines import Line2D
+
+    market_zones = _normalise_market_zones(
+        market_zones,
+        allow_none=True,
+    )
+
+    solar_carriers = [
+        "solar",
+        "solar_rooftop",
+    ]
+
+    wind_carriers = [
+        "wind_onshore",
+        "wind_offshore",
+    ]
+
+    all_carriers = solar_carriers + wind_carriers
+
+    if market_zones != "NONE":
+        assign_market_zones_to_buses(self.market_model, market_zones)
+
+        market_model = german_network(self.market_model)
+        buses = market_model.buses.copy()
+
+        if "zone" not in buses.columns:
+            raise ValueError(
+                "Column 'zone' is missing in buses. "
+                "Please assign market zones first."
+            )
+
+        buses["_zone_key"] = buses["zone"].apply(_zone_key)
+        zones_list = sorted(buses["_zone_key"].dropna().unique())
+
+        results = {}
+
+        for zone in zones_list:
+            ac_buses = buses[
+                (buses["carrier"] == "AC")
+                & (buses["_zone_key"] == zone)
+            ].index.astype(str)
+
+            total_load = _calculate_total_load_for_ac_buses(
+                market_model,
+                ac_buses,
+            )
+
+            solar_capacity = _calculate_capacity_for_ac_buses(
+                market_model,
+                ac_buses,
+                solar_carriers,
+            )
+
+            wind_capacity = _calculate_capacity_for_ac_buses(
+                market_model,
+                ac_buses,
+                wind_carriers,
+            )
+
+            results[zone] = {
+                "Total Load": total_load,
+                "Solar Capacity": solar_capacity,
+                "Wind Capacity": wind_capacity,
+            }
+
+        total_load_germany = sum(
+            data["Total Load"] for data in results.values()
+        )
+        total_solar_germany = sum(
+            data["Solar Capacity"] for data in results.values()
+        )
+        total_wind_germany = sum(
+            data["Wind Capacity"] for data in results.values()
+        )
+
+        print(f"\n--- Percentage shares per zone ({market_zones}) ---")
+
+        for zone, data in results.items():
+            load_pct = _safe_percentage(
+                data["Total Load"],
+                total_load_germany,
+            )
+            solar_pct = _safe_percentage(
+                data["Solar Capacity"],
+                total_solar_germany,
+            )
+            wind_pct = _safe_percentage(
+                data["Wind Capacity"],
+                total_wind_germany,
+            )
+
+            print(
+                f"Zone {zone}: "
+                f"Load = {load_pct:.1f} %, "
+                f"PV capacity = {solar_pct:.1f} %, "
+                f"Wind capacity = {wind_pct:.1f} %"
+            )
+
+    else:
+        market_model = german_network(self.market_model)
+        ac_buses = market_model.buses[
+            market_model.buses["carrier"] == "AC"
+        ].index.astype(str)
+
+        total_load = _calculate_total_load_for_ac_buses(
+            market_model,
+            ac_buses,
+        )
+
+        solar_capacity = _calculate_capacity_for_ac_buses(
+            market_model,
+            ac_buses,
+            solar_carriers,
+        )
+
+        wind_capacity = _calculate_capacity_for_ac_buses(
+            market_model,
+            ac_buses,
+            wind_carriers,
+        )
+
+        results = {
+            "Germany": {
+                "Total Load": total_load,
+                "Solar Capacity": solar_capacity,
+                "Wind Capacity": wind_capacity,
+            }
+        }
+
+        print("\n--- Total load, PV capacity, and wind capacity for Germany ---")
+        print(
+            f"Total load = {total_load:.2f} TWh, "
+            f"PV capacity = {solar_capacity:.2f} GW, "
+            f"Wind capacity = {wind_capacity:.2f} GW"
+        )
+
+    if plot:
+        fig, ax = plt.subplots(
+            figsize=(10, 6),
+            dpi=600,
+            subplot_kw={"projection": ccrs.PlateCarree()},
+        )
+
+        if market_zones != "NONE":
+            zones = _load_zones_from_zenodo_for_plot(
+                market_zones,
+                allow_none=False,
+            )
+            zones = _add_zone_colors_for_plot(zones)
+
+            _plot_zones(ax, zones)
+
+            self.market_model.plot(
+                ax=ax,
+                link_widths=0,
+                bus_sizes=0,
+            )
+
+            for _, row in zones.iterrows():
+                zone = _zone_key(row["id"])
+
+                if zone not in results:
+                    continue
+
+                centroid = row.geometry.centroid
+
+                load_pct = _safe_percentage(
+                    results[zone]["Total Load"],
+                    total_load_germany,
+                )
+                solar_pct = _safe_percentage(
+                    results[zone]["Solar Capacity"],
+                    total_solar_germany,
+                )
+                wind_pct = _safe_percentage(
+                    results[zone]["Wind Capacity"],
+                    total_wind_germany,
+                )
+
+                ax.text(
+                    centroid.x,
+                    centroid.y + 0.4,
+                    f"{load_pct:.1f}%",
+                    color="black",
+                    fontsize=20,
+                    ha="center",
+                    weight="bold",
+                )
+
+                ax.text(
+                    centroid.x,
+                    centroid.y,
+                    f"{solar_pct:.1f}%",
+                    color="darkorange",
+                    fontsize=20,
+                    ha="center",
+                    weight="bold",
+                )
+
+                ax.text(
+                    centroid.x,
+                    centroid.y - 0.4,
+                    f"{wind_pct:.1f}%",
+                    color="blue",
+                    fontsize=20,
+                    ha="center",
+                    weight="bold",
+                )
+
+        else:
+            self.market_model.plot(
+                ax=ax,
+                link_widths=0,
+                bus_sizes=0,
+            )
+
+            center_x, center_y = 10.5, 50.0
+
+            ax.text(
+                center_x,
+                center_y + 1.0,
+                f"{results['Germany']['Total Load']:.1f} TWh",
+                color="black",
+                fontsize=20,
+                ha="center",
+                weight="bold",
+            )
+
+            ax.text(
+                center_x,
+                center_y + 0.5,
+                f"{results['Germany']['Solar Capacity']:.1f} GW",
+                color="darkorange",
+                fontsize=20,
+                ha="center",
+                weight="bold",
+            )
+
+            ax.text(
+                center_x,
+                center_y,
+                f"{results['Germany']['Wind Capacity']:.1f} GW",
+                color="blue",
+                fontsize=20,
+                ha="center",
+                weight="bold",
+            )
+
+        legend_elements = [
+            Line2D(
+                [0],
+                [0],
+                color="black",
+                lw=2,
+                label="Annual electricity demand",
+            ),
+            Line2D(
+                [0],
+                [0],
+                color="darkorange",
+                lw=2,
+                label="Installed PV capacity",
+            ),
+            Line2D(
+                [0],
+                [0],
+                color="blue",
+                lw=2,
+                label="Installed wind capacity",
+            ),
+        ]
+
+        ax.legend(
+            handles=legend_elements,
+            loc="upper left",
+            fontsize=20,
+        )
+
+        ax.set_extent(
+            [5.5, 15.5, 47, 55.5],
+            crs=ccrs.PlateCarree(),
+        )
+        ax.axis("off")
+        plt.tight_layout()
+        _save_or_show_plot(filename)
+
+    return results
+
+
+def total_dispatch_by_zone(
+    self,
+    timesteps=range(1752),
+    market_zones="DE4",
+):
+    """
+    Calculate electricity production per carrier and zone and plot it on a map.
+
+    Parameters
+    ----------
+    self : pypsa.Network
+        Network object.
+    timesteps : range or list
+        Timesteps considered in the dispatch calculation.
+    market_zones : str
+        Market-zone configuration: 'DE2', 'DE3', 'DE4', or 'DE5'.
+
+    Returns
+    -------
+    pandas.Series
+        Electricity production in TWh per zone and carrier.
+    """
+    market_zones = _normalise_market_zones(
+        market_zones,
+        allow_none=False,
+    )
+
+    assign_market_zones_to_buses(self, market_zones)
+
+    network_de = german_network(self)
+
+    dispatch_series = calc_dispatch_per_carrier(
+        network_de,
+        timesteps,
+        dispatch_type="total",
+    )
+    dispatch_df = dispatch_series.reset_index()
+    dispatch_df.columns = [
+        "bus",
+        "carrier",
+        "dispatch",
+    ]
+
+    buses = network_de.buses.copy()
+
+    if "zone" not in buses.columns:
+        raise ValueError(
+            "Column 'zone' is missing in network.buses. "
+            "Please assign zones first."
+        )
+
+    buses["_zone_key"] = buses["zone"].apply(_zone_key)
+
+    dispatch_df = dispatch_df.merge(
+        buses["_zone_key"],
+        left_on="bus",
+        right_index=True,
+    )
+    dispatch_df = dispatch_df.rename(
+        columns={
+            "_zone_key": "zone",
+        }
+    )
+
+    dispatch_per_zone = (
+        dispatch_df.groupby(["zone", "carrier"])["dispatch"].sum()
+        * 5
+        / 1e6
+    )
+
+    table = dispatch_per_zone.unstack().fillna(0)
+
+    renewable_carriers = [
+        "solar",
+        "solar_rooftop",
+        "wind_offshore",
+        "wind_onshore",
+        "reservoir",
+        "run_of_river",
+        "biomass",
+        "central_biomass_CHP",
+        "industrial_biomass_CHP",
+    ]
+
+    print("\nElectricity production per zone:")
+    for zone in table.index:
+        total = table.loc[zone].sum()
+        renewable = table.loc[zone].reindex(
+            renewable_carriers,
+            fill_value=0,
+        ).sum()
+
+        renewable_share = _safe_percentage(
+            renewable,
+            total,
+        )
+
+        print(
+            f"{zone}: "
+            f"{total:.2f} TWh total, "
+            f"{renewable:.2f} TWh renewable "
+            f"({renewable_share:.1f} %)"
+        )
+
+    zones = _load_zones_from_zenodo_for_plot(
+        market_zones,
+        allow_none=False,
+    )
+    zones = _add_zone_colors_for_plot(zones)
+
+    fig, ax = plt.subplots(
+        figsize=(10, 6),
+        dpi=600,
+        subplot_kw={"projection": ccrs.PlateCarree()},
+    )
+
+    _plot_zones(ax, zones)
+
+    self.plot(
+        ax=ax,
+        link_widths=0,
+        bus_sizes=0,
+    )
+
+    for _, row in zones.iterrows():
+        zone = _zone_key(row["id"])
+
+        if zone not in table.index:
+            continue
+
+        total = table.loc[zone].sum()
+        renewable = table.loc[zone].reindex(
+            renewable_carriers,
+            fill_value=0,
+        ).sum()
+
+        renewable_share = _safe_percentage(
+            renewable,
+            total,
+        )
+
+        centroid = row.geometry.centroid
+
+        ax.text(
+            centroid.x,
+            centroid.y,
+            f"{total:.1f} TWh\n{renewable_share:.1f}% RES",
+            fontsize=20,
+            ha="center",
+            va="center",
+            bbox=dict(
+                facecolor="white",
+                edgecolor="black",
+                boxstyle="round,pad=0.3",
+            ),
+        )
+
+    ax.set_extent(
+        [5.5, 15.5, 47, 55.5],
+        crs=ccrs.PlateCarree(),
+    )
     ax.axis("off")
     plt.tight_layout()
     plt.show()
 
-
-    return results
-
-
-
-
-def total_load_and_renewables_by_zone(self, market_zones="DE4", plot=True):
-    """
-    Berechnet und plottet die Gesamtlast und installierte Leistung erneuerbarer Erzeuger je Zone oder für ganz Deutschland.
-
-    Parameter
-    ---------
-    market_zones : str
-        Marktzonenkonfiguration ('DE2', 'DE3', 'DE4', 'DE5', 'none')
-        Bei 'none' wird die Berechnung für ganz Deutschland ohne Zonenaufteilung durchgeführt
-    plot : bool
-        Wenn True, wird eine Karte mit Lasten und erneuerbaren Kapazitäten angezeigt
-    """
-    import geopandas as gpd
-    import matplotlib.pyplot as plt
-    import matplotlib.colors as mcolors
-    import cartopy.crs as ccrs
-    import pandas as pd
-    from cartopy.feature import NaturalEarthFeature
-
-    
-
-    # Define renewable carriers
-    renewables = [
-        'solar', 'solar_rooftop', 'wind_offshore', 'wind_onshore',
-        'reservoir', 'run_of_river', 'biomass', 'central_biomass_CHP',
-        'industrial_biomass_CHP'
-    ]
-
-    if market_zones != "none":
-        # Assign market zones to buses
-        assign_market_zones_to_buses(self.market_model, market_zones)
-        
-        # Initialize market model
-        market_model = german_network(self.market_model)
-        
-        buses_market = market_model.buses
-        loads_market = market_model.loads_t.p
-        links_market = market_model.links
-        link_loads_market = market_model.links_t.p0
-
-        # Check if 'zone' column exists
-        if 'zone' not in buses_market.columns:
-            raise ValueError("Spalte 'zone' fehlt in den buses. Bitte zuerst Zonen zuweisen.")
-
-        # Calculate total load and renewable capacity per zone
-        zones_list = sorted(buses_market['zone'].dropna().unique())
-        results = {}
-
-        for zone in zones_list:
-            # Calculate total load for the zone
-            ac_buses_market = buses_market[(buses_market['carrier'] == 'AC') & (buses_market['zone'] == zone)].index.astype(str)
-            ac_columns_market = [col for col in loads_market.columns if col.split()[0] in ac_buses_market and col.split()[1] == 'AC']
-            ac_loads_market = loads_market[ac_columns_market].iloc[::5]
-            total_load = ac_loads_market.sum().sum() * 5 * 1e-6  # Convert to TWh
-
-            # Berechnung der Link-Lasten für die aktuelle Zone
-            links_to_ac_market = links_market[links_market['bus0'].isin(ac_buses_market)]
-            links_to_ac_market = links_to_ac_market[links_to_ac_market.carrier != "DC"]
-            link_ac_loads_market = link_loads_market[link_loads_market.columns.intersection(links_to_ac_market.index)].iloc[::5]
-            link_load = link_ac_loads_market.sum().sum() * 5 * 1e-6  # Convert to TWh
-            
-            # Addiere die Link-Lasten zur Gesamtlast der Zone
-            total_load += link_load
-
-            # Calculate total renewable capacity for the zone
-            generators_in_zone = market_model.generators[market_model.generators.bus.isin(ac_buses_market)]
-            renewable_capacity = generators_in_zone[generators_in_zone.carrier.isin(renewables)]['p_nom'].sum() * 1e-3  # Convert to GW
-
-            results[zone] = {
-                'Total Load': total_load,
-                'Renewable Capacity': renewable_capacity
-            }
-            
-            # Berechne Gesamtsummen für Deutschland (für Prozentanteile)
-        total_load_germany = sum([data['Total Load'] for data in results.values()])
-        total_renewables_germany = sum([data['Renewable Capacity'] for data in results.values()])
-        
-        print(f"\n--- Prozentuale Anteile je Zone ({market_zones}) ---")
-        for zone, data in results.items():
-            load_pct = 100 * data['Total Load'] / total_load_germany
-            renew_pct = 100 * data['Renewable Capacity'] / total_renewables_germany
-            print(f"Zone {zone}: Last = {load_pct:.1f} %, EE-Kapazität = {renew_pct:.1f} %")
-
-        # Print results to console
-        #print(f"\n--- Gesamtlast und erneuerbare Kapazität je Zone ({market_zones}) ---")
-        #for zone, data in results.items():
-        #    print(f"Zone {zone}: Gesamtlast = {data['Total Load']:.2f} TWh, Erneuerbare Kapazität = {data['Renewable Capacity']:.2f} GW")
-
-    else:
-        # Calculate for all of Germany without zone assignment
-        # Total load calculation
-        
-        # Initialize market model
-        market_model = german_network(self.market_model)
-        
-        buses_market = market_model.buses
-        loads_market = market_model.loads_t.p
-        links_market = market_model.links
-        link_loads_market = market_model.links_t.p0
-        
-        ac_buses_market = buses_market[buses_market['carrier'] == 'AC'].index.astype(str)
-        ac_columns_market = [col for col in loads_market.columns if col.split()[0] in ac_buses_market and col.split()[1] == 'AC']
-        ac_loads_market = loads_market[ac_columns_market].iloc[::5]
-        total_load = ac_loads_market.sum().sum() * 5 * 1e-6  # Convert to TWh
-        
-        # Berechnung der Link-Lasten für ganz Deutschland
-        links_market = market_model.links
-        link_loads_market = market_model.links_t.p0
-        
-        # Filtere nur AC-Links (keine DC-Links)
-        ac_links_market = links_market[links_market.carrier != "DC"]
-        
-        # Summiere die Link-Lasten
-        link_ac_loads_market = link_loads_market[link_loads_market.columns.intersection(ac_links_market.index)].iloc[::5]
-        total_link_load = link_ac_loads_market.sum().sum() * 5 * 1e-6  # Convert to TWh
-        
-        # Addiere die Link-Lasten zur Gesamtlast
-        total_load += total_link_load
-
-        # Total renewable capacity calculation
-        generators_in_germany = market_model.generators
-        renewable_capacity = generators_in_germany[generators_in_germany.carrier.isin(renewables)]['p_nom'].sum() * 1e-3  # Convert to GW
-
-        results = {
-            'Germany': {
-                'Total Load': total_load,
-                'Renewable Capacity': renewable_capacity
-            }
-        }
-        
-
-        # Print results to console
-        print("\n--- Gesamtlast und erneuerbare Kapazität für ganz Deutschland ---")
-        print(f"Gesamtlast = {total_load:.2f} TWh, Erneuerbare Kapazität = {renewable_capacity:.2f} GW")
-
-    # Plotting
-    if plot:
-        if market_zones != "none":
-            # Load shapefile based on market zones configuration
-            if market_zones == "DE2":
-                shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_2_DE2.shp"
-            elif market_zones == "DE3":
-                shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_12_DE3.shp"
-            elif market_zones == "DE4":
-                shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_13_DE4.shp"
-            elif market_zones == "DE5":
-                shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_14_DE5.shp"
-            else:
-                raise ValueError("Ungültiger Wert für market_zones.")
-
-            zones = gpd.read_file(shapefile_path).to_crs(epsg=4326)
-
-            # Assign colors
-            colors = plt.cm.tab20(range(len(zones)))
-            zones["color"] = [mcolors.rgb2hex(color[:3]) for color in colors]
-
-            # Prepare plot
-            fig, ax = plt.subplots(figsize=(10, 6), dpi=600, subplot_kw={"projection": ccrs.PlateCarree()})
-
-            # Plot zones
-            zones.boundary.plot(ax=ax, edgecolor="black", linewidth=0.5)
-            zones.plot(ax=ax, facecolor=zones["color"], alpha=0.3)
-
-            # Plot network
-            self.market_model.plot(
-                ax=ax,
-                link_widths=0,
-                bus_sizes=0
-            )
-
-            # Plot numbers (Load and Renewable Capacity)
-            for _, row in zones.iterrows():
-                zone = row["id"]
-                if zone not in results:
-                    continue
-                centroid = row.geometry.centroid
-                load_pct = 100 * results[zone]["Total Load"] / total_load_germany
-                renew_pct = 100 * results[zone]["Renewable Capacity"] / total_renewables_germany
-            
-                # Plot Load-Anteil - blue
-                ax.text(centroid.x, centroid.y + 0.2,
-                        f"{load_pct:.1f}%", color="blue",
-                        fontsize=20, ha="center", weight="bold")
-            
-                # Plot EE-Anteil - green
-                ax.text(centroid.x, centroid.y - 0.2,
-                        f"{renew_pct:.1f}%", color="green",
-                        fontsize=20, ha="center", weight="bold")
-
-                
-
-        else:
-            # Create a simple map of Germany with values plotted in the center
-            fig, ax = plt.subplots(figsize=(10, 6), dpi=600, subplot_kw={"projection": ccrs.PlateCarree()})
-
-          
-            
-
-            # Plot network (optional)
-            self.market_model.plot(
-                ax=ax,
-                link_widths=0,
-                bus_sizes=0
-            )
-            # Set extent to Germany
-            ax.set_extent([5.5, 15.5, 47, 55.5], crs=ccrs.PlateCarree())
-            
-            # Plot values in the center of Germany (approximately)
-            center_x, center_y = 10.5, 50  # Rough center of Germany
-
-            # Plot load (TWh) - blue
-            ax.text(center_x, center_y + 1,
-                    f"{results['Germany']['Total Load']:.1f} TWh",
-                    color="blue", fontsize=20, ha="center", weight="bold")
-
-            # Plot renewable capacity (GW) - green
-            ax.text(center_x, center_y,
-                    f"{results['Germany']['Renewable Capacity']:.1f} GW",
-                    color="green", fontsize=20, ha="center", weight="bold")
-
-        # Add legend for both cases
-        from matplotlib.lines import Line2D
-        legend_elements = [
-            Line2D([0], [0], color="blue", lw=2, label="Jährlicher Strombedarf"),
-            Line2D([0], [0], color="green", lw=2, label="installierte Leistung EE"),
-        ]
-        #ax.legend(handles=legend_elements, loc="upper left", fontsize=20)
-        ax.set_extent([5.5, 15.5, 47, 55.5], crs=ccrs.PlateCarree())
-        ax.axis('off')
-        plt.tight_layout()
-        plt.show()
-
-    return results
-
-def total_load_wind_and_solar_by_zone(self, market_zones="DE4", plot=True):
-    """
-    Berechnet und plottet die Gesamtlast und installierte Leistung erneuerbarer Erzeuger je Zone oder für ganz Deutschland.
-
-    Parameter
-    ---------
-    market_zones : str
-        Marktzonenkonfiguration ('DE2', 'DE3', 'DE4', 'DE5', 'none')
-        Bei 'none' wird die Berechnung für ganz Deutschland ohne Zonenaufteilung durchgeführt
-    plot : bool
-        Wenn True, wird eine Karte mit Lasten und erneuerbaren Kapazitäten angezeigt
-    """
-    import geopandas as gpd
-    import matplotlib.pyplot as plt
-    import matplotlib.colors as mcolors
-    import cartopy.crs as ccrs
-    import pandas as pd
-    from cartopy.feature import NaturalEarthFeature
-
-    
-
-    # Define renewable carriers
-    solar = [
-        'solar', 'solar_rooftop'
-    ]
-    
-    wind = [
-        'wind_onshore', 'wind_offshore'
-    ]
-
-    if market_zones != "none":
-        # Assign market zones to buses
-        assign_market_zones_to_buses(self.market_model, market_zones)
-        
-        # Initialize market model
-        market_model = german_network(self.market_model)
-        
-        buses_market = market_model.buses
-        loads_market = market_model.loads_t.p
-        links_market = market_model.links
-        link_loads_market = market_model.links_t.p0
-
-        # Check if 'zone' column exists
-        if 'zone' not in buses_market.columns:
-            raise ValueError("Spalte 'zone' fehlt in den buses. Bitte zuerst Zonen zuweisen.")
-
-        # Calculate total load and renewable capacity per zone
-        zones_list = sorted(buses_market['zone'].dropna().unique())
-        results = {}
-
-        for zone in zones_list:
-            # Calculate total load for the zone
-            ac_buses_market = buses_market[(buses_market['carrier'] == 'AC') & (buses_market['zone'] == zone)].index.astype(str)
-            ac_columns_market = [col for col in loads_market.columns if col.split()[0] in ac_buses_market and col.split()[1] == 'AC']
-            ac_loads_market = loads_market[ac_columns_market].iloc[::5]
-            total_load = ac_loads_market.sum().sum() * 5 * 1e-6  # Convert to TWh
-
-            # Berechnung der Link-Lasten für die aktuelle Zone
-            links_to_ac_market = links_market[links_market['bus0'].isin(ac_buses_market)]
-            links_to_ac_market = links_to_ac_market[links_to_ac_market.carrier != "DC"]
-            link_ac_loads_market = link_loads_market[link_loads_market.columns.intersection(links_to_ac_market.index)].iloc[::5]
-            link_load = link_ac_loads_market.sum().sum() * 5 * 1e-6  # Convert to TWh
-            
-            # Addiere die Link-Lasten zur Gesamtlast der Zone
-            total_load += link_load
-
-            # Calculate total renewable capacity for the zone
-            generators_in_zone = market_model.generators[market_model.generators.bus.isin(ac_buses_market)]
-            solar_capacity = generators_in_zone[generators_in_zone.carrier.isin(solar)]['p_nom'].sum() * 1e-3  # Convert to GW
-            wind_capacity = generators_in_zone[generators_in_zone.carrier.isin(wind)]['p_nom'].sum() * 1e-3  # Convert to GW
-
-            results[zone] = {
-                'Total Load': total_load,
-                'Solar Capacity': solar_capacity,
-                'Wind Capacity': wind_capacity
-            }
-            
-            # Berechne Gesamtsummen für Deutschland (für Prozentanteile)
-        total_load_germany = sum([data['Total Load'] for data in results.values()])
-        total_solar_germany = sum([data['Solar Capacity'] for data in results.values()])
-        total_wind_germany = sum([data['Wind Capacity'] for data in results.values()])
-        
-        
-        print(f"\n--- Prozentuale Anteile je Zone ({market_zones}) ---")
-        for zone, data in results.items():
-            load_pct = 100 * data['Total Load'] / total_load_germany
-            solar_pct = 100 * data['Solar Capacity'] / total_solar_germany
-            wind_pct = 100 * data['Wind Capacity'] / total_wind_germany
-            print(f"Zone {zone}: Last = {load_pct:.1f} %, PV-Kapazität = {solar_pct:.1f} %, Wind-Kapazität = {wind_pct:.1f} %")
-
-        # Print results to console
-        #print(f"\n--- Gesamtlast und erneuerbare Kapazität je Zone ({market_zones}) ---")
-        #for zone, data in results.items():
-        #    print(f"Zone {zone}: Gesamtlast = {data['Total Load']:.2f} TWh, Erneuerbare Kapazität = {data['Renewable Capacity']:.2f} GW")
-
-    else:
-        # Calculate for all of Germany without zone assignment
-        # Total load calculation
-        
-        # Initialize market model
-        market_model = german_network(self.market_model)
-        
-        buses_market = market_model.buses
-        loads_market = market_model.loads_t.p
-        links_market = market_model.links
-        link_loads_market = market_model.links_t.p0
-        
-        ac_buses_market = buses_market[buses_market['carrier'] == 'AC'].index.astype(str)
-        ac_columns_market = [col for col in loads_market.columns if col.split()[0] in ac_buses_market and col.split()[1] == 'AC']
-        ac_loads_market = loads_market[ac_columns_market].iloc[::5]
-        total_load = ac_loads_market.sum().sum() * 5 * 1e-6  # Convert to TWh
-        
-        # Berechnung der Link-Lasten für ganz Deutschland
-        links_market = market_model.links
-        link_loads_market = market_model.links_t.p0
-        
-        # Filtere nur AC-Links (keine DC-Links)
-        ac_links_market = links_market[links_market.carrier != "DC"]
-        
-        # Summiere die Link-Lasten
-        link_ac_loads_market = link_loads_market[link_loads_market.columns.intersection(ac_links_market.index)].iloc[::5]
-        total_link_load = link_ac_loads_market.sum().sum() * 5 * 1e-6  # Convert to TWh
-        
-        # Addiere die Link-Lasten zur Gesamtlast
-        total_load += total_link_load
-
-        # Total renewable capacity calculation
-        generators_in_germany = market_model.generators
-        solar_capacity = generators_in_germany[generators_in_germany.carrier.isin(solar)]['p_nom'].sum() * 1e-3  # Convert to GW
-        wind_capacity = generators_in_germany[generators_in_germany.carrier.isin(wind)]['p_nom'].sum() * 1e-3  # Convert to GW
-
-        
-        results = {
-            'Germany': {
-                'Total Load': total_load,
-                'Solar Capacity': solar_capacity,
-                'Wind Capacity': wind_capacity
-            }
-        }
-        
-
-        # Print results to console
-        print("\n--- Gesamtlast und erneuerbare Kapazität für ganz Deutschland ---")
-        print(f"Gesamtlast = {total_load:.2f} TWh, PV Kapazität = {solar_capacity:.2f} GW, Wind Kapazität = {wind_capacity:.2f} GW")
-
-    # Plotting
-    if plot:
-        if market_zones != "none":
-            # Load shapefile based on market zones configuration
-            if market_zones == "DE2":
-                shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_2_DE2.shp"
-            elif market_zones == "DE3":
-                shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_12_DE3.shp"
-            elif market_zones == "DE4":
-                shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_13_DE4.shp"
-            elif market_zones == "DE5":
-                shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_14_DE5.shp"
-            else:
-                raise ValueError("Ungültiger Wert für market_zones.")
-
-            zones = gpd.read_file(shapefile_path).to_crs(epsg=4326)
-
-            # Assign colors
-            colors = plt.cm.tab20(range(len(zones)))
-            zones["color"] = [mcolors.rgb2hex(color[:3]) for color in colors]
-
-            # Prepare plot
-            fig, ax = plt.subplots(figsize=(10, 6), dpi=600, subplot_kw={"projection": ccrs.PlateCarree()})
-
-            # Plot zones
-            zones.boundary.plot(ax=ax, edgecolor="black", linewidth=0.5)
-            zones.plot(ax=ax, facecolor=zones["color"], alpha=0.3)
-
-            # Plot network
-            self.market_model.plot(
-                ax=ax,
-                link_widths=0,
-                bus_sizes=0
-            )
-
-            # Plot numbers (Load and Renewable Capacity)
-            for _, row in zones.iterrows():
-                zone = row["id"]
-                if zone not in results:
-                    continue
-                centroid = row.geometry.centroid
-                load_pct = 100 * results[zone]["Total Load"] / total_load_germany
-                solar_pct = 100 * results[zone]["Solar Capacity"] / total_solar_germany
-                wind_pct = 100 * results[zone]["Wind Capacity"] / total_wind_germany
-            
-                # Plot Load-Anteil - blue
-                ax.text(centroid.x, centroid.y + 0.4,
-                        f"{load_pct:.1f}%", color="black",
-                        fontsize=20, ha="center", weight="bold")
-            
-                # Plot EE-Anteil - green
-                ax.text(centroid.x, centroid.y - 0.0,
-                        f"{solar_pct:.1f}%", color="darkorange",
-                        fontsize=20, ha="center", weight="bold")
-                
-                
-                ax.text(centroid.x, centroid.y - 0.4,
-                        f"{wind_pct:.1f}%", color="blue",
-                        fontsize=20, ha="center", weight="bold")
-                
-
-        else:
-            # Create a simple map of Germany with values plotted in the center
-            fig, ax = plt.subplots(figsize=(10, 6), dpi=600, subplot_kw={"projection": ccrs.PlateCarree()})
-
-          
-            
-
-            # Plot network (optional)
-            self.market_model.plot(
-                ax=ax,
-                link_widths=0,
-                bus_sizes=0
-            )
-            # Set extent to Germany
-            ax.set_extent([5.5, 15.5, 47, 55.5], crs=ccrs.PlateCarree())
-            
-            # Plot values in the center of Germany (approximately)
-            center_x, center_y = 10.5, 50  # Rough center of Germany
-
-            # Plot load (TWh) - blue
-            ax.text(center_x, center_y + 1,
-                    f"{results['Germany']['Total Load']:.1f} TWh",
-                    color="black", fontsize=20, ha="center", weight="bold")
-
-            # Plot renewable capacity (GW) - green
-            ax.text(center_x, center_y+ 0.5,
-                    f"{results['Germany']['Solar Capacity']:.1f} GW",
-                    color="darkorange", fontsize=20, ha="center", weight="bold")
-            
-            ax.text(center_x, center_y,
-                    f"{results['Germany']['Wind Capacity']:.1f} GW",
-                    color="blue", fontsize=20, ha="center", weight="bold")
-            
-        # Add legend for both cases
-        from matplotlib.lines import Line2D
-        legend_elements = [
-            Line2D([0], [0], color="black", lw=2, label="Jährlicher Strombedarf"),
-            Line2D([0], [0], color="darkorange", lw=2, label="inst. PV Leistung"),
-            Line2D([0], [0], color="blue", lw=2, label="inst. Wind Leistung"),
-        ]
-        ax.legend(handles=legend_elements, loc="upper left", fontsize=20)
-        ax.set_extent([5.5, 15.5, 47, 55.5], crs=ccrs.PlateCarree())
-        ax.axis('off')
-        plt.tight_layout()
-        plt.show()
-
-    return results
-
-
-def total_dispatch_by_zone(self, timesteps=range(1752), market_zones="DE4"):
-    """    
-    Berechnet die Stromproduktion je Carrier und Zone und plottet sie auf einer Karte mit EE-Anteil.
-
-    Parameters
-    ----------
-    timesteps : range oder Liste
-        Die Zeitschritte, die berücksichtigt werden sollen.
-    market_zones : str
-        Marktzonen-Konfiguration: 'DE2', 'DE3', 'DE4', 'DE5'
-
-    Returns
-    -------
-    dispatch_per_zone : DataFrame
-        Stromproduktion in TWh je Zone und Carrier.
-    """
-    import geopandas as gpd
-    import matplotlib.pyplot as plt
-    import matplotlib.colors as mcolors
-    import cartopy.crs as ccrs
-    import numpy as np
-
-    # --- 1. Dispatch berechnen ---
-    dispatch_series = calc_dispatch_per_carrier(german_network(self), timesteps, dispatch_type="total")
-    dispatch_df = dispatch_series.reset_index()
-    dispatch_df.columns = ['bus', 'carrier', 'dispatch']
-
-    buses = german_network(self).buses
-    if 'zone' not in buses.columns:
-        raise ValueError("Spalte 'zone' fehlt in network.buses. Bitte zuerst Zonen zuweisen.")
-    dispatch_df = dispatch_df.merge(buses['zone'], left_on='bus', right_index=True)
-
-    # in TWh skalieren
-    dispatch_per_zone = ((dispatch_df.groupby(['zone', 'carrier'])['dispatch'].sum()) * 5) / 1e6
-    table = dispatch_per_zone.unstack().fillna(0)
-
-    # Erneuerbare Carrier
-    renewables = [
-        'solar', 'solar_rooftop', 'wind_offshore', 'wind_onshore',
-        'reservoir', 'run_of_river', 'biomass', 'central_biomass_CHP', 'industrial_biomass_CHP'
-    ]
-
-    print("\nStromproduktion pro Zone (TWh gesamt / Erneuerbar):")
-    for zone in table.index:
-        total = table.loc[zone].sum()
-        renew = table.loc[zone][renewables].sum()
-        print(f"{zone}: {total:.2f} TWh gesamt, davon {renew:.2f} TWh erneuerbar ({(renew/total*100):.1f}%)")
-
-    # --- 2. Plot ---
-    # Shapefile wählen
-    if market_zones == "DE2":
-        shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_2_DE2.shp"
-    elif market_zones == "DE3":
-        shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_12_DE3.shp"
-    elif market_zones == "DE4":
-        shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_13_DE4.shp"
-    elif market_zones == "DE5":
-        shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_14_DE5.shp"
-    else:
-        raise ValueError("Ungültiger Wert für market_zones. Erlaubt sind: 'DE2', 'DE3', 'DE4', 'DE5'.")
-
-    zones = gpd.read_file(shapefile_path).to_crs(epsg=4326)
-
-    # Farben zuweisen
-    colors = plt.cm.tab20(range(len(zones)))
-    zones['color'] = [mcolors.rgb2hex(color[:3]) for color in colors]
-
-    # Plot starten
-    fig, ax = plt.subplots(figsize=(10, 6), dpi=600, subplot_kw={"projection": ccrs.PlateCarree()})
-
-    # Marktzonen zeichnen
-    zones.boundary.plot(ax=ax, edgecolor='black', linewidth=0.5)
-    zones.plot(ax=ax, facecolor=zones['color'], alpha=0.3)
-
-    # Netz zeichnen wie in plot_marketzone_clustering
-    self.plot(
-        ax=ax,
-        link_widths=0,
-        bus_sizes=0
-    )
-
-    # Textplot: TWh und EE-Anteil in Zone-Mitte
-    for _, row in zones.iterrows():
-        zone_name = row["id"]
-        if zone_name not in table.index:
-            continue
-        total = table.loc[zone_name].sum()
-        renew = table.loc[zone_name][renewables].sum()
-        share = renew / total * 100 if total > 0 else 0
-        centroid = row.geometry.centroid
-        ax.text(
-            centroid.x, centroid.y,
-            f"{total:.1f} TWh\n{share:.1f}% EE",
-            fontsize=20, ha='center', va='center',
-            bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.3')
-        )
-
-
-    ax.set_extent([5.5, 15.5, 47, 55.5], crs=ccrs.PlateCarree())
-    ax.axis('off')
-    plt.tight_layout()
-    plt.show()
-
     return dispatch_per_zone
+
+
 
 
 def total_load_t_de(self):
@@ -6129,106 +6575,191 @@ def prepare_electrolyser_redispatch_per_bus(networks_dict):
     return bus_values
 
     
-    
+
 def plot_multi_network_redispatch(
     networks_dict,
     bus_values,
     carriers,
     ramp_type="ramp_down",
-    scaling=0.0001
+    scaling=0.0001,
 ):
     """
-    Plottet für jedes Szenario in networks_dict die aggregated ramps
-    (up/down) für die angegebenen carriers.
+    Plot aggregated redispatch ramps for several scenarios side by side.
 
     Parameters
     ----------
     networks_dict : dict
-        Szenario-Definitionen, z. B. {"Status Quo": (net_sq,"Status Quo"), ...}
+        Scenario definitions, for example:
+        {
+            "Status Quo": (net_sq, "none"),
+            "DE3": (net_de3, "DE3"),
+        }
+
+        The first tuple element is the network.
+        The second tuple element is the market-zone setting:
+        "DE2", "DE3", "DE4", "DE5", or "none".
+
     bus_values : dict
-        Dict title -> {"ramp_up": df_up, "ramp_down": df_down}
-        mit DataFrames Index=Bus, Columns=Carrier, NaN==0
-    carriers : str oder list
-        Carrier-Namen, die geplottet werden sollen
-    ramp_type : {"ramp_up","ramp_down"}
-        Welche Ramp-Art zu verwenden (beide DataFrames sind positiv!)
+        Dictionary with one entry per scenario title:
+        {
+            title: {
+                "ramp_up": df_up,
+                "ramp_down": df_down,
+            }
+        }
+
+        The DataFrames must have:
+        - index = bus names
+        - columns = carrier names
+        - values = redispatch values
+
+    carriers : str or list
+        Carrier name or list of carrier names to plot.
+
+    ramp_type : {"ramp_up", "ramp_down"}
+        Which ramp type to plot.
+
     scaling : float
-        Multiplikator für bus_sizes
+        Multiplier for bus marker sizes.
     """
-    import geopandas as gpd
     import matplotlib.pyplot as plt
     import matplotlib.colors as mcolors
     import cartopy.crs as ccrs
     import numpy as np
     import pandas as pd
 
-    # Carrier-Liste erzwingen
+    from etrago.tools.market_zones import load_market_zones_from_zenodo
+
+    if ramp_type not in ["ramp_up", "ramp_down"]:
+        raise ValueError(
+            "Invalid ramp_type. Allowed values are 'ramp_up' and 'ramp_down'."
+        )
+
     if isinstance(carriers, str):
         carriers = [carriers]
 
-    # 1) Baue je Szenario eine Series, clippe zuerst, dann summe
+    # ------------------------------------------------------------
+    # 1. Prepare one bus-value Series per scenario
+    # ------------------------------------------------------------
     plot_series = {}
-    for title, dfs in bus_values.items():
-        # dfs ist {"ramp_up": df_up, "ramp_down": df_down}
-        df = dfs[ramp_type].fillna(0) /1000
 
-        # Kontrolliere, ob Spalten existieren
-        missing = [c for c in carriers if c not in df.columns]
-        if missing:
-            raise KeyError(f"Carrier {missing} fehlen in bus_values['{title}']['{ramp_type}']. "
-                           f"Verfügbare: {list(df.columns)}")
+    for title, dfs in bus_values.items():
+        if ramp_type not in dfs:
+            raise KeyError(
+                f"'{ramp_type}' is missing in bus_values['{title}']."
+            )
+
+        df = dfs[ramp_type].fillna(0) / 1000
+
+        missing_carriers = [
+            carrier for carrier in carriers if carrier not in df.columns
+        ]
+
+        if missing_carriers:
+            raise KeyError(
+                f"Carrier(s) {missing_carriers} are missing in "
+                f"bus_values['{title}']['{ramp_type}']. "
+                f"Available carriers are: {list(df.columns)}"
+            )
 
         sub = df[carriers]
-        if ramp_type == "ramp_up":
-            # nur positive Teile (ist ohnehin positiv)
-            clipped = sub.clip(lower=0)
-            label = "Positiver Redispatch"
-        else:
-            # ramp_down ist positiv gespeichert → auch nur clip
-            clipped = sub.clip(upper=0)
-            clipped = -clipped
-            label = "Negativer Redispatch"
 
-        s = clipped.sum(axis=1)
-        plot_series[title] = s
+        # Both ramp_up and ramp_down are expected to be stored as positive
+        # values. The sign is only shown later in the colorbar labels.
+        values = sub.clip(lower=0).sum(axis=1)
 
-    # 2) Normierung 0…Max
-    all_vals = np.concatenate([s.values for s in plot_series.values()])
-    vmin, vmax = 0.0, all_vals.max()
+        plot_series[title] = values
+
+    # ------------------------------------------------------------
+    # 2. Define color scale
+    # ------------------------------------------------------------
+    if not plot_series:
+        raise ValueError("plot_series is empty. Check bus_values input.")
+
+    all_values = np.concatenate(
+        [series.values for series in plot_series.values()]
+    )
+
+    vmin = 0.0
+    vmax = float(np.nanmax(all_values)) if len(all_values) > 0 else 0.0
+
+    if vmax == 0:
+        vmax = 1.0
+
     norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
     cmap = plt.cm.viridis_r
 
-    # 3) Subplots nebeneinander, keinen Zwischenraum
-    n = len(networks_dict)
+    if ramp_type == "ramp_up":
+        label = "Positive redispatch"
+    else:
+        label = "Negative redispatch"
+
+    # ------------------------------------------------------------
+    # 3. Create subplots
+    # ------------------------------------------------------------
+    n_scenarios = len(networks_dict)
+
     fig, axs = plt.subplots(
-        1, n,
-        figsize=(6 * n, 7.5),
+        1,
+        n_scenarios,
+        figsize=(6 * n_scenarios, 7.5),
         dpi=100,
-        subplot_kw={"projection": ccrs.PlateCarree()}
+        subplot_kw={"projection": ccrs.PlateCarree()},
     )
+
+    if n_scenarios == 1:
+        axs = [axs]
+
     plt.subplots_adjust(wspace=0, bottom=0.12)
 
-    # 4) Pro Szenario plotten
-    for ax, (title, (net, market_zone)) in zip(axs, networks_dict.items()):
-        # Shapefile laden, falls definiert
-        if market_zone.upper() != 'NONE':
-            shp_map = {
-                "DE2": "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_2_DE2.shp",
-                "DE3": "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_12_DE3.shp",
-                "DE4": "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_13_DE4.shp",
-                "DE5": "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_14_DE5.shp",
-            }
-            path = shp_map.get(market_zone)
-            if path:
-                zones = gpd.read_file(path).to_crs(epsg=4326)
-                cols = plt.cm.tab20(range(len(zones)))
-                zones['color'] = [mcolors.rgb2hex(c[:3]) for c in cols]
-                zones.boundary.plot(ax=ax, edgecolor='black', lw=0.5)
-                zones.plot(ax=ax, facecolor=zones['color'], alpha=0.3)
+    # ------------------------------------------------------------
+    # 4. Plot each scenario
+    # ------------------------------------------------------------
+    for ax, (title, (net, market_zone)) in zip(
+        axs,
+        networks_dict.items(),
+    ):
+        market_zone = str(market_zone).upper()
 
-        vals       = plot_series[title]
-        bus_colors = vals.map(lambda x: cmap(norm(x)))
-        bus_sizes  = vals * scaling
+        if market_zone != "NONE":
+            if market_zone not in ["DE2", "DE3", "DE4", "DE5"]:
+                raise ValueError(
+                    f"Invalid market_zone '{market_zone}' for scenario "
+                    f"'{title}'. Allowed values are 'DE2', 'DE3', "
+                    f"'DE4', 'DE5', or 'none'."
+                )
+
+            zones = load_market_zones_from_zenodo(market_zone)
+
+            colors = plt.cm.tab20(range(len(zones)))
+            zones["color"] = [
+                mcolors.rgb2hex(color[:3])
+                for color in colors
+            ]
+
+            zones.boundary.plot(
+                ax=ax,
+                edgecolor="black",
+                linewidth=0.5,
+            )
+            zones.plot(
+                ax=ax,
+                facecolor=zones["color"],
+                alpha=0.3,
+            )
+
+        if title not in plot_series:
+            raise KeyError(
+                f"Scenario title '{title}' is missing in bus_values."
+            )
+
+        values = plot_series[title]
+
+        # Align values to the network bus index. Missing buses get zero.
+        values = values.reindex(net.buses.index).fillna(0)
+
+        bus_colors = values.map(lambda value: cmap(norm(value)))
+        bus_sizes = values * scaling
 
         net.plot(
             ax=ax,
@@ -6236,29 +6767,50 @@ def plot_multi_network_redispatch(
             bus_sizes=bus_sizes,
             bus_colors=bus_colors,
             line_widths=0.5,
-            line_colors="grey"
+            line_colors="grey",
         )
 
         ax.set_title(title, fontsize=28)
-        ax.set_extent([5.5, 15.5, 47, 55.5], crs=ccrs.PlateCarree())
-        ax.axis('off')
+        ax.set_extent(
+            [5.5, 15.5, 47, 55.5],
+            crs=ccrs.PlateCarree(),
+        )
+        ax.axis("off")
 
-    # 5) Flache Colorbar direkt unter den Subplots
-    sm = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
+    # ------------------------------------------------------------
+    # 5. Add shared horizontal colorbar
+    # ------------------------------------------------------------
+    sm = plt.cm.ScalarMappable(
+        norm=norm,
+        cmap=cmap,
+    )
     sm.set_array([])
 
     cax = fig.add_axes([0.25, 0.15, 0.5, 0.03])
-    cbar = plt.colorbar(sm, cax=cax, orientation='horizontal')
-    cbar.set_label(f"{label} von Offshore  in GWh", fontsize=28, labelpad=6)
+    cbar = plt.colorbar(
+        sm,
+        cax=cax,
+        orientation="horizontal",
+    )
+
+    carrier_label = ", ".join(carriers)
+
+    cbar.set_label(
+        f"{label} for {carrier_label} in GWh",
+        fontsize=28,
+        labelpad=6,
+    )
     cbar.ax.tick_params(labelsize=20)
 
-    # Ticks: immer positiv berechnet, aber im Label "-" voranstellen, wenn down
     ticks = np.linspace(vmin, vmax, num=5)
+
     if ramp_type == "ramp_down":
-        tick_labels = [f"-{t:.1f}" for t in ticks]
+        tick_labels = [f"-{tick:.1f}" for tick in ticks]
     else:
-        tick_labels = [f"{t:.1f}" for t in ticks]
+        tick_labels = [f"{tick:.1f}" for tick in ticks]
+
     cbar.set_ticks(ticks)
     cbar.set_ticklabels(tick_labels)
 
     plt.show()
+

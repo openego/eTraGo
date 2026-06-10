@@ -49,7 +49,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "local_egon2035",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
@@ -72,7 +72,7 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 8760,
+    "end_snapshot": 10,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -84,13 +84,13 @@ args = {
     },
     
     "model_formulation": "kirchhoff",  # angles or kirchhoff
-    "scn_name": "eGon2035_lowflex",  # scenario: eGon2035, eGon100RE or status2019
+    "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
-    "csv_export": "results_DE5_local_full_year",  # save results as csv: False or /path/tofolder
+    "csv_export": "results_DE5_test",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
         "extendable_components": [
@@ -718,20 +718,58 @@ def run_etrago(args, json_path):
 
 
 if __name__ == "__main__":
-    # execute etrago function
     print(datetime.datetime.now())
+
     etrago = run_etrago(args, json_path=None)
 
     print(datetime.datetime.now())
+
+    market_zones = args["method"]["market_optimization"]["market_zones"]
+
+    if market_zones == "status_quo":
+        plot_market_zones = "none"
+    else:
+        plot_market_zones = market_zones
+
+    result_dir = args["csv_export"]
+
+    if result_dir is False:
+        result_dir = "results"
+
+    plot_dir = os.path.join(result_dir, "plots")
+    os.makedirs(plot_dir, exist_ok=True)
+
+    from etrago.analyze.plot_marketzones import (
+        plot_marketzone_clustering,
+        plot_zone_net_flows,
+        total_dispatch_by_zone,
+    )
+
+    plot_marketzone_clustering(
+        etrago.market_model,
+        market_zones=plot_market_zones,
+        filename=os.path.join(
+            plot_dir,
+            f"marketzone_clustering_{plot_market_zones}.png",
+        ),
+    )
+
+    plot_zone_net_flows(
+        etrago.market_model,
+        market_zones=plot_market_zones,
+        filename=os.path.join(
+            plot_dir,
+            f"zone_net_flows_{plot_market_zones}.png",
+        ),
+    )
+
+    total_dispatch_by_zone(
+        etrago.market_model,
+        market_zones=plot_market_zones,
+        filename=os.path.join(
+            plot_dir,
+            f"total_dispatch_by_zone_{plot_market_zones}.png",
+        ),
+    )
+
     etrago.session.close()
-    # plots: more in tools/plot.py
-    # make a line loading plot
-    # etrago.plot_grid(
-    # line_colors='line_loading', bus_sizes=0.0001, timesteps=range(2))
-    # network and storage
-    # etrago.plot_grid(
-    # line_colors='expansion_abs',
-    # bus_colors='storage_expansion',
-    # bus_sizes=0.0001)
-    # flexibility usage
-    # etrago.flexibility_usage('DSM')
