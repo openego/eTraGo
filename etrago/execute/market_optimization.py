@@ -36,6 +36,7 @@ if "READTHEDOCS" not in os.environ:
     
     from etrago.cluster.electrical import postprocessing, preprocessing
     from etrago.tools.constraints import Constraints
+    from etrago.tools.market_zones import create_market_zone_busmap
 
     logger = logging.getLogger(__name__)
 
@@ -245,39 +246,16 @@ def optimize_with_rolling_horizon(
 
 
 def build_market_model(self):
-    """Builds market model based on imported network from eTraGo
+    """Builds market model based on imported network from eTraGo."""
 
-
-    - import market regions from file or database
-    - Cluster network to market regions
-    -- consider marginal cost incl. generator noise when grouoping electrical
-        generation capacities
-
-    Returns
-    -------
-    None.
-
-    """
-    
-    import geopandas as gpd
-    import requests
-    import os
-    from shapely.geometry import Point
-    
     # use existing preprocessing to get only the electricity system
     net, weight, n_clusters, busmap_foreign = preprocessing(
         self, apply_on="market_model"
     )
-    
-    # Define market regions based on settings.
-    # Currently the only option is 'status_quo' which means that the current
-    # regions are used. When other market zone options are introduced, they
-    # can be assinged here.
-    
-    if (
-        self.args["method"]["market_optimization"]["market_zones"]
-        == "status_quo"
-    ):
+
+    market_zones = self.args["method"]["market_optimization"]["market_zones"]
+
+    if market_zones == "status_quo":
         df = pd.DataFrame(
             {
                 "country": net.buses.country.unique(),
@@ -301,385 +279,21 @@ def build_market_model(self):
             net.buses.cluster.astype(int).astype(str), net.buses.index
         )
         medoid_idx = pd.Series(dtype=str)
-        
-      
-    elif (
-        self.args["method"]["market_optimization"]["market_zones"]
-        == "DE2"
-    ):
-        
-        # Zenodo-URLs of required data (shape-files)
-        zenodo_urls = {
-            'shp': 'https://zenodo.org/record/14833526/files/BZR_config_2_DE2.shp',
-            'shx': 'https://zenodo.org/record/14833526/files/BZR_config_2_DE2.shx',
-            'dbf': 'https://zenodo.org/record/14833526/files/BZR_config_2_DE2.dbf',
-            'prj': 'https://zenodo.org/record/14833526/files/BZR_config_2_DE2.prj'
-        }
 
-        # saving path
-        extract_path = "/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones"
-        os.makedirs(extract_path, exist_ok=True)
-
-        # download shape files 
-        for filetype, url in zenodo_urls.items():
-            file_path = os.path.join(extract_path, f'BZR_config_2_DE2.{filetype}')
-            if not os.path.exists(file_path):  # only downloading if not existing
-                print(f"downloading shape-files {filetype}... ")
-                response = requests.get(url)
-                if response.status_code == 200:
-                    with open(file_path, 'wb') as f:
-                        f.write(response.content)
-                else:
-                    print(f"downloading failed for {filetype}: {response.status_code}")
-                    
-        
-        # Load shapefile for two zones (Zone_1, Zone_2)
-        zones = gpd.read_file("/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones/BZR_config_2_DE2.shp").to_crs(epsg=4326)
-        
-
-        # Explode multi-polygons
-        zones = zones.explode(index_parts=False).reset_index(drop=True)
-
-        # Convert net.buses to a GeoDataFrame
-        geometry = [
-            Point(xy) for xy in zip(net.buses["x"].values, net.buses["y"].values)
-        ]
-        geo_buses = gpd.GeoDataFrame(net.buses, geometry=geometry, crs="EPSG:4326")
-
-        # Spatial join to assign zones
-        geo_buses = gpd.sjoin(geo_buses, zones[["geometry", "id"]], how="left", predicate="within")
-        
-        # Filter buses in Germany with no zone assigned
-        buses_no_zone = geo_buses[(geo_buses['country'] == 'DE') & (geo_buses['id'].isna())]
-        
-        # Function to find the nearest zone for each bus
-        def find_nearest_zone(bus, zones):
-            # Calculate distances to all zones
-            distances = zones.geometry.distance(bus.geometry)
-            # Find the index of the nearest zone
-            nearest_zone_idx = distances.idxmin()
-            # Return the id of the nearest zone
-            return zones.loc[nearest_zone_idx, 'id']
-        
-        # Assign the nearest zone to each bus without a zone
-        for idx, bus in buses_no_zone.iterrows():
-            nearest_zone_id = find_nearest_zone(bus, zones)
-            geo_buses.at[idx, 'id'] = nearest_zone_id
-        
-        def assign_zone(row):
-            if pd.notnull(row["id"]):
-                if row["id"] == 1:
-                    return "Zone_1"
-                elif row["id"] == 2:
-                    return "Zone_2"
-            else:
-                # If zone_id is NaN, use the country value
-                return row["country"]
-        
-        geo_buses["marketzone"] = geo_buses.apply(assign_zone, axis=1)
-
-        # Assign clusters based on the zones
-        geo_buses["cluster"] = geo_buses.groupby("marketzone").ngroup()
-        net.buses["cluster"] = geo_buses["cluster"]
-
-        busmap = pd.Series(
-            net.buses.cluster.astype(int).astype(str), net.buses.index
+    elif market_zones in ["DE2", "DE3", "DE4", "DE5"]:
+        busmap, medoid_idx = create_market_zone_busmap(
+            net,
+            market_zones,
         )
-        medoid_idx = pd.Series(dtype=str)
-        
-        
 
-        
-    elif (
-        self.args["method"]["market_optimization"]["market_zones"]
-        == "DE3"
-    ):
-        
-        
-        import geopandas as gpd
-        import requests
-        import os
-        from shapely.geometry import Point
-
-        # Zenodo-URLs of required data (shape-files)
-        zenodo_urls = {
-            'shp': 'https://zenodo.org/record/14833526/files/BZR_config_12_DE3.shp',
-            'shx': 'https://zenodo.org/record/14833526/files/BZR_config_12_DE3.shx',
-            'dbf': 'https://zenodo.org/record/14833526/files/BZR_config_12_DE3.dbf',
-            'prj': 'https://zenodo.org/record/14833526/files/BZR_config_12_DE3.prj'
-        }
-
-        # saving path
-        extract_path = "/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones"
-        os.makedirs(extract_path, exist_ok=True)
-
-        # download shape files 
-        for filetype, url in zenodo_urls.items():
-            file_path = os.path.join(extract_path, f'BZR_config_12_DE3.{filetype}')
-            if not os.path.exists(file_path):  # only downloading if not existing
-                print(f"downloading shape-files {filetype}... ")
-                response = requests.get(url)
-                if response.status_code == 200:
-                    with open(file_path, 'wb') as f:
-                        f.write(response.content)
-                else:
-                    print(f"downloading failed for {filetype}: {response.status_code}")
-                    
-        
-        # Load shapefile for three zones (Zone_1, Zone_2, Zone_3)
-        zones = gpd.read_file("/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones/BZR_config_12_DE3.shp").to_crs(epsg=4326)
-        
-       
-        # Explode multi-polygons
-        zones = zones.explode(index_parts=False).reset_index(drop=True)
-
-        # Convert net.buses to a GeoDataFrame
-        geometry = [
-            Point(xy) for xy in zip(net.buses["x"].values, net.buses["y"].values)
-        ]
-        geo_buses = gpd.GeoDataFrame(net.buses, geometry=geometry, crs="EPSG:4326")
-
-        # Spatial join to assign zones
-        geo_buses = gpd.sjoin(geo_buses, zones[["geometry", "id"]], how="left", predicate="within")
-
-        # Filter buses in Germany with no zone assigned
-        buses_no_zone = geo_buses[(geo_buses['country'] == 'DE') & (geo_buses['id'].isna())]
-        
-        # Function to find the nearest zone for each bus
-        def find_nearest_zone(bus, zones):
-            # Calculate distances to all zones
-            distances = zones.geometry.distance(bus.geometry)
-            # Find the index of the nearest zone
-            nearest_zone_idx = distances.idxmin()
-            # Return the id of the nearest zone
-            return zones.loc[nearest_zone_idx, 'id']
-        
-        # Assign the nearest zone to each bus without a zone
-        for idx, bus in buses_no_zone.iterrows():
-            nearest_zone_id = find_nearest_zone(bus, zones)
-            geo_buses.at[idx, 'id'] = nearest_zone_id
-        
-        def assign_zone(row):
-            if pd.notnull(row["id"]):
-                if row["id"] == 1:
-                    return "Zone_1"
-                elif row["id"] == 2:
-                    return "Zone_2"
-                elif row["id"] == 3:
-                    return "Zone_3"
-            else:
-                # If zone_id is NaN, use the country value
-                return row["country"]
-        
-        geo_buses["marketzone"] = geo_buses.apply(assign_zone, axis=1)
-
-        # Assign clusters based on the zones
-        geo_buses["cluster"] = geo_buses.groupby("marketzone").ngroup()
-        net.buses["cluster"] = geo_buses["cluster"]
-
-        busmap = pd.Series(
-            net.buses.cluster.astype(int).astype(str), net.buses.index
-        )
-        medoid_idx = pd.Series(dtype=str)
-        
-        
-        
-    elif (
-        self.args["method"]["market_optimization"]["market_zones"]
-        == "DE4"
-    ):
-        # Zenodo-URLs of required data (shape-files)
-        zenodo_urls = {
-            'shp': 'https://zenodo.org/record/14833526/files/BZR_config_13_DE4.shp',
-            'shx': 'https://zenodo.org/record/14833526/files/BZR_config_13_DE4.shx',
-            'dbf': 'https://zenodo.org/record/14833526/files/BZR_config_13_DE4.dbf',
-            'prj': 'https://zenodo.org/record/14833526/files/BZR_config_13_DE4.prj'
-        }
-
-        # saving path
-        extract_path = "/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones"
-        os.makedirs(extract_path, exist_ok=True)
-
-        # download shape files 
-        for filetype, url in zenodo_urls.items():
-            file_path = os.path.join(extract_path, f'BZR_config_13_DE4.{filetype}')
-            if not os.path.exists(file_path):  # only downloading if not existing
-                print(f"downloading shape-files {filetype}... ")
-                response = requests.get(url)
-                if response.status_code == 200:
-                    with open(file_path, 'wb') as f:
-                        f.write(response.content)
-                else:
-                    print(f"downloading failed for {filetype}: {response.status_code}")
-                    
-        
-        # Load shapefile for four zones (Zone_1, Zone_2, Zone_3, Zone_4)
-        zones = gpd.read_file("/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones/BZR_config_13_DE4.shp").to_crs(epsg=4326)
-       
-
-        # Explode multi-polygons
-        zones = zones.explode(index_parts=False).reset_index(drop=True)
-
-        # Convert net.buses to a GeoDataFrame
-        geometry = [
-            Point(xy) for xy in zip(net.buses["x"].values, net.buses["y"].values)
-        ]
-        geo_buses = gpd.GeoDataFrame(net.buses, geometry=geometry, crs="EPSG:4326")
-
-        # Spatial join to assign zones
-        geo_buses = gpd.sjoin(geo_buses, zones[["geometry", "id"]], how="left", predicate="within")
-        
-        # Filter buses in Germany with no zone assigned
-        buses_no_zone = geo_buses[(geo_buses['country'] == 'DE') & (geo_buses['id'].isna())]
-        
-        # Function to find the nearest zone for each bus
-        def find_nearest_zone(bus, zones):
-            # Calculate distances to all zones
-            distances = zones.geometry.distance(bus.geometry)
-            # Find the index of the nearest zone
-            nearest_zone_idx = distances.idxmin()
-            # Return the id of the nearest zone
-            return zones.loc[nearest_zone_idx, 'id']
-        
-        # Assign the nearest zone to each bus without a zone
-        for idx, bus in buses_no_zone.iterrows():
-            nearest_zone_id = find_nearest_zone(bus, zones)
-            geo_buses.at[idx, 'id'] = nearest_zone_id
-        
-        def assign_zone(row):
-            if pd.notnull(row["id"]):
-                if row["id"] == 1:
-                    return "Zone_1"
-                elif row["id"] == 2:
-                    return "Zone_2"
-                elif row["id"] == 3:
-                    return "Zone_3"
-                elif row["id"] == 4:
-                    return "Zone_4"
-            else:
-                # If zone_id is NaN, use the country value
-                return row["country"]
-        
-        geo_buses["marketzone"] = geo_buses.apply(assign_zone, axis=1)
-
-        # Assign clusters based on the zones
-        geo_buses["cluster"] = geo_buses.groupby("marketzone").ngroup()
-        net.buses["cluster"] = geo_buses["cluster"]
-
-        busmap = pd.Series(
-            net.buses.cluster.astype(int).astype(str), net.buses.index
-        )
-        medoid_idx = pd.Series(dtype=str)
-        import pdb; pdb.set_trace() 
-        
-        
-    elif (
-        self.args["method"]["market_optimization"]["market_zones"]
-        == "DE5"
-    ):
-        
-        # Zenodo-URLs of required data (shape-files)
-        zenodo_urls = {
-            'shp': 'https://zenodo.org/record/14833526/files/BZR_config_14_DE5.shp',
-            'shx': 'https://zenodo.org/record/14833526/files/BZR_config_14_DE5.shx',
-            'dbf': 'https://zenodo.org/record/14833526/files/BZR_config_14_DE5.dbf',
-            'prj': 'https://zenodo.org/record/14833526/files/BZR_config_14_DE5.prj'
-        } 
-        #import pdb; pdb.set_trace()
-
-        # saving path
-        extract_path = "/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones"
-        os.makedirs(extract_path, exist_ok=True)
-
-        # download shape files 
-        for filetype, url in zenodo_urls.items():
-            file_path = os.path.join(extract_path, f'BZR_config_14_DE5.{filetype}')
-            if not os.path.exists(file_path):  # only downloading if not existing
-                print(f"downloading shape-files {filetype}... ")
-                response = requests.get(url)
-                if response.status_code == 200:
-                    with open(file_path, 'wb') as f:
-                        f.write(response.content)
-                else:
-                    print(f"downloading failed for {filetype}: {response.status_code}")
-                    
-        #import pdb; pdb.set_trace()
-        # Load shapefile for five zones (Zone_1, Zone_2, Zone_3, Zone_4, Zone_5)
-        zones = gpd.read_file("/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones/BZR_config_14_DE5.shp").to_crs(epsg=4326)
-        
-
-        # Explode multi-polygons if necessary
-        zones = zones.explode(index_parts=False).reset_index(drop=True)
-
-        # Convert net.buses to a GeoDataFrame
-        geometry = [
-            Point(xy) for xy in zip(net.buses["x"].values, net.buses["y"].values)
-        ]
-        geo_buses = gpd.GeoDataFrame(net.buses, geometry=geometry, crs="EPSG:4326")
-
-        # Spatial join to assign zones
-        geo_buses = gpd.sjoin(geo_buses, zones[["geometry", "id"]], how="left", predicate="within")
-        
-        # Filter buses in Germany with no zone assigned
-        buses_no_zone = geo_buses[(geo_buses['country'] == 'DE') & (geo_buses['id'].isna())]
-
-        # Filter buses in Germany with no zone assigned
-        buses_no_zone = geo_buses[(geo_buses['country'] == 'DE') & (geo_buses['id'].isna())]
-        
-        # Function to find the nearest zone for each bus
-        def find_nearest_zone(bus, zones):
-            # Calculate distances to all zones
-            distances = zones.geometry.distance(bus.geometry)
-            # Find the index of the nearest zone
-            nearest_zone_idx = distances.idxmin()
-            # Return the id of the nearest zone
-            return zones.loc[nearest_zone_idx, 'id']
-        
-        # Assign the nearest zone to each bus without a zone
-        for idx, bus in buses_no_zone.iterrows():
-            nearest_zone_id = find_nearest_zone(bus, zones)
-            geo_buses.at[idx, 'id'] = nearest_zone_id
-
-    
-        def assign_zone(row):
-            if pd.notnull(row["id"]):
-                if row["id"] == 1:
-                    return "Zone_1"
-                elif row["id"] == 2:
-                    return "Zone_2"
-                elif row["id"] == 3:
-                    return "Zone_3"
-                elif row["id"] == 4:
-                    return "Zone_4"
-                elif row["id"] == 5:
-                    return "Zone_5"
-            else:
-                # If zone_id is NaN, use the country value
-                return row["country"]
-        
-        geo_buses["marketzone"] = geo_buses.apply(assign_zone, axis=1)
-
-        # Assign clusters based on the zones
-        geo_buses["cluster"] = geo_buses.groupby("marketzone").ngroup()
-        net.buses["cluster"] = geo_buses["cluster"]
-
-        busmap = pd.Series(
-            net.buses.cluster.astype(int).astype(str), net.buses.index
-        )
-        medoid_idx = pd.Series(dtype=str)
-        
-        #import pdb; pdb.set_trace()
-        
     else:
-        logger.warning(
-            f"""
-            Market zone setting {self.args['method']['market_zones']}
-            is not available. Please use one of ['status_quo', 'DE2', 'DE3', 'DE4', 'DE5']."""
+        raise ValueError(
+            f"Market zone setting {market_zones} is not available. "
+            "Please use one of ['status_quo', 'DE2', 'DE3', 'DE4', 'DE5']."
         )
 
     logger.info("Start market zone specifc clustering")
 
-   
     clustering, busmap = postprocessing(
         self,
         busmap,

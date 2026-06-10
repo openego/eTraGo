@@ -9,51 +9,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-#import pypsa
-
-#market_DE2= pypsa.Network()
-#market_DE2.import_from_csv_folder("/home/student/Masterarbeit_Dateien/Ergebnisse/results_DE2_marketzones_assigned/market") 
-
-
-#market_DE3 = pypsa.Network()
-#market_DE3.import_from_csv_folder("/home/student/Masterarbeit_Dateien/Ergebnisse/results_DE3_latest/market") 
-
-#market_DE4 = pypsa.Network()
-#market_DE4.import_from_csv_folder("/home/student/Masterarbeit_Dateien/Ergebnisse/results_DE4_marketzones_assigned/market")
-
-#market_sq = pypsa.Network()
-#market_sq.import_from_csv_folder("/home/student/Masterarbeit_Dateien/Ergebnisse/results_status_quo_latest/market")
-
-#net_DE2= pypsa.Network()
-#net_DE2.import_from_csv_folder("/home/student/Masterarbeit_Dateien/Ergebnisse/results_DE2_marketzones_assigned") 
-
-
-#net_DE3 = pypsa.Network()
-#net_DE3.import_from_csv_folder("/home/student/Masterarbeit_Dateien/Ergebnisse/results_DE3_latest") 
-
-#net_DE4 = pypsa.Network()
-#net_DE4.import_from_csv_folder("/home/student/Masterarbeit_Dateien/Ergebnisse/results_DE4_marketzones_assigned")
-
-#net_sq = pypsa.Network()
-#net_sq.import_from_csv_folder("/home/student/Masterarbeit_Dateien/Ergebnisse/results_status_quo_latest")
-
-#net_nodal = pypsa.Network()
-#net_nodal.import_from_csv_folder("/home/student/Masterarbeit_Dateien/Ergebnisse/results_nodal_latest")
-
-
-#from etrago import Etrago
-
-#etrago_nodal = Etrago(csv_folder_name="/home/student/Masterarbeit_Dateien/Ergebnisse/results_nodal_latest")
-
-#etrago_DE2 = Etrago(csv_folder_name="/home/student/Masterarbeit_Dateien/Ergebnisse/results_DE2_marketzones_assigned")
-
-#etrago_DE3 = Etrago(csv_folder_name="/home/student/Masterarbeit_Dateien/Ergebnisse/results_DE3_latest")
-
-#etrago_DE4 = Etrago(csv_folder_name="/home/student/Masterarbeit_Dateien/Ergebnisse/results_DE4_marketzones_assigned")
-
-#etrago_status_quo = Etrago(csv_folder_name="/home/student/Masterarbeit_Dateien/Ergebnisse/results_status_quo_latest")
-
-
 """
 import pandas as pd
 from calc_results_germany import calc_etrago_results
@@ -68,48 +23,20 @@ from calc_results_germany import german_network
 """
 
 def assign_market_zones_to_buses(network, market_zones):
-    import geopandas as gpd
-    import pandas as pd
-    from shapely.geometry import Point
+    """
+    Assign DE2, DE3, DE4 or DE5 market zones to network.buses
+    using the shared Zenodo-based eTraGo helper.
 
-    if market_zones == "DE2":
-        shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_2_DE2.shp"
-    elif market_zones == "DE3":
-        shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_12_DE3.shp"
-    elif market_zones == "DE4":
-        shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_13_DE4.shp"
-    elif market_zones == "DE5":
-        shapefile_path = "/home/student/Masterarbeit_Dateien/Shape-Files/shape_files_old/BZR_config_14_DE5.shp"
-    elif market_zones == "none":
-        shapefile_path = None
-    else:
-        raise ValueError("Ungültiger Wert für market_zone. Erlaubt sind: 'DE2', 'DE3', 'DE4', 'DE5', oder 'none'.")
+    Adds:
+    - network.buses["zone"]
+    - network.buses["marketzone"]
+    """
+    from etrago.tools.market_zones import assign_market_zone_column_to_network
 
-
-    if shapefile_path is None:
-        raise ValueError("Ungültiger Wert für market_zones")
-
-    zones = gpd.read_file(shapefile_path).to_crs(epsg=4326)
-
-    # Buserstellen mit Geometrie
-    buses = network.buses.copy()
-    bus_points = gpd.GeoDataFrame(
-        buses,
-        geometry=gpd.points_from_xy(buses.x, buses.y),
-        crs="EPSG:4326"
+    return assign_market_zone_column_to_network(
+        network,
+        market_zones,
     )
-
-    # Spatial Join: Busse mit Zonen verbinden
-    joined = gpd.sjoin(bus_points, zones, how="left", predicate="within")
-
-    # 'id' ist hier die Zone
-    network.buses["zone"] = joined["id"]
-
-    # Diagnose
-    missing = network.buses["zone"].isna().sum()
-    print(f"{missing} Bussen konnte keine Zone zugewiesen werden.")
-
-    return network
 
 
 def calculate_and_extract_results(etrago_obj):

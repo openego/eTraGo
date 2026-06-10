@@ -2,3 +2,21 @@
 build/*
 dist/*
 eTraGo.egg-info/*
+
+# Downloaded market-zone shapefiles from Zenodo
+data/shapes_biddingzones/
+
+# eTraGo / PyPSA run outputs
+results_*/
+solver_etrago.log
+*.log
+kmedoids-dijkstra_*_result.csv
+
+# Spyder local project files
+.spyproject/
+.spyderproject
+.spyderworkspace
+
+# Python cache
+__pycache__/
+*.pyc
