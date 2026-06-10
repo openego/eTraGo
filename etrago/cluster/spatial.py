@@ -935,7 +935,6 @@ def focus_weighting(
                 - set(inside.index)
             )
         ]
-        paths = list(product(outside.index, border_buses.index))
     elif "CH4" in network.buses.carrier.unique():
         ch4_links = network.links[network.links.carrier == "CH4"]
         links_cross = ch4_links[
@@ -950,7 +949,6 @@ def focus_weighting(
                 - set(inside.index)
             )
         ]
-        paths = list(product(outside.index, border_buses.index))
     elif "H2" in network.buses.carrier.unique():
         h2_links = network.links[network.links.carrier == "H2"]
         links_cross = h2_links[
@@ -965,7 +963,6 @@ def focus_weighting(
                 - set(inside.index)
             )
         ]
-        paths = list(product(outside.index, border_buses.index))
 
     # graph creation
     if "AC" in network.buses.carrier.unique():
@@ -985,34 +982,24 @@ def focus_weighting(
         ]
     graph = graph_from_edges(edges)
 
-    # processor count
-    if cpu_cores == "max":
-        cpu_cores = mp.cpu_count()
-    else:
-        cpu_cores = int(cpu_cores)
-
-    # calculation of shortest path using multiprocessing
-    p = mp.Pool(cpu_cores)
-    chunksize = ceil(len(paths) / cpu_cores)
-    container = p.starmap(shortest_path, gen(paths, chunksize, graph))
-    dist = pd.concat(container).astype({"path_length": "float64"})
-
-    dist = dist.loc[
-        dist.groupby(level="source")["path_length"].idxmin()
-    ].droplevel("target")
+    dist_dict = dict(
+        nx.multi_source_dijkstra_path_length(
+            graph, set(border_buses.index), weight="weight"
+        )
+    )
+    dist = pd.Series(dist_dict, name="path_length").reindex(
+        outside.index, fill_value=np.inf
+    )
 
     # set distances to 0 for buses within focus region
-    dist = pd.concat(
-        [dist, pd.DataFrame({"path_length": 0}, index=inside.index)]
-    )
-    dist = dist["path_length"]
+    inside_dist = pd.Series(0.0, index=inside.index, name="path_length")
+    dist = pd.concat([dist, inside_dist])
     dist = dist[~dist.index.duplicated(keep="first")]
 
     # to m
     dist = dist * 1000
     # do not allow 0
     dist[dist == 0] = 1
-
     # 1/dist
     if func == "1-dist":
         factor = 1 / dist
