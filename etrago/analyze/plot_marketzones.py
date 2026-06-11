@@ -440,6 +440,7 @@ def plot_marketzone_clustering(
     return average_prices
 
 
+
 def total_dispatch_by_zone(
     self,
     timesteps=None,
@@ -447,16 +448,28 @@ def total_dispatch_by_zone(
     filename=None,
 ):
     """
-    Calculate electricity production per carrier and zone and plot it on a map.
+    Calculate electricity production per carrier and German market zone
+    and plot the result on a map.
 
-    Market-zone geometries are loaded from Zenodo.
+    This function is intended for the market model, for example:
+
+        total_dispatch_by_zone(
+            etrago.market_model,
+            market_zones="DE5",
+            filename="results_DE5_test/plots/total_dispatch_by_zone_DE5.png",
+        )
+
+    Unlike the previous version, this function does not call
+    german_network(self). This avoids PyPSA snapshot-index errors when the
+    network contains time-series tables with different snapshot indices.
 
     Parameters
     ----------
     self : pypsa.Network
         Usually etrago.market_model.
-    timesteps : range or list
-        Timesteps used for dispatch aggregation.
+    timesteps : range or list, optional
+        Timesteps used for dispatch aggregation. If None, all available
+        snapshots of the network are used.
     market_zones : str
         'DE2', 'DE3', 'DE4', or 'DE5'.
     filename : str, optional
@@ -467,7 +480,6 @@ def total_dispatch_by_zone(
     pandas.Series
         Dispatch per zone and carrier in TWh.
     """
-    from etrago.analyze.calc_results import german_network
     from etrago.analyze.plot import calc_dispatch_per_carrier
 
     market_zones = str(market_zones).upper()
@@ -477,22 +489,59 @@ def total_dispatch_by_zone(
             "Invalid value for market_zones. "
             "Allowed values are: 'DE2', 'DE3', 'DE4', 'DE5'."
         )
+
     if timesteps is None:
         timesteps = range(len(self.snapshots))
 
-    # Assign zones directly to the PyPSA network.
+    # Assign market-zone information directly to the provided PyPSA network.
+    # This modifies self.buses by adding at least the columns 'zone'
+    # and 'marketzone'.
     assign_market_zones_to_buses(
         self,
         market_zones,
     )
 
-    network_de = german_network(self)
+    if "zone" not in self.buses.columns:
+        raise ValueError(
+            "Column 'zone' is missing in network.buses. "
+            "Market-zone assignment failed."
+        )
 
+    # Work only with German buses. This replaces german_network(self),
+    # but avoids copying the whole PyPSA network and therefore avoids
+    # snapshot-index mismatch errors.
+    buses_de = self.buses[
+        self.buses["country"] == "DE"
+    ].copy()
+
+    if buses_de.empty:
+        raise ValueError(
+            "No German buses found in the network. "
+            "Cannot calculate dispatch by German market zone."
+        )
+
+    missing_zone_buses = buses_de[
+        buses_de["zone"].isna()
+    ]
+
+    if not missing_zone_buses.empty:
+        examples = list(missing_zone_buses.index[:10])
+
+        raise ValueError(
+            f"{len(missing_zone_buses)} German buses have no market-zone "
+            f"assignment. Examples: {examples}"
+        )
+
+    buses_de["_zone_key"] = buses_de["zone"].apply(_zone_key)
+
+    # Calculate dispatch for the full network first, then keep only German
+    # buses. This is safer than making a copied German subnetwork.
     dispatch_series = calc_dispatch_per_carrier(
-        network_de,
+        self,
         timesteps,
         dispatch_type="total",
     )
+
     dispatch_df = dispatch_series.reset_index()
     dispatch_df.columns = [
         "bus",
@@ -500,27 +549,35 @@ def total_dispatch_by_zone(
         "dispatch",
     ]
 
-    buses = network_de.buses.copy()
-
-    if "zone" not in buses.columns:
-        raise ValueError(
-            "Column 'zone' is missing in network.buses. "
-            "Please assign zones first."
-        )
-
-    buses["_zone_key"] = buses["zone"].apply(_zone_key)
+    dispatch_df = dispatch_df[
+        dispatch_df["bus"].isin(buses_de.index)
+    ]
 
     dispatch_df = dispatch_df.merge(
-        buses["_zone_key"],
+        buses_de[["_zone_key"]],
         left_on="bus",
         right_index=True,
+        how="left",
     )
+
     dispatch_df = dispatch_df.rename(
         columns={
             "_zone_key": "zone",
         }
     )
 
+    dispatch_df = dispatch_df[
+        dispatch_df["zone"].notna()
+    ]
+
+    if dispatch_df.empty:
+        raise ValueError(
+            "No German dispatch data could be matched to market zones."
+        )
+
+    # Keep the original scaling logic:
+    # dispatch is converted to TWh using * 5 / 1e6.
+    # This is consistent with the existing eTraGo post-processing logic.
     dispatch_per_zone = (
         dispatch_df.groupby(["zone", "carrier"])["dispatch"].sum()
         * 5
@@ -545,20 +602,22 @@ def total_dispatch_by_zone(
 
     for zone in table.index:
         total = table.loc[zone].sum()
-        renew = table.loc[zone].reindex(
+
+        renewable_generation = table.loc[zone].reindex(
             renewables,
             fill_value=0,
         ).sum()
-        share = _safe_percentage(
-            renew,
+
+        renewable_share = _safe_percentage(
+            renewable_generation,
             total,
         )
 
         print(
             f"{zone}: "
             f"{total:.2f} TWh total, "
-            f"{renew:.2f} TWh renewable "
-            f"({share:.1f}%)"
+            f"{renewable_generation:.2f} TWh renewable "
+            f"({renewable_share:.1f}%)"
         )
 
     zones = _load_zones_for_plot(market_zones)
@@ -575,6 +634,7 @@ def total_dispatch_by_zone(
         edgecolor="black",
         linewidth=0.5,
     )
+
     zones.plot(
         ax=ax,
         facecolor=zones["color"],
@@ -594,12 +654,14 @@ def total_dispatch_by_zone(
             continue
 
         total = table.loc[zone_name].sum()
-        renew = table.loc[zone_name].reindex(
+
+        renewable_generation = table.loc[zone_name].reindex(
             renewables,
             fill_value=0,
         ).sum()
-        share = _safe_percentage(
-            renew,
+
+        renewable_share = _safe_percentage(
+            renewable_generation,
             total,
         )
 
@@ -608,14 +670,15 @@ def total_dispatch_by_zone(
         ax.text(
             centroid.x,
             centroid.y,
-            f"{total:.1f} TWh\n{share:.1f}% RES",
-            fontsize=20,
+            f"{total:.1f} TWh\n{renewable_share:.1f}% RES",
+            fontsize=18,
             ha="center",
             va="center",
             bbox=dict(
                 facecolor="white",
                 edgecolor="black",
                 boxstyle="round,pad=0.3",
+                alpha=0.9,
             ),
         )
 
@@ -623,6 +686,7 @@ def total_dispatch_by_zone(
         [5.5, 15.5, 47, 55.5],
         crs=ccrs.PlateCarree(),
     )
+
     ax.axis("off")
     plt.tight_layout()
 
@@ -637,6 +701,7 @@ def total_dispatch_by_zone(
         plt.show()
 
     return dispatch_per_zone
+
 
 
 
