@@ -24,7 +24,6 @@ Define your connection parameters and power flow settings before executing
 the function run_etrago.
 """
 
-
 import datetime
 import os
 import os.path
@@ -55,16 +54,15 @@ args = {
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
         "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "formulation": "linopy",
-        "market_optimization":
-            {
-                "active": True,
-                "market_zones": "DE5", # only used if type='market_grid'; "status_quo", "DE2", "DE3", "DE4" or "DE5"
-                "rolling_horizon": {# Define parameter of market optimization
-                    "planning_horizon": 168, # number of snapshots in each optimization
-                    "overlap": 120, # number of overlapping hours
-                 },
-                "redispatch": True,
-             }
+        "market_optimization": {
+            "active": True,
+            "market_zones": "DE5",  # only used if type='market_grid'; "status_quo", "DE2", "DE3", "DE4" or "DE5"
+            "rolling_horizon": {  # Define parameter of market optimization
+                "planning_horizon": 168,  # number of snapshots in each optimization
+                "overlap": 120,  # number of overlapping hours
+            },
+            "redispatch": True,
+        },
     },
     "pf_post_lopf": {
         "active": False,  # choose if perform a pf after lopf
@@ -72,7 +70,7 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 10,
+    "end_snapshot": 1000,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -82,7 +80,6 @@ args = {
         "logFile": "solver_etrago.log",
         "threads": 7,
     },
-    
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
     # Scenario variations:

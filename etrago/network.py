@@ -115,8 +115,6 @@ from etrago.tools.utilities import (
     update_busmap,
 )
 
-
-
 logger = logging.getLogger(__name__)
 
 __copyright__ = (
@@ -229,15 +227,13 @@ class Etrago:
                         ignore_standard_types,
                     )
                 except ValueError:
-                    logger.warning(
-                        """
+                    logger.warning("""
                         Could not import a market_model but the selected
                         method in the args indicated that it should be there.
                         This happens when the exported network was not solved
                         yet.Run 'etrago.optimize()' to build and solve the
                         market model.
-                        """
-                    )
+                        """)
 
             self.get_clustering_data(csv_folder_name)
 
@@ -376,13 +372,12 @@ class Etrago:
     post_contingency_analysis = post_contingency_analysis_lopf
 
     sclopf = iterate_sclopf
-    
+
     total_load_by_zone = total_load_by_zone
 
     total_load_and_renewables_by_zone = total_load_and_renewables_by_zone
 
     total_load_wind_and_solar_by_zone = total_load_wind_and_solar_by_zone
-
 
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)

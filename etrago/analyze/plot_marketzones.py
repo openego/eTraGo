@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 
-
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
@@ -16,8 +15,6 @@ from etrago.tools.market_zones import (
     assign_market_zone_column_to_network,
     assign_market_zones_to_bus_dataframe,
 )
-
-
 
 
 def _save_or_show_plot(filename=None, dpi=600):
@@ -95,9 +92,6 @@ def _safe_percentage(value, total):
     return 100 * value / total
 
 
-
-
-
 def plot_marketzone_clustering(
     self,
     market_zones,
@@ -144,9 +138,7 @@ def plot_marketzone_clustering(
         path = Path(filename_to_use)
         file_suffix = path.suffix if path.suffix else ".png"
 
-        return path.with_name(
-            f"{path.stem}{suffix}{file_suffix}"
-        )
+        return path.with_name(f"{path.stem}{suffix}{file_suffix}")
 
     # ------------------------------------------------------------
     # 1. Load market-zone geometries from Zenodo
@@ -166,8 +158,7 @@ def plot_marketzone_clustering(
     # 3. Select German AC buses
     # ------------------------------------------------------------
     market_bus_de = self.buses[
-        (self.buses.country == "DE")
-        & (self.buses.carrier == "AC")
+        (self.buses.country == "DE") & (self.buses.carrier == "AC")
     ]
 
     gdf_buses = gpd.GeoDataFrame(
@@ -201,9 +192,7 @@ def plot_marketzone_clustering(
         for _, zone in zones.iterrows():
             zone_id = _zone_key(zone["id"])
 
-            buses_in_zone = gdf_buses[
-                gdf_buses.within(zone["geometry"])
-            ]
+            buses_in_zone = gdf_buses[gdf_buses.within(zone["geometry"])]
 
             if buses_in_zone.empty:
                 continue
@@ -215,9 +204,7 @@ def plot_marketzone_clustering(
             if len(price_columns) == 0:
                 continue
 
-            prices_in_zone = self.buses_t.marginal_price[
-                price_columns
-            ]
+            prices_in_zone = self.buses_t.marginal_price[price_columns]
             avg_price = prices_in_zone.mean().mean()
             average_prices[zone_id] = avg_price
 
@@ -240,9 +227,7 @@ def plot_marketzone_clustering(
             market_bus_de.index
         )
 
-        prices_in_de = self.buses_t.marginal_price[
-            price_columns
-        ]
+        prices_in_de = self.buses_t.marginal_price[price_columns]
         avg_price = prices_in_de.mean().mean()
         average_prices["Germany"] = avg_price
 
@@ -296,9 +281,7 @@ def plot_marketzone_clustering(
         for _, zone in zones.iterrows():
             zone_id = _zone_key(zone["id"])
 
-            buses_in_zone = gdf_buses[
-                gdf_buses.within(zone["geometry"])
-            ]
+            buses_in_zone = gdf_buses[gdf_buses.within(zone["geometry"])]
 
             if buses_in_zone.empty:
                 continue
@@ -310,13 +293,9 @@ def plot_marketzone_clustering(
             if len(price_columns) == 0:
                 continue
 
-            prices_in_zone = self.buses_t.marginal_price[
-                price_columns
-            ]
+            prices_in_zone = self.buses_t.marginal_price[price_columns]
             prices_in_zone = prices_in_zone.values.flatten()
-            prices_in_zone = prices_in_zone[
-                ~np.isnan(prices_in_zone)
-            ]
+            prices_in_zone = prices_in_zone[~np.isnan(prices_in_zone)]
 
             price_distribution, _ = np.histogram(
                 prices_in_zone,
@@ -388,13 +367,9 @@ def plot_marketzone_clustering(
             market_bus_de.index
         )
 
-        prices_in_de = self.buses_t.marginal_price[
-            price_columns
-        ]
+        prices_in_de = self.buses_t.marginal_price[price_columns]
         prices_in_de = prices_in_de.values.flatten()
-        prices_in_de = prices_in_de[
-            ~np.isnan(prices_in_de)
-        ]
+        prices_in_de = prices_in_de[~np.isnan(prices_in_de)]
 
         price_distribution, _ = np.histogram(
             prices_in_de,
@@ -438,7 +413,6 @@ def plot_marketzone_clustering(
         _save_or_show(distribution_filename)
 
     return average_prices
-
 
 
 def total_dispatch_by_zone(
@@ -510,9 +484,7 @@ def total_dispatch_by_zone(
     # Work only with German buses. This replaces german_network(self),
     # but avoids copying the whole PyPSA network and therefore avoids
     # snapshot-index mismatch errors.
-    buses_de = self.buses[
-        self.buses["country"] == "DE"
-    ].copy()
+    buses_de = self.buses[self.buses["country"] == "DE"].copy()
 
     if buses_de.empty:
         raise ValueError(
@@ -520,9 +492,7 @@ def total_dispatch_by_zone(
             "Cannot calculate dispatch by German market zone."
         )
 
-    missing_zone_buses = buses_de[
-        buses_de["zone"].isna()
-    ]
+    missing_zone_buses = buses_de[buses_de["zone"].isna()]
 
     if not missing_zone_buses.empty:
         examples = list(missing_zone_buses.index[:10])
@@ -549,9 +519,7 @@ def total_dispatch_by_zone(
         "dispatch",
     ]
 
-    dispatch_df = dispatch_df[
-        dispatch_df["bus"].isin(buses_de.index)
-    ]
+    dispatch_df = dispatch_df[dispatch_df["bus"].isin(buses_de.index)]
 
     dispatch_df = dispatch_df.merge(
         buses_de[["_zone_key"]],
@@ -566,9 +534,7 @@ def total_dispatch_by_zone(
         }
     )
 
-    dispatch_df = dispatch_df[
-        dispatch_df["zone"].notna()
-    ]
+    dispatch_df = dispatch_df[dispatch_df["zone"].notna()]
 
     if dispatch_df.empty:
         raise ValueError(
@@ -579,9 +545,7 @@ def total_dispatch_by_zone(
     # dispatch is converted to TWh using * 5 / 1e6.
     # This is consistent with the existing eTraGo post-processing logic.
     dispatch_per_zone = (
-        dispatch_df.groupby(["zone", "carrier"])["dispatch"].sum()
-        * 5
-        / 1e6
+        dispatch_df.groupby(["zone", "carrier"])["dispatch"].sum() * 5 / 1e6
     )
 
     table = dispatch_per_zone.unstack().fillna(0)
@@ -603,10 +567,14 @@ def total_dispatch_by_zone(
     for zone in table.index:
         total = table.loc[zone].sum()
 
-        renewable_generation = table.loc[zone].reindex(
-            renewables,
-            fill_value=0,
-        ).sum()
+        renewable_generation = (
+            table.loc[zone]
+            .reindex(
+                renewables,
+                fill_value=0,
+            )
+            .sum()
+        )
 
         renewable_share = _safe_percentage(
             renewable_generation,
@@ -655,10 +623,14 @@ def total_dispatch_by_zone(
 
         total = table.loc[zone_name].sum()
 
-        renewable_generation = table.loc[zone_name].reindex(
-            renewables,
-            fill_value=0,
-        ).sum()
+        renewable_generation = (
+            table.loc[zone_name]
+            .reindex(
+                renewables,
+                fill_value=0,
+            )
+            .sum()
+        )
 
         renewable_share = _safe_percentage(
             renewable_generation,
@@ -701,10 +673,6 @@ def total_dispatch_by_zone(
         plt.show()
 
     return dispatch_per_zone
-
-
-
-
 
 
 def calculate_inter_zonal_trade(network, market_zones):
@@ -776,7 +744,6 @@ def calculate_inter_zonal_trade(network, market_zones):
     return result
 
 
-
 def plot_zone_net_flows(self, market_zones, filename=None):
     """
     Plot net electricity flows for German market zones.
@@ -836,16 +803,12 @@ def plot_zone_net_flows(self, market_zones, filename=None):
         )
 
         zone_ids = sorted(
-            int(zone_id)
-            for zone_id in zones["id"].dropna().unique()
+            int(zone_id) for zone_id in zones["id"].dropna().unique()
         )
         german_zones = [f"DE{zone_id}" for zone_id in zone_ids]
 
     else:
-        geometry = [
-            Point(xy)
-            for xy in zip(self.buses["x"], self.buses["y"])
-        ]
+        geometry = [Point(xy) for xy in zip(self.buses["x"], self.buses["y"])]
 
         geo_buses = gpd.GeoDataFrame(
             self.buses,
@@ -859,14 +822,8 @@ def plot_zone_net_flows(self, market_zones, filename=None):
 
         german_zones = ["DE"]
 
-    ac_flows = {
-        zone: 0.0
-        for zone in german_zones
-    }
-    dc_flows = {
-        zone: 0.0
-        for zone in german_zones
-    }
+    ac_flows = {zone: 0.0 for zone in german_zones}
+    dc_flows = {zone: 0.0 for zone in german_zones}
 
     # ------------------------------------------------------------
     # 3. Calculate AC net flows
@@ -912,9 +869,7 @@ def plot_zone_net_flows(self, market_zones, filename=None):
     # ------------------------------------------------------------
     # 4. Calculate DC net flows
     # ------------------------------------------------------------
-    dc_links = self.links[
-        self.links.carrier == "DC"
-    ]
+    dc_links = self.links[self.links.carrier == "DC"]
 
     for link_idx, link in dc_links.iterrows():
         try:
@@ -955,8 +910,7 @@ def plot_zone_net_flows(self, market_zones, filename=None):
             dc_flows[bus1_zone] -= flow
 
     net_flows = {
-        zone: ac_flows[zone] + dc_flows[zone]
-        for zone in german_zones
+        zone: ac_flows[zone] + dc_flows[zone] for zone in german_zones
     }
 
     # ------------------------------------------------------------
@@ -1032,9 +986,7 @@ def plot_zone_net_flows(self, market_zones, filename=None):
 
     else:
         net_flow = dc_export_de_lu(self)
-        german_buses = geo_buses[
-            geo_buses["country"] == "DE"
-        ]
+        german_buses = geo_buses[geo_buses["country"] == "DE"]
 
         de_center_x = german_buses.geometry.x.mean()
         de_center_y = german_buses.geometry.y.mean()
@@ -1086,10 +1038,6 @@ def plot_zone_net_flows(self, market_zones, filename=None):
     return net_flows
 
 
-    
-
-
-
 def ac_export_per_country(self):
     """Calculate electricity exports and imports over AC lines per country
 
@@ -1099,8 +1047,12 @@ def ac_export_per_country(self):
         Electricity export (if positive) or import (if negative) from DE+LU to each neighboring country in TWh
     """
     # Buses in DE or LU zählen als 'Exportland'
-    de_buses = self.network.buses[self.network.buses.country.isin(["DE", "LU"])]
-    for_buses = self.network.buses[~self.network.buses.country.isin(["DE", "LU"])]
+    de_buses = self.network.buses[
+        self.network.buses.country.isin(["DE", "LU"])
+    ]
+    for_buses = self.network.buses[
+        ~self.network.buses.country.isin(["DE", "LU"])
+    ]
 
     result = pd.Series(index=for_buses.country.unique(), dtype=float)
 
@@ -1108,12 +1060,12 @@ def ac_export_per_country(self):
         target_buses = for_buses[for_buses.country == c].index
 
         exp = self.network.lines[
-            (self.network.lines.bus0.isin(de_buses.index)) &
-            (self.network.lines.bus1.isin(target_buses))
+            (self.network.lines.bus0.isin(de_buses.index))
+            & (self.network.lines.bus1.isin(target_buses))
         ]
         imp = self.network.lines[
-            (self.network.lines.bus1.isin(de_buses.index)) &
-            (self.network.lines.bus0.isin(target_buses))
+            (self.network.lines.bus1.isin(de_buses.index))
+            & (self.network.lines.bus0.isin(target_buses))
         ]
 
         exp_sum = (
@@ -1134,6 +1086,7 @@ def ac_export_per_country(self):
 
     return result
 
+
 def dc_export_per_country(self):
     """Calculate electricity exports and imports over DC lines per country
 
@@ -1153,20 +1106,12 @@ def dc_export_per_country(self):
         exp = self.links[
             (self.links.carrier == "DC")
             & (self.links.bus0.isin(de_buses.index))
-            & (
-                self.links.bus1.isin(
-                    for_buses[for_buses.country == c].index
-                )
-            )
+            & (self.links.bus1.isin(for_buses[for_buses.country == c].index))
         ]
         imp = self.links[
             (self.links.carrier == "DC")
             & (self.links.bus1.isin(de_buses.index))
-            & (
-                self.links.bus0.isin(
-                    for_buses[for_buses.country == c].index
-                )
-            )
+            & (self.links.bus0.isin(for_buses[for_buses.country == c].index))
         ]
 
         result[c] = (
@@ -1183,9 +1128,11 @@ def dc_export_per_country(self):
     return result
 
 
-def plot_country_exports_per_configuration(market_sq, market_DE2, market_DE3, market_DE4):
+def plot_country_exports_per_configuration(
+    market_sq, market_DE2, market_DE3, market_DE4
+):
     """
-    
+
     Plottet für jedes Nachbarland den Nettoexport Deutschlands (AC + DC) für verschiedene Modellkonfigurationen.
     Nur Länder mit Handelswerten ungleich Null werden dargestellt.
     BE, GB, NO und RU werden explizit ausgeschlossen.
@@ -1198,16 +1145,19 @@ def plot_country_exports_per_configuration(market_sq, market_DE2, market_DE3, ma
     etrago_DE4 : etrago object
     etrago_nodal : etrago object
     """
+
     def get_exports(market):
         exports = dc_export_per_country(market)
-        return exports.drop(labels=['DE', 'LU', 'GB', 'NO', 'RU'], errors='ignore') 
+        return exports.drop(
+            labels=["DE", "LU", "GB", "NO", "RU"], errors="ignore"
+        )
 
     configs = {
         "Status Quo": market_sq,
         "DE2": market_DE2,
         "DE3": market_DE3,
         "DE4": market_DE4,
-        #"Nodal": etrago_nodal
+        # "Nodal": etrago_nodal
     }
 
     # Exporte je Konfiguration berechnen
@@ -1253,29 +1203,35 @@ def plot_country_exports_per_configuration(market_sq, market_DE2, market_DE3, ma
 
     # Plotten der Balken
     for i, (config, color) in enumerate(zip(df.columns, colors)):
-        ax.bar(x + i*bar_width,
-               df[config],
-               width=bar_width,
-               label=config,
-               color=color)
+        ax.bar(
+            x + i * bar_width,
+            df[config],
+            width=bar_width,
+            label=config,
+            color=color,
+        )
 
     # Achsenbeschriftungen und Titel
-    ax.set_xticks(x + (len(df.columns)-1)*bar_width/2)
-    ax.set_xticklabels(df.index, fontsize = 16)
-    ax.axhline(0, color='black', linewidth=0.8, linestyle='--')
-    ax.set_ylabel("TWh", fontsize = 18)
+    ax.set_xticks(x + (len(df.columns) - 1) * bar_width / 2)
+    ax.set_xticklabels(df.index, fontsize=16)
+    ax.axhline(0, color="black", linewidth=0.8, linestyle="--")
+    ax.set_ylabel("TWh", fontsize=18)
 
-    ax.set_yticks([-60, -40, -20, 0, 20, 40, 60])  # Hier die gewünschten y-Werte angeben
-    ax.set_yticklabels([-60, -40, -20, 0, 20, 40, 60], fontsize=16)  # Hier die gewünschten Beschriftungen angeben
+    ax.set_yticks(
+        [-60, -40, -20, 0, 20, 40, 60]
+    )  # Hier die gewünschten y-Werte angeben
+    ax.set_yticklabels(
+        [-60, -40, -20, 0, 20, 40, 60], fontsize=16
+    )  # Hier die gewünschten Beschriftungen angeben
 
     # Legende
-    ax.legend(loc='upper left', fontsize=16)
+    ax.legend(loc="upper left", fontsize=16)
 
     # Grid für bessere Lesbarkeit
-    ax.grid(axis='y', alpha=0.3, linestyle='--')
+    ax.grid(axis="y", alpha=0.3, linestyle="--")
 
     # Anpassung der x-Achse für bessere Lesbarkeit
-    plt.xticks(rotation=45, ha='right')
+    plt.xticks(rotation=45, ha="right")
     plt.tight_layout()
     plt.show()
 
@@ -1286,7 +1242,7 @@ def plot_dispatch_difference_by_bus(
     carrier="wind_offshore",
     market_zones="DE3",
     filename=None,
-    base_scaling=0.5  # Nutzerdefinierbare Skalierungsbasis
+    base_scaling=0.5,  # Nutzerdefinierbare Skalierungsbasis
 ):
     """
     Plottet die ungewichtete Dispatch-Differenz (Summe über 8760h) eines Carriers pro Bus zwischen zwei Netzwerken.
@@ -1295,7 +1251,6 @@ def plot_dispatch_difference_by_bus(
     """
     import matplotlib.patches as mpatches
     import pandas as pd
-
 
     # A: Generatoren mit diesem Carrier aus beiden Netzwerken
     gensA = networkA.generators.query("carrier == @carrier")
@@ -1320,8 +1275,12 @@ def plot_dispatch_difference_by_bus(
 
     # Farben nach Vorzeichen
     colors_buses = {
-    bus: mcolors.to_rgba("green", alpha=0.2) if val > 0 else mcolors.to_rgba("red", alpha=0.2)
-    for bus, val in dispatch_grouped.items()
+        bus: (
+            mcolors.to_rgba("green", alpha=0.2)
+            if val > 0
+            else mcolors.to_rgba("red", alpha=0.2)
+        )
+        for bus, val in dispatch_grouped.items()
     }
     # Absolutwerte für Kreisgrößen
     dispatch_abs = dispatch_grouped.abs()
@@ -1333,15 +1292,16 @@ def plot_dispatch_difference_by_bus(
     zones = _load_zones_for_plot(market_zones)
 
     # Plot vorbereiten
-    fig, ax = plt.subplots(figsize=(10, 6), dpi=300, subplot_kw={"projection": ccrs.PlateCarree()})
+    fig, ax = plt.subplots(
+        figsize=(10, 6), dpi=300, subplot_kw={"projection": ccrs.PlateCarree()}
+    )
 
     if zones is not None:
         zones = _add_zone_colors(zones)
 
         # Zonen plotten
-        zones.boundary.plot(ax=ax, edgecolor='black', linewidth=0.5)
-        zones.plot(ax=ax, facecolor=zones['color'], alpha=0.3)
-        
+        zones.boundary.plot(ax=ax, edgecolor="black", linewidth=0.5)
+        zones.plot(ax=ax, facecolor=zones["color"], alpha=0.3)
 
     # Netzelemente plotten (aus networkA)
     networkA.plot(
@@ -1349,26 +1309,30 @@ def plot_dispatch_difference_by_bus(
         bus_sizes=dispatch_abs * scaling,
         bus_colors=colors_buses,
         line_widths=0,
-        link_widths= 0,
+        link_widths=0,
         margin=0.01,
-        ax=ax
+        ax=ax,
     )
 
     ax.set_title(f"Dispatch-Differenz {carrier} pro Bus")
     ax.set_extent([5.5, 15.5, 47, 55.5], crs=ccrs.PlateCarree())
-    
+
     # Farben-Legende
-    patch_green = mpatches.Patch(color='green', alpha=0.5, label='Reduktion Dispatch')
-    patch_red = mpatches.Patch(color='red', alpha=0.5, label='Erhöhung Dispatch')
-    
-    #ax.legend(handles=[patch_green, patch_red], loc='upper left')
-    
-    
+    patch_green = mpatches.Patch(
+        color="green", alpha=0.5, label="Reduktion Dispatch"
+    )
+    patch_red = mpatches.Patch(
+        color="red", alpha=0.5, label="Erhöhung Dispatch"
+    )
+
+    # ax.legend(handles=[patch_green, patch_red], loc='upper left')
+
     if filename:
         plt.savefig(f"{filename}.png", bbox_inches="tight")
         print(f"✅ Plot gespeichert unter {filename}.png")
     else:
         plt.show()
+
 
 def dc_export_de_lu(self):
     """
@@ -1380,17 +1344,13 @@ def dc_export_de_lu(self):
         Electricity export (if negative: import) from Germany
     """
 
-    
     network = self
     de_buses = network.buses[
-        (network.buses.country == "DE") |
-        (network.buses.country == "LU")
+        (network.buses.country == "DE") | (network.buses.country == "LU")
     ]
-    
-    for_buses = network.buses[
-        ~network.buses.country.isin(["DE", "LU"])
-    ]
-    
+
+    for_buses = network.buses[~network.buses.country.isin(["DE", "LU"])]
+
     exp = network.links[
         (network.links.carrier == "DC")
         & (network.links.bus0.isin(de_buses.index))
@@ -1411,5 +1371,3 @@ def dc_export_de_lu(self):
         .mul(network.snapshot_weightings.generators)
         .sum()
     )
-
-
