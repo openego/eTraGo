@@ -49,7 +49,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "oep",  # database session: oep or local database
+    "db": "egon-data",  # database session: oep or local database
     "gridversion": None,  # None for model_draft or version number
     "method": {  # choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
@@ -72,7 +72,7 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 168,
+    "end_snapshot": 10,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -119,7 +119,7 @@ args = {
     },
     "network_clustering": {
         "method": {
-            "focus_region": None,  # None, shape-file or list with string for Kreise
+            "focus_region": ["Region Hannover"],  # None, shape-file or list with string for Kreise
             "per_country": True,  # if True, buses are restricted to one cluster per country
             "algorithm": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
             "remove_stubs": False,  # remove stubs before kmeans clustering
@@ -134,7 +134,7 @@ args = {
         "electricity_grid": {
             "active": True,  # choose if clustering is activated
             "cluster_within_focus": False,  # False for very low clustering within focus region
-            "n_clusters": 30,  # total number of resulting AC nodes
+            "n_clusters": 60,  # total number of resulting AC nodes
             "k_elec_busmap": False,  # False or path/to/busmap.csv
         },
         "gas_grids": {
@@ -641,6 +641,10 @@ def run_etrago(args, json_path):
 
     # skip snapshots
     etrago.skip_snapshots()
+
+    # manual fixes due to transformers bad electrical parameters
+    etrago.network.transformers.x = 0.00005
+    etrago.network.transformers.r = 0.0001
 
     # start linear optimal powerflow calculations
     etrago.optimize()
