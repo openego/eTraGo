@@ -811,6 +811,99 @@ def kmedoids_dijkstra_clustering(
     return busmap, medoid_idx
 
 
+def get_focus_region_buses(etrago, network, focus_region, per_country=True):
+    """
+    Identify AC buses inside a focus region and their direct boundary neighbours.
+
+    Called on the **original** (pre-preprocessing) network so that
+    transformer-connected boundary buses are captured correctly.
+
+    Parameters
+    ----------
+    etrago : Etrago
+        An instance of the Etrago class (used for DB access when
+        focus_region is a list of region names).
+    network : pypsa.Network
+        Original network before preprocessing.  Must contain
+        ``network.buses``, ``network.lines``, and ``network.transformers``.
+    focus_region : list[str] or str
+        Either a list of ``gen`` values from the ``vg250_krs`` table, or a
+        path to a GeoPandas-readable file whose geometry defines the region.
+    per_country : bool, optional
+        When True only cross-connections whose ``country`` column equals
+        ``"DE"`` are considered.  Default is True.
+
+    Returns
+    -------
+    inside_buses : pandas.Index
+        AC buses whose location lies inside the focus polygon.
+    boundary_buses : pandas.Index
+        AC buses outside the polygon that are directly connected to at
+        least one inside bus via a line **or** a transformer.
+    """
+    if isinstance(focus_region, list):
+        if "oep.iks.cs.ovgu.de" in str(etrago.engine.url):
+            saio.register_schema("tables", etrago.engine)
+            from saio.tables import edut_00_012 as vg250_krs
+        else:
+            saio.register_schema("boundaries", etrago.engine)
+            from saio.boundaries import vg250_krs
+        query = etrago.session.query(vg250_krs)
+        krs = saio.as_pandas(query, geometry="geometry")
+        missing = set(focus_region) - set(krs["gen"])
+        if missing:
+            raise ValueError(
+                f"The following focus_region entries are not valid: {missing}"
+            )
+        focus_gdf = krs[krs["gen"].isin(focus_region)]
+    else:
+        focus_gdf = gpd.read_file(focus_region)
+
+    buses_df = network.buses[["x", "y"]].copy()
+    buses_df["geometry"] = buses_df.apply(
+        lambda row: Point(row["x"], row["y"]), axis=1
+    )
+    buses_gdf = gpd.GeoDataFrame(buses_df, geometry="geometry", crs=4326)
+    buses_gdf = buses_gdf.to_crs(epsg=25832)
+
+    if focus_gdf.crs is None:
+        raise ValueError("CRS of your focus region must be defined.")
+    focus_gdf = focus_gdf.to_crs(buses_gdf.crs)
+    focus_polygon = focus_gdf.geometry.unary_union
+
+    mask = buses_gdf.geometry.within(focus_polygon)
+    inside_buses = buses_gdf[mask].index
+
+    # Buses connected to inside via lines
+    lines_cross = network.lines[
+        network.lines.bus0.isin(inside_buses)
+        ^ network.lines.bus1.isin(inside_buses)
+    ]
+    if per_country and "country" in network.lines.columns:
+        lines_cross = lines_cross[lines_cross.country == "DE"]
+    boundary_from_lines = set(lines_cross.bus0) | set(lines_cross.bus1)
+
+    # Buses connected to inside via transformers (original network has them)
+    boundary_from_trafos = set()
+    if not network.transformers.empty:
+        trafos_cross = network.transformers[
+            network.transformers.bus0.isin(inside_buses)
+            ^ network.transformers.bus1.isin(inside_buses)
+        ]
+        if per_country and "country" in network.transformers.columns:
+            trafos_cross = trafos_cross[trafos_cross.country == "DE"]
+        boundary_from_trafos = set(trafos_cross.bus0) | set(trafos_cross.bus1)
+
+    boundary_set = (boundary_from_lines | boundary_from_trafos) - set(
+        inside_buses
+    )
+    boundary_buses = network.buses.index.intersection(
+        pd.Index(list(boundary_set))
+    )
+
+    return inside_buses, boundary_buses
+
+
 def focus_weighting(
     etrago,
     network,

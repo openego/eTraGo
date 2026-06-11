@@ -43,6 +43,7 @@ if "READTHEDOCS" not in os.environ:
         busmap_ehv_clustering,
         drop_nan_values,
         focus_weighting,
+        get_focus_region_buses,
         group_links,
         kmean_clustering,
         kmedoids_dijkstra_clustering,
@@ -700,7 +701,7 @@ def unify_foreign_buses(etrago):
     return busmap_foreign
 
 
-def preprocessing(etrago, apply_on="grid_model"):
+def preprocessing(etrago, inside_buses=None, apply_on="grid_model"):
     """
     Preprocesses an Etrago object to prepare it for network clustering.
 
@@ -708,6 +709,19 @@ def preprocessing(etrago, apply_on="grid_model"):
     ----------
     etrago : Etrago
         An instance of the Etrago class
+    inside_buses : pandas.Index or None, optional
+        AC buses that lie inside the focus region.  When provided, two
+        normalisation steps are skipped so the original inside topology is
+        preserved:
+
+        * voltage scaling of lines whose **both** endpoints are inside buses
+        * setting ``v_nom = 380`` for inside buses
+
+        All transformers (including focus-region ones) are still converted
+        to T-prefixed lines as usual so that ``focus_weighting`` can locate
+        boundary buses via ``network.lines``.  Focus-region transformers are
+        restored after ``get_clustering_from_busmap`` in
+        ``run_spatial_clustering``.
     apply_on : string
         provide information about the objective of the preprocessing. Which
         process is going to use the result. e.g. "grid_model", "market_model".
@@ -741,7 +755,14 @@ def preprocessing(etrago, apply_on="grid_model"):
     network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
 
     # adjust the electrical parameters of the lines which are not 380.
-    lines_v_nom_b = network.lines.v_nom != 380
+    # Skip lines whose both endpoints are inside the focus region.
+    if inside_buses is not None and len(inside_buses) > 0:
+        inner_line_mask = network.lines.bus0.isin(
+            inside_buses
+        ) & network.lines.bus1.isin(inside_buses)
+        lines_v_nom_b = (network.lines.v_nom != 380) & ~inner_line_mask
+    else:
+        lines_v_nom_b = network.lines.v_nom != 380
 
     voltage_factor = (network.lines.loc[lines_v_nom_b, "v_nom"] / 380.0) ** 2
 
@@ -801,7 +822,16 @@ def preprocessing(etrago, apply_on="grid_model"):
     elif trafo_index.empty:
         logging.info("Your network does not have any transformer")
 
-    network.buses["v_nom"].loc[network.buses.carrier.values == "AC"] = 380.0
+    # Set v_nom = 380 for all AC buses except focus-region inside buses.
+    if inside_buses is not None and len(inside_buses) > 0:
+        ac_outside_mask = (network.buses.carrier == "AC") & (
+            ~network.buses.index.isin(inside_buses)
+        )
+        network.buses.loc[ac_outside_mask, "v_nom"] = 380.0
+    else:
+        network.buses["v_nom"].loc[
+            network.buses.carrier.values == "AC"
+        ] = 380.0
 
     if network.buses.country.isna().any():
         logger.info(f"""
@@ -1144,11 +1174,94 @@ def run_spatial_clustering(self):
         else:
             self.disaggregated_network = self.network.copy(with_time=False)
 
-        elec_network, weight, n_clusters, busmap_foreign = preprocessing(self)
-
         focus_region = self.args["network_clustering"]["method"][
             "focus_region"
         ]
+        inside_buses = pd.Index([])
+        boundary_buses = pd.Index([])
+        focus_trafos = pd.DataFrame()
+        focus_trafos_t = {}
+        focus_buses_set = set()
+        focus_t_pairs = set()
+        all_t_pairs = set()
+        focus_cross_pairs = set()
+
+        if focus_region:
+            inside_buses, boundary_buses = get_focus_region_buses(
+                self,
+                self.network,
+                focus_region,
+                per_country=self.args["network_clustering"]["method"][
+                    "per_country"
+                ],
+            )
+            # Normalize to strings to match PyPSA's internal bus ID storage.
+            # Without this, isin() / set membership checks fail silently when
+            # the index comes back as integers from the DB.
+            inside_buses = inside_buses.astype(str)
+            boundary_buses = boundary_buses.astype(str)
+            logger.info(
+                f"Focus region: {len(inside_buses)} inside buses and "
+                f"{len(boundary_buses)} boundary buses identified."
+            )
+            # Save focus-region transformers from the original network
+            # before preprocessing converts them to T-lines.
+            focus_buses_set = set(inside_buses)
+            trafo_mask = self.network.transformers.bus0.isin(
+                focus_buses_set
+            ) | self.network.transformers.bus1.isin(focus_buses_set)
+            focus_trafos = self.network.transformers[trafo_mask].copy()
+            for attr in self.network.transformers_t:
+                t_df = self.network.transformers_t[attr]
+                cols = t_df.columns.intersection(focus_trafos.index)
+                if not cols.empty:
+                    focus_trafos_t[attr] = t_df[cols].copy()
+
+            # Identify cross-boundary lines that must become transformers.
+            # A line may stay as a line only if BOTH its endpoints were
+            # originally at 380 kV.  Any other cross-boundary line connects
+            # a non-380 kV inside bus to an outside bus that preprocessing
+            # will normalise to 380 kV — leaving a physically meaningless
+            # line between two buses of different voltages.
+            # We record these pairs now, before preprocessing changes v_nom.
+            _cb = self.network.lines[
+                self.network.lines.bus0.isin(focus_buses_set)
+                ^ self.network.lines.bus1.isin(focus_buses_set)
+            ]
+            if not _cb.empty:
+                _both_380 = (
+                    _cb.bus0.map(self.network.buses.v_nom).eq(380.0)
+                    & _cb.bus1.map(self.network.buses.v_nom).eq(380.0)
+                )
+                focus_cross_pairs = {
+                    (min(r.bus0, r.bus1), max(r.bus0, r.bus1))
+                    for _, r in _cb[~_both_380].iterrows()
+                }
+                if focus_cross_pairs:
+                    logger.info(
+                        f"Focus region: {len(focus_cross_pairs)} "
+                        f"cross-boundary line(s) will be converted to "
+                        f"transformers after clustering."
+                    )
+
+        elec_network, weight, n_clusters, busmap_foreign = preprocessing(
+            self, inside_buses=inside_buses
+        )
+
+        # Build endpoint-pair indices for ALL T-lines and for focus-region
+        # T-lines.  After clustering, aggregatelines renames every T-prefixed
+        # line to an integer group ID, so we must record endpoint pairs now
+        # before the "T" prefix is lost.  all_t_pairs covers the full set;
+        # focus_t_pairs is the subset with at least one endpoint inside the
+        # focus region (used to match the saved original transformer data).
+        for _lid, _r in self.network.lines.iterrows():
+            if not str(_lid).startswith("T"):
+                continue
+            _pair = (min(_r.bus0, _r.bus1), max(_r.bus0, _r.bus1))
+            all_t_pairs.add(_pair)
+            if _r.bus0 in focus_buses_set or _r.bus1 in focus_buses_set:
+                focus_t_pairs.add(_pair)
+
         if focus_region:
             weight = focus_weighting(
                 self,
@@ -1165,6 +1278,40 @@ def run_spatial_clustering(self):
                     "cpu_cores"
                 ],
             )
+
+            # Drop focus buses from the clustering network so they are
+            # preserved individually via identity mappings added below.
+            focus_buses = inside_buses.union(boundary_buses).intersection(
+                elec_network.buses.index
+            )
+            if len(focus_buses) > 0:
+                elec_network.buses = elec_network.buses.drop(focus_buses)
+                for _comp in [
+                    "generators",
+                    "loads",
+                    "storage_units",
+                    "stores",
+                ]:
+                    _df = getattr(elec_network, _comp)
+                    _filtered = _df[
+                        _df.bus.isin(elec_network.buses.index)
+                    ]
+                    setattr(elec_network, _comp, _filtered)
+                    _comp_t = getattr(elec_network, _comp + "_t")
+                    for _attr in list(_comp_t.keys()):
+                        _comp_t[_attr] = _comp_t[_attr].loc[
+                            :,
+                            _comp_t[_attr].columns.isin(_filtered.index),
+                        ]
+                weight = weight.reindex(
+                    elec_network.buses.index
+                ).dropna()
+                logger.info(
+                    f"Focus region: {len(focus_buses)} buses excluded "
+                    f"from clustering. Clustering "
+                    f"{len(elec_network.buses)} buses into "
+                    f"{n_clusters} clusters."
+                )
 
         if self.args["network_clustering"]["method"]["algorithm"] == "kmeans":
             if not self.args["network_clustering"]["electricity_grid"][
@@ -1201,12 +1348,138 @@ def run_spatial_clustering(self):
                 busmap = pd.Series(dtype=str)
                 medoid_idx = pd.Series(dtype=str)
 
+        # Add identity mappings so focus buses survive get_clustering_from_busmap
+        # as individual 1-bus clusters.
+        if len(inside_buses) > 0 or len(boundary_buses) > 0:
+            for bus in inside_buses.union(boundary_buses):
+                busmap[str(bus)] = str(bus)
+
         clustering, busmap = postprocessing(
             self, busmap, busmap_foreign, medoid_idx
         )
         self.update_busmap(busmap)
 
         self.network = clustering.network
+
+        # Convert all T-lines back to proper Transformer objects.
+        # preprocessing() stores every original Transformer as a T-prefixed
+        # Line with x in Ohm at v_nom=380 kV.  PyPSA post-processing
+        # computes x_pu = x_Ω / v_nom² ≈ 7 × 10⁻¹⁰, giving B ≈ 1.4 × 10⁹.
+        # Mixed with normal line B ≈ 300, the sub-network B-matrix condition
+        # number reaches ~10⁷ and np.linalg.pinv raises LinAlgError.
+        # Restoring proper Transformer objects (x is pu, B ≈ 10⁴) brings
+        # the condition number back to ~100.
+        #
+        # all_t_pairs was recorded after preprocessing, before aggregatelines
+        # renamed every T-prefixed line to an integer group ID.
+        matched_t = {
+            lid: r
+            for lid, r in self.network.lines.iterrows()
+            if (min(r.bus0, r.bus1), max(r.bus0, r.bus1)) in all_t_pairs
+        }
+        if matched_t:
+            self.network.mremove("Line", list(matched_t.keys()))
+
+            # Focus T-lines: re-insert using saved original transformer data.
+            if not focus_trafos.empty:
+                io.import_components_from_dataframe(
+                    self.network, focus_trafos, "Transformer"
+                )
+                for attr, t_df in focus_trafos_t.items():
+                    io.import_series_from_dataframe(
+                        self.network, t_df, "Transformer", attr
+                    )
+                logger.info(
+                    f"Focus region: restored {len(focus_trafos)} "
+                    f"transformer(s) from original data."
+                )
+
+            # Non-focus T-lines: reconstruct via inverse of preprocessing
+            # formula.  preprocessing sets x_Tline = trafo_x_pu*(380/v_max)²,
+            # so trafo_x_pu = x_Tline / (380/v_max)².  For 380/380 kV cluster
+            # pairs (the common case) v_max = 380 and trafo_x_pu = x_Tline.
+            nft_rows = {}
+            for lid, r in matched_t.items():
+                if (
+                    min(r.bus0, r.bus1),
+                    max(r.bus0, r.bus1),
+                ) in focus_t_pairs:
+                    continue
+                bus0_v = float(self.network.buses.at[r.bus0, "v_nom"])
+                bus1_v = float(self.network.buses.at[r.bus1, "v_nom"])
+                v_max = max(bus0_v, bus1_v)
+                scale = (380.0 / v_max) ** 2 if v_max > 0 else 1.0
+                lv_bus = r.bus0 if bus0_v <= bus1_v else r.bus1
+                hv_bus = r.bus1 if bus0_v <= bus1_v else r.bus0
+                nft_rows[f"NFT_{lid}"] = {
+                    "bus0": lv_bus,
+                    "bus1": hv_bus,
+                    "x": float(r.x) / scale,
+                    "s_nom": float(r.s_nom),
+                    "s_nom_extendable": bool(r.s_nom_extendable),
+                    "s_max_pu": float(r.s_max_pu),
+                    "capital_cost": float(r.capital_cost),
+                    "lifetime": float(r.lifetime),
+                    "sub_network": "",
+                }
+            if nft_rows:
+                io.import_components_from_dataframe(
+                    self.network,
+                    pd.DataFrame.from_dict(nft_rows, orient="index"),
+                    "Transformer",
+                )
+                logger.info(
+                    f"Restored {len(nft_rows)} non-focus T-line(s) to "
+                    f"transformers."
+                )
+
+            self.network.determine_network_topology()
+
+        # Convert cross-boundary lines to synthetic transformers.
+        # These lines were originally connecting two buses at the same
+        # (non-380 kV) voltage.  After preprocessing normalises the outside
+        # bus to 380 kV they would connect buses at different voltages, which
+        # is physically meaningless for a plain AC line.  We replace them with
+        # transformers that carry identical electrical parameters:
+        #   x_pu = x_line_Ω / v_nom_line_kV²   (preserves B = 1 / x_pu_eff)
+        if focus_cross_pairs:
+            cb_to_remove = []
+            cb_trafos = {}
+            for lid, r in self.network.lines.iterrows():
+                pair = (min(r.bus0, r.bus1), max(r.bus0, r.bus1))
+                if pair not in focus_cross_pairs:
+                    continue
+                cb_to_remove.append(lid)
+                v_nom_line = float(r.v_nom) if r.v_nom else 380.0
+                x_pu = float(r.x) / v_nom_line ** 2
+                bus0_v = self.network.buses.at[r.bus0, "v_nom"]
+                bus1_v = self.network.buses.at[r.bus1, "v_nom"]
+                lv_bus = r.bus0 if bus0_v <= bus1_v else r.bus1
+                hv_bus = r.bus1 if bus0_v <= bus1_v else r.bus0
+                cb_trafos[f"CB_{lid}"] = {
+                    "bus0": lv_bus,
+                    "bus1": hv_bus,
+                    "x": x_pu,
+                    "s_nom": float(r.s_nom),
+                    "s_nom_extendable": bool(r.s_nom_extendable),
+                    "s_max_pu": float(r.s_max_pu),
+                    "capital_cost": float(r.capital_cost),
+                    "lifetime": float(r.lifetime),
+                    "sub_network": "",
+                }
+            if cb_to_remove:
+                self.network.mremove("Line", cb_to_remove)
+            if cb_trafos:
+                io.import_components_from_dataframe(
+                    self.network,
+                    pd.DataFrame.from_dict(cb_trafos, orient="index"),
+                    "Transformer",
+                )
+                self.network.determine_network_topology()
+                logger.info(
+                    f"Focus region: converted {len(cb_trafos)} "
+                    f"cross-boundary line(s) to transformers."
+                )
 
         self.buses_by_country()
 
