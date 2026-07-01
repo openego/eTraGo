@@ -91,11 +91,11 @@ def market_optimization(self):
         logger.warning("Method type must be either 'pyomo' or 'linopy'")
 
     # Export results of pre-market model
-    if self.args["csv_export"]:
-        path = self.args["csv_export"]
+    if self.args["export_results_path"]:
+        path = self.args["export_results_path"]
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
-        self.pre_market_model.export_to_csv_folder(path + "/pre_market")
+        self.pre_market_model.export_to_csv_folder(path + "/pre_market_optimization")
     logger.info("Preparing short-term UC market model")
 
     build_shortterm_market_model(self, unit_commitment)
@@ -128,11 +128,11 @@ def market_optimization(self):
     self.args["method"]["formulation"] = method_args
 
     # Export results of market model
-    if self.args["csv_export"]:
-        path = self.args["csv_export"]
+    if self.args["export_results_path"]:
+        path = self.args["export_results_path"]
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
-        self.market_model.export_to_csv_folder(path + "/market")
+        self.market_model.export_to_csv_folder(path + "/market_optimization")
 
 
 def build_market_model(self, unit_commitment=False):
