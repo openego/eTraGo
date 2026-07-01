@@ -26,6 +26,7 @@ import os
 
 if "READTHEDOCS" not in os.environ:
     import logging
+    import shutil
     import time
 
     from pypsa.linopf import network_lopf
@@ -230,9 +231,20 @@ def iterate_lopf(
             for i in range(1, (1 + n_iter)):
                 run_lopf(etrago, extra_functionality, method)
 
-                if args["csv_export"]:
-                    path_it = path + "/lopf_iteration_" + str(i)
-                    etrago.export_to_csv(path_it)
+                if args["export_results_path"]:
+                    # Store intermediate iterations
+                    if i < n_iter:
+                        path_it = path + "/lopf_iteration_" + str(i)
+                        etrago.network.export_to_csv_folder(path_it)
+                    # Store final result
+                    else:
+                        etrago.network.export_to_csv_folder(path)
+
+                    # Delete previous iteration's results
+                    if i > 1:
+                        path_prev = path + "/lopf_iteration_" + str(i - 1)
+                        if os.path.exists(path_prev):
+                            shutil.rmtree(path_prev)
 
                 if i < n_iter:
                     l_snom_pre, t_snom_pre = update_electrical_parameters(
@@ -322,12 +334,6 @@ def lopf(self):
     y = time.time()
     z = (y - x) / 60
     logger.info("Time for LOPF [min]: {}".format(round(z, 2)))
-
-    if self.args["csv_export"]:
-        path = self.args["csv_export"]
-        if self.args["temporal_disaggregation"]["active"] is True:
-            path = path + "/temporally_reduced"
-        self.export_to_csv(path)
 
 
 def optimize(self):
