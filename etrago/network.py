@@ -23,6 +23,7 @@
 Define class Etrago
 """
 
+import json
 import logging
 import os
 
@@ -208,6 +209,16 @@ class Etrago:
             self.session = session()
 
             self.check_args()
+
+            # Create results folder and store args
+            if self.args["export_results_path"]:
+                if not os.path.exists(self.args["export_results_path"]):
+                    os.makedirs(self.args["export_results_path"], exist_ok=True)
+
+                with open(
+                        os.path.join(self.args["export_results_path"],
+                                     "args.json"), "w") as fp:
+                    json.dump(self.args, fp, indent=4)
 
         elif csv_folder_name is not None:
 
