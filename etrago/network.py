@@ -252,9 +252,10 @@ class Etrago:
                             )
                         except ValueError:
                             logger.warning("""
-                                Could not import a market_model but the selected
-                                method in the args indicated that it should be
-                                there. This happens when the exported network was
+                                Could not import a market_model but the
+                                selected method in the args indicated that it
+                                should be there.
+                                This happens when the exported network was
                                 not solved yet.Run 'etrago.optimize()' to build
                                 and solve the market model.
                                 """)
