@@ -1061,15 +1061,25 @@ def pf_post_lopf(etrago, calc_losses=False):
                     foreign_series[comp][attr], comp, attr
                 )
 
-    if args["csv_export"]:
-        path = args["csv_export"] + "/pf_post_lopf"
-        etrago.export_to_csv(path)
+    if args["export_results_path"]:
+        path = args["export_results_path"] + "/pf_post_lopf"
+        etrago.network.export_to_csv_folder(path)
         pf_solve.to_csv(os.path.join(path, "pf_solution.csv"), index=True)
 
         # Save un-solved disaggregated network
         if args["spatial_disaggregation"]:
-            etrago.disaggregated_network.export_to_csv_folder(
-                args["csv_export"] + "/disaggregated_network"
+            for comp_df in [
+                etrago.disaggregated_network.transformers,
+                etrago.disaggregated_network.lines,
+                etrago.disaggregated_network.links,
+                etrago.disaggregated_network.buses,
+            ]:
+                if "geom" in comp_df.columns:
+                    comp_df.drop(columns=["geom"], inplace=True)
+                if "topo" in comp_df.columns:
+                    comp_df.drop(columns=["topo"], inplace=True)
+            etrago.disaggregated_network.export_to_netcdf(
+                args["export_results_path"] + "/disaggregated_network.nc"
             )
 
     return network
