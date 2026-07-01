@@ -202,13 +202,14 @@ def iterate_lopf(
     """
 
     args = etrago.args
-    path = args["csv_export"]
     lp_path = args["lpfile"]
 
-    if args["temporal_disaggregation"]["active"]:
-        if args["csv_export"]:
-            path = path + "/temporally_reduced"
+    if args["export_results_path"]:
+        path = args["export_results_path"] + "/grid_optimization"
+        if not os.path.exists(path):
+            os.makedirs(path, exist_ok=True)
 
+    if args["temporal_disaggregation"]["active"]:
         if args["lpfile"]:
             lp_path = lp_path[0:-3] + "_temporally_reduced.lp"
 
@@ -263,9 +264,9 @@ def iterate_lopf(
 
                 i += 1
 
-                if args["csv_export"]:
+                if args["export_results_path"]:
                     path_it = path + "/lopf_iteration_" + str(i)
-                    etrago.export_to_csv(path_it)
+                    etrago.network.export_to_csv_folder(path_it)
 
                 if abs(pre - network.objective) <= diff_obj:
                     print("Threshold reached after " + str(i) + " iterations.")
@@ -273,8 +274,8 @@ def iterate_lopf(
 
     else:
         run_lopf(etrago, extra_functionality, method)
-        if etrago.args["csv_export"]:
-            etrago.export_to_csv(path)
+        if etrago.args["export_results_path"]:
+            etrago.network.export_to_csv_folder(path)
 
     if args["lpfile"]:
         network.model.write(lp_path)
