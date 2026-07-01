@@ -89,7 +89,7 @@ args = {
     "scn_extension": None,  # None or array of extension scenarios
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
-    "csv_export": "results",  # save results as csv: False or /path/tofolder
+    "export_results_path": "results",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
         "extendable_components": [
@@ -290,9 +290,9 @@ def run_etrago(args, json_path):
     lpfile : bool or str
         State if and where you want to save pyomo's lp file. Options:
         False or '/path/tofile.lp'. Default: False.
-    csv_export : bool or str
-        State if and where you want to save results as csv files. Options:
-        False or '/path/tofolder'. Default: False.
+    export_results_path : bool or str
+        State if and where you want to save results as csv and .nc files.
+        Options: False or '/path/tofolder'. Default: False.
 
     extendable : dict
         Choose components you want to optimize and set upper bounds for grid
