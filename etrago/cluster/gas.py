@@ -38,6 +38,7 @@ import pypsa.io as io
 if "READTHEDOCS" not in os.environ:
     from etrago.cluster.spatial import (
         drop_nan_values,
+        export_clustering_results,
         focus_weighting,
         group_links,
         kmedoids_dijkstra_clustering,
@@ -1266,3 +1267,6 @@ def run_spatial_clustering_gas(self):
                         method,
                     )
                 )
+
+        if self.args["export_results_path"]:
+            export_clustering_results(self)

@@ -20,6 +20,7 @@
 # File description for read-the-docs
 """spatial.py defines the methods to run spatial clustering on networks."""
 
+import json
 import logging
 import os
 
@@ -1092,3 +1093,15 @@ def drop_nan_values(network):
             (c.attrs.status == "Output") & (c.attrs.varying)
         ].index:
             c.pnl[pnl] = pd.DataFrame(index=network.snapshots)
+
+
+def export_clustering_results(etrago):
+
+    path = etrago.args["export_results_path"]
+
+    with open(os.path.join(path, "busmap.json"), "w") as d:
+        json.dump(etrago.busmap["busmap"], d, indent=4)
+
+    etrago.busmap["orig_network"].export_to_csv_folder(
+        path + "/original_network_topology"
+    )

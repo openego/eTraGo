@@ -42,6 +42,7 @@ if "READTHEDOCS" not in os.environ:
     from etrago.cluster.spatial import (
         busmap_ehv_clustering,
         drop_nan_values,
+        export_clustering_results,
         focus_weighting,
         group_links,
         kmean_clustering,
@@ -1230,3 +1231,6 @@ def run_spatial_clustering(self):
             )
             + self.args["network_clustering"]["method"]["algorithm"]
         )
+
+        if self.args["export_results_path"]:
+            export_clustering_results(self)
