@@ -1676,18 +1676,12 @@ def get_clustering_data(self, path):
 
     """
 
-    ch4_h2_mapping_path = os.path.join(
-        path, "ch4_h2_mapping.json"
-    )
+    ch4_h2_mapping_path = os.path.join(path, "ch4_h2_mapping.json")
     if os.path.exists(ch4_h2_mapping_path):
         with open(ch4_h2_mapping_path) as f:
-            self.ch4_h2_mapping = pd.read_json(f, typ="series").astype(
-                str
-            )
+            self.ch4_h2_mapping = pd.read_json(f, typ="series").astype(str)
             self.ch4_h2_mapping.index.name = "CH4_bus"
-            self.ch4_h2_mapping.index = (
-                self.ch4_h2_mapping.index.astype(str)
-            )
+            self.ch4_h2_mapping.index = self.ch4_h2_mapping.index.astype(str)
     else:
         logger.info("""There is no CH4 to H2 bus mapping data
             available in the loaded object.""")
@@ -1700,9 +1694,7 @@ def get_clustering_data(self, path):
             path + "/original_network_topology", name="orig"
         )
     else:
-        logger.info(
-            "There is no busmap data available in the loaded object."
-        )
+        logger.info("There is no busmap data available in the loaded object.")
 
 
 def set_random_noise(self, sigma=0.01):

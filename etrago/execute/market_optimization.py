@@ -95,7 +95,9 @@ def market_optimization(self):
         path = self.args["export_results_path"]
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
-        self.pre_market_model.export_to_csv_folder(path + "/pre_market_optimization")
+        self.pre_market_model.export_to_csv_folder(
+            path + "/pre_market_optimization"
+        )
     logger.info("Preparing short-term UC market model")
 
     build_shortterm_market_model(self, unit_commitment)
