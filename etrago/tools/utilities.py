@@ -1676,39 +1676,32 @@ def get_clustering_data(self, path):
 
     """
 
-    try:
-        path_clus = os.path.join(path, "clustering")
-        if os.path.exists(path_clus):
-            ch4_h2_mapping_path = os.path.join(
-                path_clus, "ch4_h2_mapping.json"
+    ch4_h2_mapping_path = os.path.join(
+        path, "ch4_h2_mapping.json"
+    )
+    if os.path.exists(ch4_h2_mapping_path):
+        with open(ch4_h2_mapping_path) as f:
+            self.ch4_h2_mapping = pd.read_json(f, typ="series").astype(
+                str
             )
-            if os.path.exists(ch4_h2_mapping_path):
-                with open(ch4_h2_mapping_path) as f:
-                    self.ch4_h2_mapping = pd.read_json(f, typ="series").astype(
-                        str
-                    )
-                    self.ch4_h2_mapping.index.name = "CH4_bus"
-                    self.ch4_h2_mapping.index = (
-                        self.ch4_h2_mapping.index.astype(str)
-                    )
-            else:
-                logger.info("""There is no CH4 to H2 bus mapping data
-                    available in the loaded object.""")
+            self.ch4_h2_mapping.index.name = "CH4_bus"
+            self.ch4_h2_mapping.index = (
+                self.ch4_h2_mapping.index.astype(str)
+            )
+    else:
+        logger.info("""There is no CH4 to H2 bus mapping data
+            available in the loaded object.""")
 
-            busmap_path = os.path.join(path_clus, "busmap.json")
-            if os.path.exists(busmap_path):
-                with open(busmap_path) as f:
-                    self.busmap["busmap"] = json.load(f)
-                self.busmap["orig_network"] = pypsa.Network(
-                    path_clus, name="orig"
-                )
-            else:
-                logger.info(
-                    "There is no busmap data available in the loaded object."
-                )
-    except ValueError:
+    busmap_path = os.path.join(path, "busmap.json")
+    if os.path.exists(busmap_path):
+        with open(busmap_path) as f:
+            self.busmap["busmap"] = json.load(f)
+        self.busmap["orig_network"] = pypsa.Network(
+            path + "/original_network_topology", name="orig"
+        )
+    else:
         logger.info(
-            "There is no clustering data available in the loaded object."
+            "There is no busmap data available in the loaded object."
         )
 
 
