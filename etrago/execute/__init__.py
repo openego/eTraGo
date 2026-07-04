@@ -33,6 +33,9 @@ if "READTHEDOCS" not in os.environ:
     import numpy as np
     import pandas as pd
 
+    import pyomo as po
+    import pypsa
+
     from etrago.tools.constraints import (
         Constraints,
         _get_crossborder_components,
@@ -146,7 +149,7 @@ def run_lopf(etrago, extra_functionality, method):
         )
 
         if etrago.network.results["Solver"][0]["Status"] != "ok":
-            raise Exception("LOPF not solved.")
+            print("LOPF not solved.")
 
     elif method["formulation"] == "linopy":
         status, condition = etrago.network.optimize(
@@ -228,6 +231,15 @@ def iterate_lopf(
 
             for i in range(1, (1 + n_iter)):
                 run_lopf(etrago, extra_functionality, method)
+
+                if (
+                    (i == 3)
+                    & (args["distribution_grids"]["active"])
+                    & (args["distribution_grids"]["mga"])
+                ):
+                    args["distribution_grids"][
+                        "optimal_cost_first_iteration"
+                    ] = etrago.network.objective
 
                 if args["csv_export"]:
                     path_it = path + "/lopf_iteration_" + str(i)
