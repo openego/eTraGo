@@ -3843,10 +3843,23 @@ class Constraints:
 
         """
 
-        if (self.args["method"]["distribution_grids"] != False) & (
+        if (self.args["distribution_grids"]["active"] != False) & (
             self.apply_on == "grid_model"
         ):
             couple_distribution_links(self, network, snapshots)
+
+        if (
+            (self.args["distribution_grids"]["active"])
+            & (self.args["distribution_grids"]["mga"])
+            & (
+                "optimal_cost_first_iteration"
+                in self.args["distribution_grids"].keys()
+            )
+        ):
+
+            print("Solving MGA")
+
+            mga_distribution_grid(self, network, snapshots)
 
         if "CH4" in network.buses.carrier.values:
             if self.args["method"]["formulation"] == "pyomo":
@@ -4417,6 +4430,34 @@ def add_chp_constraints_linopy(network, snapshots):
                     "Link",
                     "top_iso_fuel_line_" + i + "_" + str(snapshot),
                 )
+
+
+def mga_distribution_grid(self, network, snapshots):
+    model = network.model
+
+    links = network.links[network.links.carrier == "distribution_grid"].index
+
+    epsilon = self.args["distribution_grids"]["mga_limit"]
+
+    optimal_cost = self.args["distribution_grids"][
+        "optimal_cost_first_iteration"
+    ]
+
+    # Kosten-Nebenbedingung: ursprüngliche Zielfunktion darf nur um
+    # epsilon groesser sein als das Optimum aus Stufe 1
+    model.cost_constraint = po.Constraint(
+        expr=model.objective.expr <= (1 + epsilon) * optimal_cost
+    )
+
+    # urspruengliche Zielfunktion deaktivieren (nur eine aktive
+    # Objective gleichzeitig erlaubt in Pyomo)
+    model.objective.deactivate()
+
+    # neue Zielfunktion: Summe der Auslastung minimieren
+    model.min_util_objective = po.Objective(
+        expr=sum(model.link_p_nom[link] for link in links),
+        sense=po.minimize,
+    )
 
 
 def couple_distribution_links(self, n, snapshots):
