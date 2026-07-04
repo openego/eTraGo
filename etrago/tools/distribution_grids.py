@@ -63,6 +63,8 @@ def distribution_grid_buses_and_links(self, mv_grids, seperate_dg_link=True):
     None.
 
     """
+    seperate_dg_link = self.args["distribution_grids"]["unidirectional"]
+
     # Create distribution grid (DG) nodes
     self.network.madd(
         "Bus",
@@ -74,7 +76,7 @@ def distribution_grid_buses_and_links(self, mv_grids, seperate_dg_link=True):
     )
 
     edisgo_results = pd.read_csv(
-        self.args["method"]["distribution_grids"]
+        self.args["distribution_grids"]["path"]
     ).set_index("bus_id")
 
     # Create link between transmission an distribution grid
@@ -125,8 +127,12 @@ def distribution_grid_buses_and_links(self, mv_grids, seperate_dg_link=True):
             carrier="distribution_grid",
             bus0=mv_grids.bus_id.astype(str).values,
             bus1=(mv_grids.bus_id.astype(str) + "_distribution_grid").values,
-            p_nom_min=edisgo_results.loc[mv_grids.bus_id, "p_nom_worst_case"].values,
-            p_nom_max=(edisgo_results.loc[mv_grids.bus_id, "p_nom_worst_case"] * 4)
+            p_nom_min=edisgo_results.loc[
+                mv_grids.bus_id, "p_nom_worst_case"
+            ].values,
+            p_nom_max=(
+                edisgo_results.loc[mv_grids.bus_id, "p_nom_worst_case"] * 4
+            )
             .clip(lower=200.0)
             .values,
             p_nom_extendable=True,
@@ -852,7 +858,7 @@ def add_simplified_distribution_grids(self):
     """
 
     # Define and import tables in high spatial resolution
-    if self.args["method"]["distribution_grids"]:
+    if self.args["distribution_grids"]["active"]:
         if "oep.iks.cs.ovgu.de" in str(self.engine.url):
             from saio.tables import (
                 edut_00_080 as egon_mv_grid_district,

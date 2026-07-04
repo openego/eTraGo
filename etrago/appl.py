@@ -54,9 +54,9 @@ args = {
     "method": {  # choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
         "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        "formulation": "linopy",
+        "formulation": "pyomo",
         "market_optimization": {
-            "active": True,
+            "active": False,
             "market_zones": "status_quo",  # only used if type='market_grid'
             "rolling_horizon": {  # define parameter of market optimization
                 "planning_horizon": 168,  # number of snapshots in each optimization
@@ -64,7 +64,13 @@ args = {
             },
             "redispatch": True,
         },
-        "distribution_grids": False,  # False or path to file with edisgo results
+    },
+    "distribution_grids": {
+        "active": True,
+        "path": "/home/clara/etrago/eTraGo/etrago/distribution_grid_results_all_cases_sq.csv",
+        "unidirectional": True,
+        "mga": True,
+        "mga_limit": 0.001,
     },
     "pf_post_lopf": {
         "active": False,  # choose if perform a pf after lopf

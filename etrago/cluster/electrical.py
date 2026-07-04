@@ -165,7 +165,7 @@ def adjust_no_electric_network(
             "O2": "PtH2_O2",
         }
     else:
-        if etrago.args["method"]["distribution_grids"]:
+        if etrago.args["distribution_grids"]["active"]:
             map_carrier = {
                 "H2_saltcavern": "power_to_H2",
                 "dsm": "dsm",

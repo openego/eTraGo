@@ -453,7 +453,7 @@ class Etrago:
 
         logger.info("Imported network from db")
 
-        if self.args["method"]["distribution_grids"]:
+        if self.args["distribution_grids"]["active"]:
             self.add_simplified_distribution_grids()
             logger.info("Added simplified distribution grids")
 

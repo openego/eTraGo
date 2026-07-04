@@ -336,7 +336,7 @@ def sector_coupled_clustering_strategy(etrago):
     """
 
     if "eGon2035" in etrago.args["scn_name"]:
-        if etrago.args["method"]["distribution_grids"]:
+        if etrago.args["distribution_grids"]["active"]:
             strategy = {
                 "central_heat": {
                     "base": ["CH4", "AC"],
