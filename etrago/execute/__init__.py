@@ -1062,7 +1062,7 @@ def pf_post_lopf(etrago, calc_losses=False):
                 )
 
     if args["export_results_path"]:
-        path = args["export_results_path"] + "/pf_post_lopf"
+        path = args["export_results_path"] + "/non_linear_powerflow"
         etrago.network.export_to_csv_folder(path)
         pf_solve.to_csv(os.path.join(path, "pf_solution.csv"), index=True)
 

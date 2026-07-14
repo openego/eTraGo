@@ -292,9 +292,14 @@ class Etrago:
 
                 # Import last network according to args
                 if self.args["pf_post_lopf"]["active"]:
-                    self.network = Network(
-                        results_folder_name + "/pf_post_lopf"
-                    )
+                    try:
+                        self.network = Network(
+                            results_folder_name + "/non_linear_powerflow"
+                        )
+                    except FileNotFoundError:
+                        self.network = Network(
+                            results_folder_name + "/pf_post_lopf"
+                        )
                 elif self.args["temporal_disaggregation"]["active"]:
                     self.network = Network(
                         results_folder_name + "/temporal_disaggregation"
