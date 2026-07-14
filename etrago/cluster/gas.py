@@ -462,11 +462,6 @@ def gas_postprocessing(
             ):
                 busmap.index.name = "bus_id"
                 busmap.name = "cluster"
-                busmap.to_csv(
-                    "kmeans_gasgrid_busmap_"
-                    + str(settings["n_clusters_ch4"])
-                    + "_result.csv"
-                )
 
             else:
                 busmap.name = "cluster"
@@ -479,11 +474,7 @@ def gas_postprocessing(
 
                 export = pd.concat([busmap, busmap_ind], axis=1)
                 export.index.name = "bus_id"
-                export.to_csv(
-                    "kmedoids-dijkstra_gasgrid_busmap_"
-                    + str(settings["n_clusters_ch4"])
-                    + "_result.csv"
-                )
+
         network = etrago.network
     else:
         network = etrago.pre_market_model

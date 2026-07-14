@@ -881,7 +881,6 @@ def postprocessing(
     """
     settings = etrago.args["network_clustering"]["electricity_grid"]
     method = etrago.args["network_clustering"]["method"]["algorithm"]
-    num_clusters = settings["n_clusters"]
 
     if not settings["k_elec_busmap"]:
         busmap.name = "cluster"
@@ -894,10 +893,6 @@ def postprocessing(
                 medoid_idx,
                 name="medoid_idx",
             )
-        )
-
-        busmap_elec.to_csv(
-            f"{method}_elecgrid_busmap_{num_clusters}_result.csv"
         )
 
     else:
