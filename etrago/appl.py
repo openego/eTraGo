@@ -135,14 +135,12 @@ args = {
             "active": True,  # choose if clustering is activated
             "cluster_within_focus": False,  # False for very low clustering within focus region
             "n_clusters": 30,  # total number of resulting AC nodes
-            "k_elec_busmap": False,  # False or path/to/busmap.csv
         },
         "gas_grids": {
             "active": True,  # choose if clustering is activated
             "cluster_within_focus": False,  #  False for very low clustering within focus region
             "n_clusters_ch4": 15,  # total number of resulting CH4 nodes
             "n_clusters_h2": 15,  # total number of resulting H2 nodes
-            "k_ch4_busmap": False,  # False or path/to/ch4_busmap.csv
         },
     },
     "spatial_disaggregation": None,  # None or 'uniform'

@@ -736,6 +736,8 @@ def preprocessing(etrago, apply_on="grid_model"):
         )
 
     settings = etrago.args["network_clustering"]
+    # quick fix while bus map loading is not working
+    settings["k_elec_busmap"] = False
 
     # problem our lines have no v_nom. this is implicitly defined by the
     # connected buses:
@@ -881,6 +883,9 @@ def postprocessing(
     """
     settings = etrago.args["network_clustering"]["electricity_grid"]
     method = etrago.args["network_clustering"]["method"]["algorithm"]
+    
+    # quick fix while bus map loading is not working
+    settings["k_ch4_busmap"] = False
 
     if not settings["k_elec_busmap"]:
         busmap.name = "cluster"
@@ -1139,6 +1144,11 @@ def run_spatial_clustering(self):
     -------
     None
     """
+    # quick fix while bus map loading is not working
+    self.args["network_clustering"]["electricity_grid"][
+        "k_elec_busmap"
+    ] = False
+    
     if self.args["network_clustering"]["electricity_grid"]["active"]:
         if self.args["spatial_disaggregation"] is not None:
             self.disaggregated_network = self.network.copy()

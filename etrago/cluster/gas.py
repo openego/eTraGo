@@ -453,6 +453,9 @@ def gas_postprocessing(
     """
     settings = etrago.args["network_clustering"]["gas_grids"]
     scn = etrago.args["scn_name"]
+    
+    # quick fix while bus map loading is not working
+    settings["k_ch4_busmap"] = False
 
     if apply_on == "grid_model":
         if settings["k_ch4_busmap"] is False:
@@ -1093,6 +1096,8 @@ def run_spatial_clustering_gas(self):
         "H2_grid" in self.network.buses.carrier.values
     ):
         settings = self.args["network_clustering"]["gas_grids"]
+        # quick fix while bus map loading is not working
+        settings["k_ch4_busmap"] = False
 
         if settings["active"]:
             method = self.args["network_clustering"]["method"]["algorithm"]
