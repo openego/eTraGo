@@ -413,14 +413,12 @@ def sector_coupled_clustering_strategy(etrago):
             "H2_saltcavern": {"base": ["H2_grid"], "strategy": "consecutive"},
             "Li_ion": {"base": ["AC"], "strategy": "consecutive"},
         }
-        logger.warning(
-            f"""
+        logger.warning(f"""
             No strategy defined for sector coupled clustering in scenario
             {etrago.args['scn_name']}
             Using default values instead - please check if they are correct:
             {strategy}
-            """
-        )
+            """)
     return strategy
 
 
