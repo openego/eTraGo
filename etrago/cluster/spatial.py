@@ -933,6 +933,8 @@ def focus_weighting(
     # Dijkstra's algorithm will be used for path lengths of lines
     # considering buses at border of focus region to consider its size
     if "AC" in network.buses.carrier.unique():
+        os.makedirs(etrago.args["csv_export"]+'/clustering', exist_ok=True)
+        inside.to_csv(etrago.args["csv_export"]+'/clustering/buses_within_focus.csv')
         lines_cross = network.lines[
             (network.lines.bus0.isin(inside.index))
             ^ (network.lines.bus1.isin(inside.index))
