@@ -226,14 +226,14 @@ class Etrago:
                     json.dump(self.args, fp, indent=4)
 
         elif results_folder_name is not None:
-            
+
             args_file = os.path.join(results_folder_name, "args.json")
-            
+
             if os.path.isfile(args_file):
                 self.get_args_setting(args_file)
-            else: 
-                self.args=None
-            
+            else:
+                self.args = None
+
             if self.args:
 
                 if "csv_export" in self.args:
@@ -247,7 +247,7 @@ class Etrago:
                             name,
                             ignore_standard_types,
                         )
-    
+
                     if self.args["method"]["market_optimization"]["active"]:
                         try:
                             self.market_model = Network(
@@ -265,7 +265,7 @@ class Etrago:
                                 and solve the market model.
                                 """)
                 else:
-    
+
                     # Import last network according to args
                     if self.args["pf_post_lopf"]["active"]:
                         try:
@@ -284,7 +284,7 @@ class Etrago:
                         self.network = Network(
                             results_folder_name + "/grid_optimization"
                         )
-    
+
                     if self.args["method"]["market_optimization"]["active"]:
                         try:
                             self.market_model = Network(
@@ -300,14 +300,14 @@ class Etrago:
                                 not solved yet.Run 'etrago.optimize()' to build
                                 and solve the market model.
                                 """)
-    
+
                     if self.args["spatial_disaggregation"] is not None:
                         self.disaggregated_network = Network(
                             results_folder_name + "/disaggregated_network.nc",
                             name,
                             ignore_standard_types,
                         )
-    
+
                     self.get_clustering_data(results_folder_name)
 
             else:
@@ -315,7 +315,7 @@ class Etrago:
                 logger.warning(f"""
                     No args.json in {results_folder_name} available.
                     """)
-                
+
                 try:
                     self.network = Network(
                         results_folder_name, name, ignore_standard_types
@@ -324,7 +324,7 @@ class Etrago:
                     logger.info("""
                         No network found.
                         """)
-                
+
                 try:
                     self.disaggregated_network = Network(
                         results_folder_name + "/disaggregated_network",
