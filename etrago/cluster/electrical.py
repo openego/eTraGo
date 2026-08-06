@@ -42,6 +42,7 @@ if "READTHEDOCS" not in os.environ:
     from etrago.cluster.spatial import (
         busmap_ehv_clustering,
         drop_nan_values,
+        export_clustering_results,
         focus_weighting,
         group_links,
         kmean_clustering,
@@ -735,6 +736,8 @@ def preprocessing(etrago, apply_on="grid_model"):
         )
 
     settings = etrago.args["network_clustering"]
+    # quick fix while bus map loading is not working
+    settings["k_elec_busmap"] = False
 
     # problem our lines have no v_nom. this is implicitly defined by the
     # connected buses:
@@ -880,7 +883,9 @@ def postprocessing(
     """
     settings = etrago.args["network_clustering"]["electricity_grid"]
     method = etrago.args["network_clustering"]["method"]["algorithm"]
-    num_clusters = settings["n_clusters"]
+
+    # quick fix while bus map loading is not working
+    settings["k_ch4_busmap"] = False
 
     if not settings["k_elec_busmap"]:
         busmap.name = "cluster"
@@ -893,10 +898,6 @@ def postprocessing(
                 medoid_idx,
                 name="medoid_idx",
             )
-        )
-
-        busmap_elec.to_csv(
-            f"{method}_elecgrid_busmap_{num_clusters}_result.csv"
         )
 
     else:
@@ -1143,6 +1144,11 @@ def run_spatial_clustering(self):
     -------
     None
     """
+    # quick fix while bus map loading is not working
+    self.args["network_clustering"]["electricity_grid"][
+        "k_elec_busmap"
+    ] = False
+
     if self.args["network_clustering"]["electricity_grid"]["active"]:
         if self.args["spatial_disaggregation"] is not None:
             self.disaggregated_network = self.network.copy()
@@ -1230,3 +1236,6 @@ def run_spatial_clustering(self):
             )
             + self.args["network_clustering"]["method"]["algorithm"]
         )
+
+        if self.args["export_results_path"]:
+            export_clustering_results(self)

@@ -926,6 +926,21 @@ def run_disaggregation(self):
                 )
             )
 
-            if self.args["csv_export"]:
-                path = self.args["csv_export"] + "/disaggregated_network"
-                self.disaggregated_network.export_to_csv_folder(path)
+            if self.args["export_results_path"]:
+                path = (
+                    self.args["export_results_path"]
+                    + "/disaggregated_network.nc"
+                )
+
+                for comp_df in [
+                    self.disaggregated_network.transformers,
+                    self.disaggregated_network.lines,
+                    self.disaggregated_network.links,
+                    self.disaggregated_network.buses,
+                ]:
+                    if "geom" in comp_df.columns:
+                        comp_df.drop(columns=["geom"], inplace=True)
+                    if "topo" in comp_df.columns:
+                        comp_df.drop(columns=["topo"], inplace=True)
+
+                self.disaggregated_network.export_to_netcdf(path)
