@@ -26,6 +26,7 @@ import os
 
 if "READTHEDOCS" not in os.environ:
     import logging
+    import shutil
     import time
 
     from pypsa.linopf import network_lopf
@@ -202,13 +203,14 @@ def iterate_lopf(
     """
 
     args = etrago.args
-    path = args["csv_export"]
     lp_path = args["lpfile"]
 
-    if args["temporal_disaggregation"]["active"]:
-        if args["csv_export"]:
-            path = path + "/temporally_reduced"
+    if args["export_results_path"]:
+        path = args["export_results_path"] + "/grid_optimization"
+        if not os.path.exists(path):
+            os.makedirs(path, exist_ok=True)
 
+    if args["temporal_disaggregation"]["active"]:
         if args["lpfile"]:
             lp_path = lp_path[0:-3] + "_temporally_reduced.lp"
 
@@ -229,9 +231,20 @@ def iterate_lopf(
             for i in range(1, (1 + n_iter)):
                 run_lopf(etrago, extra_functionality, method)
 
-                if args["csv_export"]:
-                    path_it = path + "/lopf_iteration_" + str(i)
-                    etrago.export_to_csv(path_it)
+                if args["export_results_path"]:
+                    # Store intermediate iterations
+                    if i < n_iter:
+                        path_it = path + "/lopf_iteration_" + str(i)
+                        etrago.network.export_to_csv_folder(path_it)
+                    # Store final result
+                    else:
+                        etrago.network.export_to_csv_folder(path)
+
+                    # Delete previous iteration's results
+                    if i > 1:
+                        path_prev = path + "/lopf_iteration_" + str(i - 1)
+                        if os.path.exists(path_prev):
+                            shutil.rmtree(path_prev)
 
                 if i < n_iter:
                     l_snom_pre, t_snom_pre = update_electrical_parameters(
@@ -263,9 +276,9 @@ def iterate_lopf(
 
                 i += 1
 
-                if args["csv_export"]:
+                if args["export_results_path"]:
                     path_it = path + "/lopf_iteration_" + str(i)
-                    etrago.export_to_csv(path_it)
+                    etrago.network.export_to_csv_folder(path_it)
 
                 if abs(pre - network.objective) <= diff_obj:
                     print("Threshold reached after " + str(i) + " iterations.")
@@ -273,8 +286,8 @@ def iterate_lopf(
 
     else:
         run_lopf(etrago, extra_functionality, method)
-        if etrago.args["csv_export"]:
-            etrago.export_to_csv(path)
+        if etrago.args["export_results_path"]:
+            etrago.network.export_to_csv_folder(path)
 
     if args["lpfile"]:
         network.model.write(lp_path)
@@ -321,12 +334,6 @@ def lopf(self):
     y = time.time()
     z = (y - x) / 60
     logger.info("Time for LOPF [min]: {}".format(round(z, 2)))
-
-    if self.args["csv_export"]:
-        path = self.args["csv_export"]
-        if self.args["temporal_disaggregation"]["active"] is True:
-            path = path + "/temporally_reduced"
-        self.export_to_csv(path)
 
 
 def optimize(self):
@@ -1054,15 +1061,25 @@ def pf_post_lopf(etrago, calc_losses=False):
                     foreign_series[comp][attr], comp, attr
                 )
 
-    if args["csv_export"]:
-        path = args["csv_export"] + "/pf_post_lopf"
-        etrago.export_to_csv(path)
+    if args["export_results_path"]:
+        path = args["export_results_path"] + "/non_linear_powerflow"
+        etrago.network.export_to_csv_folder(path)
         pf_solve.to_csv(os.path.join(path, "pf_solution.csv"), index=True)
 
         # Save un-solved disaggregated network
         if args["spatial_disaggregation"]:
-            etrago.disaggregated_network.export_to_csv_folder(
-                args["csv_export"] + "/disaggregated_network"
+            for comp_df in [
+                etrago.disaggregated_network.transformers,
+                etrago.disaggregated_network.lines,
+                etrago.disaggregated_network.links,
+                etrago.disaggregated_network.buses,
+            ]:
+                if "geom" in comp_df.columns:
+                    comp_df.drop(columns=["geom"], inplace=True)
+                if "topo" in comp_df.columns:
+                    comp_df.drop(columns=["topo"], inplace=True)
+            etrago.disaggregated_network.export_to_netcdf(
+                args["export_results_path"] + "/disaggregated_network.nc"
             )
 
     return network

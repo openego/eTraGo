@@ -89,7 +89,7 @@ args = {
     "scn_extension": None,  # None or array of extension scenarios
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
-    "csv_export": "results",  # save results as csv: False or /path/tofolder
+    "export_results_path": "results",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
         "extendable_components": [
@@ -135,14 +135,12 @@ args = {
             "active": True,  # choose if clustering is activated
             "cluster_within_focus": False,  # False for very low clustering within focus region
             "n_clusters": 30,  # total number of resulting AC nodes
-            "k_elec_busmap": False,  # False or path/to/busmap.csv
         },
         "gas_grids": {
             "active": True,  # choose if clustering is activated
             "cluster_within_focus": False,  #  False for very low clustering within focus region
             "n_clusters_ch4": 15,  # total number of resulting CH4 nodes
             "n_clusters_h2": 15,  # total number of resulting H2 nodes
-            "k_ch4_busmap": False,  # False or path/to/ch4_busmap.csv
         },
     },
     "spatial_disaggregation": None,  # None or 'uniform'
@@ -290,9 +288,9 @@ def run_etrago(args, json_path):
     lpfile : bool or str
         State if and where you want to save pyomo's lp file. Options:
         False or '/path/tofile.lp'. Default: False.
-    csv_export : bool or str
-        State if and where you want to save results as csv files. Options:
-        False or '/path/tofolder'. Default: False.
+    export_results_path : bool or str
+        State if and where you want to save results as csv and .nc files.
+        Options: False or '/path/tofolder'. Default: False.
 
     extendable : dict
         Choose components you want to optimize and set upper bounds for grid
