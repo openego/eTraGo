@@ -524,11 +524,8 @@ class Etrago:
     
 def import_egon_results(etrago, path):
     
-    # to check function
-    network=etrago.network.copy()
-    
     import pypsa
-    ego = pypsa.Network(path)
+    ego = pypsa.Network(path+"desaggregated/lowflex_network_1_hour.nc")
     
     # take over snapshot
     etrago.network.set_snapshots(ego.snapshots)
@@ -573,28 +570,28 @@ def import_egon_results(etrago, path):
         )
     
     # import storage units incl. timeseries
+    etrago.network.import_components_from_dataframe(
+        ego.storage_units,
+        "StorageUnit"
+    )
     for attr, df in ego.storage_units_t.items():
         etrago.network.import_series_from_dataframe(
             df,
             "StorageUnit",
             attr
         )
-    etrago.network.import_components_from_dataframe(
-        ego.storage_units,
-        "StorageUnit"
-    )
 
     # import stores incl. timeseries
+    etrago.network.import_components_from_dataframe(
+        ego.stores,
+        "Store"
+    )
     for attr, df in ego.stores_t.items():
         etrago.network.import_series_from_dataframe(
             df,
             "Store",
             attr
         ) 
-    etrago.network.import_components_from_dataframe(
-        ego.stores,
-        "Store"
-    )
     
     # import links incl. timeseries
     etrago.network.import_components_from_dataframe(
@@ -638,7 +635,6 @@ def import_egon_results(etrago, path):
     etrago.network.links.p_nom_extendable = False
     
     # delete former result timeseries
-    
     keep_attrs = {"q_set", "p_set", "p_min_pu", "p_max_pu", "e_min_pu", "e_max_pu", "efficiency"}
     components_t = [
         etrago.network.generators_t,
@@ -651,6 +647,66 @@ def import_egon_results(etrago, path):
         for attr in list(container.keys()):
             if attr not in keep_attrs:
                 del container[attr]
+                
+                
+def import_dc_links_results(etrago, path):
+    
+    # p_set for DC-links must be defined specifically
+    # because DC-links results are not desaggregated
+    
+    # import clustered results
+    clus_bus = pd.read_csv(path+"clustered/buses.csv", index_col=0)
+    clus = pd.read_csv(path+"clustered/links.csv", index_col=0, dtype={0: str})
+    clus = clus[clus.carrier=='DC']
+    clus_ts = pd.read_csv(path+"clustered/links-p0.csv", index_col=0)
+    
+    # find out foreign countries per DC link
+    bus_country = clus_bus["country"]
+    clus["country0"] = clus["bus0"].map(bus_country)
+    clus["country1"] = clus["bus1"].map(bus_country)
+
+    # extract p0 for the chosen snapshot
+    row = clus_ts.loc[0].reindex(clus.index, fill_value=0)
+
+    # calculate im- and exports for this snapshot
+    results = {}
+    for link, val in row.items():
+        c0 = clus.loc[link, "country0"]
+        c1 = clus.loc[link, "country1"]
+    
+        if c0 == "DE":
+            # export is negative
+            exchange = -val
+            partner = c1
+        else:
+            # import is positive
+            exchange = val
+            partner = c0
+    
+        results[partner] = results.get(partner, 0) + exchange
+    exchange = pd.Series(results)
+    
+    # overwrite p_set for corresponding results in etrago network
+    
+    # check DC links in etrago network
+    dc_links = etrago.network.links[etrago.network.links.carrier=='DC'].copy()
+    bus_country = etrago.network.buses["country"]
+    dc_links["country0"] = dc_links["bus0"].map(bus_country)
+    dc_links["country1"] = dc_links["bus1"].map(bus_country)
+    
+    # write power exchange as p_set in etrago network
+    dc_links["partner"] = dc_links.apply(
+    lambda r: r["country1"] if r["country0"] == "DE" else r["country0"], axis=1
+    )
+    link_counts = dc_links["partner"].value_counts()
+    dc_links["exchange"] = dc_links["partner"].map(exchange) / dc_links["partner"].map(link_counts)
+    for link_id, val in dc_links["exchange"].items():
+        etrago.network.links_t.p_set[link_id] = val
+    
+    
+    
+    
+    
 
 
 

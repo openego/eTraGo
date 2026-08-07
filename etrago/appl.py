@@ -46,11 +46,11 @@ if "READTHEDOCS" not in os.environ:
     # Do not import internal packages directly
 
     from etrago import Etrago
-    from etrago.network import import_egon_results
+    from etrago.network import import_egon_results, import_dc_links_results
 
 args = {
     # Setup and Configuration:
-    "db": "oep",  # database session: oep or local database
+    "db": "egon2035",  # database session: oep or local database
     "gridversion": None,  # None for model_draft or version number
     "method": {  # choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
@@ -618,43 +618,44 @@ def run_etrago(args, json_path):
     etrago.adjust_network()
     
     # define calculation case for power flow
-    egon_path = "ego-big-results/ehvhv_level/lowflex_network_1_hour.nc"
+    egon_path = "results_for_lpf/"
     import_egon_results(etrago, egon_path)
     
     if args["csv_export"]:
-        path = args["csv_export"] + "/vor-cluster"
+        path = args["csv_export"] + "/01-vor-cluster"
         etrago.export_to_csv(path)
-
-    # ehv network clustering
-    #etrago.ehv_clustering()
 
     # spatial clustering
     etrago.spatial_clustering()
     etrago.spatial_clustering_gas()
-
-    # snapshot clustering
-    #etrago.snapshot_clustering()
-
-    # skip snapshots
-    #etrago.skip_snapshots()
     
+    if args["csv_export"]:
+        path = args["csv_export"] + "/02-nach-cluster"
+        etrago.export_to_csv(path)
+        
+    # define calculation case for power flow
+    import_dc_links_results(etrago, egon_path)
+    
+    if args["csv_export"]:
+        path = args["csv_export"] + "/03-mit-dc-results"
+        etrago.export_to_csv(path)
+        
     # conduct power flow
     etrago.power_flow()
+    
+    if args["csv_export"]:
+        path = args["csv_export"] + "/06-final-results"
+        etrago.export_to_csv(path)
+    
+    # drop other sectors than AC
+    # those are anyhow only considered indirectly within lpf via links
+    # as they are not part of the main sub network
+    etrago.drop_sectors(['CH4', 'H2_saltcavern', 'H2_grid', 'H2_for_ind', 'dsm', 'central_heat',
+     'rural_heat', 'central_heat_store', 'rural_heat_store', 'Li ion'])
 
-    # start linear optimal powerflow calculations
-    #etrago.optimize()
-
-    # conduct lopf with full complex timeseries for dispatch disaggregation
-    #etrago.temporal_disaggregation()
-
-    # start power flow based on lopf results
-    #etrago.pf_post_lopf()
-
-    # spatial disaggregation
-    #etrago.spatial_disaggregation()
-
-    # calculate central etrago results
-    #etrago.calc_results()
+    if args["csv_export"]:
+        path = args["csv_export"] + "/07-dropped-sectors"
+        etrago.export_to_csv(path)
 
     return etrago
 
@@ -669,13 +670,13 @@ if __name__ == "__main__":
 
     print(datetime.datetime.now())
     
-    spatial_resolution = [30]#, 300, 10000]
+    spatial_resolution = [50]#, 300, 10000]
     
     for i in range (0, len(spatial_resolution)):
             
         args['network_clustering']['electricity_grid']['n_clusters'] = spatial_resolution[i]
         
-        args['csv_export'] = 'Zooming-Tests/full-res/tests/AC-'+str(args['network_clustering']['electricity_grid']['n_clusters'])
+        args['csv_export'] = 'Zooming-Tests/lokale_tests/AC-'+str(args['network_clustering']['electricity_grid']['n_clusters'])
         
         # old_stdout = sys.stdout
         # path_log = args['csv_export']
@@ -693,14 +694,3 @@ if __name__ == "__main__":
         # log_file.close()
         
     etrago.session.close()
-    # plots: more in tools/plot.py
-    # make a line loading plot
-    # etrago.plot_grid(
-    # line_colors='line_loading', bus_sizes=0.0001, timesteps=range(2))
-    # network and storage
-    # etrago.plot_grid(
-    # line_colors='expansion_abs',
-    # bus_colors='storage_expansion',
-    # bus_sizes=0.0001)
-    # flexibility usage
-    # etrago.flexibility_usage('DSM')
