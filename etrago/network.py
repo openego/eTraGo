@@ -23,6 +23,7 @@
 Define class Etrago
 """
 
+import json
 import logging
 import os
 
@@ -91,7 +92,6 @@ from etrago.tools.io import (
     extension,
 )
 from etrago.tools.utilities import (
-    add_missing_components,
     adjust_CH4_gen_carriers,
     adjust_chp_model,
     adjust_PtH2_model,
@@ -163,7 +163,7 @@ class Etrago:
     def __init__(
         self,
         args=None,
-        csv_folder_name=None,
+        results_folder_name=None,
         ignore_standard_types=False,
         json_path=None,
         name="",
@@ -210,27 +210,109 @@ class Etrago:
 
             self.check_args()
 
-        elif csv_folder_name is not None:
-
-            self.get_args_setting(csv_folder_name + "/args.json")
-
-            self.network = Network(
-                csv_folder_name, name, ignore_standard_types
-            )
-
-            if self.args:
-
-                if self.args["spatial_disaggregation"] is not None:
-                    self.disaggregated_network = Network(
-                        csv_folder_name + "/disaggregated_network",
-                        name,
-                        ignore_standard_types,
+            # Create results folder and store args
+            if self.args["export_results_path"]:
+                if not os.path.exists(self.args["export_results_path"]):
+                    os.makedirs(
+                        self.args["export_results_path"], exist_ok=True
                     )
 
-                if self.args["method"]["market_optimization"]:
+                with open(
+                    os.path.join(
+                        self.args["export_results_path"], "args.json"
+                    ),
+                    "w",
+                ) as fp:
+                    json.dump(self.args, fp, indent=4)
+
+        elif results_folder_name is not None:
+
+            self.get_args_setting(results_folder_name + "/args.json")
+
+            if "csv_export" in self.args:
+                self.network = Network(
+                    results_folder_name, name, ignore_standard_types
+                )
+
+                if self.args:
+
+                    if self.args["spatial_disaggregation"] is not None:
+                        self.disaggregated_network = Network(
+                            results_folder_name + "/disaggregated_network",
+                            name,
+                            ignore_standard_types,
+                        )
+
+                    if self.args["method"]["market_optimization"]["active"]:
+                        try:
+                            self.market_model = Network(
+                                results_folder_name + "/market",
+                                name,
+                                ignore_standard_types,
+                            )
+                        except ValueError:
+                            logger.warning("""
+                                Could not import a market_model but the
+                                selected method in the args indicated that it
+                                should be there.
+                                This happens when the exported network was
+                                not solved yet.Run 'etrago.optimize()' to build
+                                and solve the market model.
+                                """)
+
+                else:
+
+                    logger.warning(f"""
+                        No args.json in {results_folder_name} available.
+                        """)
+
+                    try:
+                        self.disaggregated_network = Network(
+                            results_folder_name + "/disaggregated_network",
+                            name,
+                            ignore_standard_types,
+                        )
+                    except ValueError:
+                        logger.info("""
+                            No disaggregated network available.
+                            """)
+
                     try:
                         self.market_model = Network(
-                            csv_folder_name + "/market",
+                            results_folder_name + "/market",
+                            name,
+                            ignore_standard_types,
+                        )
+                    except ValueError:
+                        logger.info("""
+                                No separate market model available.
+                                """)
+
+            else:
+
+                # Import last network according to args
+                if self.args["pf_post_lopf"]["active"]:
+                    try:
+                        self.network = Network(
+                            results_folder_name + "/non_linear_powerflow"
+                        )
+                    except FileNotFoundError:
+                        self.network = Network(
+                            results_folder_name + "/pf_post_lopf"
+                        )
+                elif self.args["temporal_disaggregation"]["active"]:
+                    self.network = Network(
+                        results_folder_name + "/temporal_disaggregation"
+                    )
+                else:
+                    self.network = Network(
+                        results_folder_name + "/grid_optimization"
+                    )
+
+                if self.args["method"]["market_optimization"]["active"]:
+                    try:
+                        self.market_model = Network(
+                            results_folder_name + "/market_optimization",
                             name,
                             ignore_standard_types,
                         )
@@ -243,35 +325,14 @@ class Etrago:
                             and solve the market model.
                             """)
 
-            else:
-
-                logger.warning(f"""
-                    No args.json in {csv_folder_name} available.
-                    """)
-
-                try:
+                if self.args["spatial_disaggregation"] is not None:
                     self.disaggregated_network = Network(
-                        csv_folder_name + "/disaggregated_network",
+                        results_folder_name + "/disaggregated_network.nc",
                         name,
                         ignore_standard_types,
                     )
-                except ValueError:
-                    logger.info("""
-                        No disaggregated network available.
-                        """)
 
-                try:
-                    self.market_model = Network(
-                        csv_folder_name + "/market",
-                        name,
-                        ignore_standard_types,
-                    )
-                except ValueError:
-                    logger.info("""
-                            No separate market model available.
-                            """)
-
-            self.get_clustering_data(csv_folder_name)
+                self.get_clustering_data(results_folder_name)
 
         else:
             logger.error("Set args or csv_folder_name")
@@ -282,8 +343,6 @@ class Etrago:
     check_args = check_args
 
     geolocation_buses = geolocation_buses
-
-    add_missing_components = add_missing_components
 
     load_shedding = load_shedding
 

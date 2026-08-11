@@ -42,6 +42,7 @@ if "READTHEDOCS" not in os.environ:
     from etrago.cluster.spatial import (
         busmap_ehv_clustering,
         drop_nan_values,
+        export_clustering_results,
         focus_weighting,
         get_focus_region_buses,
         group_links,
@@ -232,7 +233,7 @@ def adjust_no_electric_network(
                 busmap3.at[bus_ne, "elec_bus"] = find_de_closest(
                     network, bus_ne
                 )
-        except:
+        except (IndexError, KeyError):
             no_elec_conex.append(bus_ne)
             busmap3.at[bus_ne, "elec_bus"] = bus_ne
 
@@ -749,6 +750,8 @@ def preprocessing(etrago, inside_buses=None, apply_on="grid_model"):
         )
 
     settings = etrago.args["network_clustering"]
+    # quick fix while bus map loading is not working
+    settings["k_elec_busmap"] = False
 
     # problem our lines have no v_nom. this is implicitly defined by the
     # connected buses:
@@ -910,7 +913,9 @@ def postprocessing(
     """
     settings = etrago.args["network_clustering"]["electricity_grid"]
     method = etrago.args["network_clustering"]["method"]["algorithm"]
-    num_clusters = settings["n_clusters"]
+
+    # quick fix while bus map loading is not working
+    settings["k_ch4_busmap"] = False
 
     if not settings["k_elec_busmap"]:
         busmap.name = "cluster"
@@ -923,10 +928,6 @@ def postprocessing(
                 medoid_idx,
                 name="medoid_idx",
             )
-        )
-
-        busmap_elec.to_csv(
-            f"{method}_elecgrid_busmap_{num_clusters}_result.csv"
         )
 
     else:
@@ -967,7 +968,6 @@ def postprocessing(
                 medoid_idx[bus] = bus
             medoid_idx.index = medoid_idx.index.astype("int")
 
-    network.generators["weight"] = network.generators["p_nom"]
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard("Generator")
 
@@ -976,15 +976,21 @@ def postprocessing(
         busmap,
         aggregate_generators_weighted=True,
         aggregate_generators_carriers=aggregate_generators_carriers,
-        one_port_strategies=strategies_one_ports(),
         generator_strategies=strategies_generators(),
+        one_port_strategies=strategies_one_ports(),
         aggregate_one_ports=aggregate_one_ports,
+        bus_strategies=strategies_buses(),
+        line_strategies=strategies_lines(),
         line_length_factor=etrago.args["network_clustering"]["method"][
             "line_length_factor"
         ],
-        bus_strategies=strategies_buses(),
-        line_strategies=strategies_lines(),
     )
+
+    # drop timeseries for links which are non-existant in clustered net anymore
+    for attr, df in clustering.network.links_t.items():
+        clustering.network.links_t[attr] = df.loc[
+            :, df.columns.intersection(clustering.network.links.index)
+        ]
 
     # Drop nan values after clustering
     drop_nan_values(clustering.network)
@@ -1072,7 +1078,7 @@ def weighting_for_scenario(network, save=None):
 
     # Add weighting of generators attached to transmission grid bus
     gen = network.generators[
-        (network.generators.carrier != "load shedding")
+        (~network.generators.carrier.str.contains("load shedding"))
         & (network.generators.bus.isin(weight.index))
     ][["bus", "carrier", "p_nom"]].copy()
     gen["cf"] = gen.apply(calc_availability_factor, axis=1)
@@ -1427,6 +1433,11 @@ def run_spatial_clustering(self):
     -------
     None
     """
+    # quick fix while bus map loading is not working
+    self.args["network_clustering"]["electricity_grid"][
+        "k_elec_busmap"
+    ] = False
+
     if self.args["network_clustering"]["electricity_grid"]["active"]:
         if self.args["spatial_disaggregation"] is not None:
             self.disaggregated_network = self.network.copy()
@@ -1533,3 +1544,6 @@ def run_spatial_clustering(self):
             )
             + self.args["network_clustering"]["method"]["algorithm"]
         )
+
+        if self.args["export_results_path"]:
+            export_clustering_results(self)

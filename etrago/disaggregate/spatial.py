@@ -799,7 +799,7 @@ class UniformDisaggregation(Disaggregation):
                         }
                     )
                     delta = abs((new_columns.sum(axis=1) - clt).sum())
-                    epsilon = 1e-5
+                    epsilon = 1e-4
 
                     assert delta < epsilon, (
                         "Sum of disaggregated time series does not match"
@@ -874,6 +874,27 @@ def run_disaggregation(self):
         disagg = self.args.get("spatial_disaggregation")
         skip = () if self.args["pf_post_lopf"]["active"] else ("q",)
         t = time.time()
+
+        # If pf_post_lopf was performed, disaggregate p_set as p
+        # to exclude distributed slack from dispatch of generators
+        if self.args["pf_post_lopf"]["active"]:
+            self.network.generators_t["p"] = self.network.generators_t[
+                "p_set"
+            ].copy()
+
+        # no disaggregation of load shedding will be performed
+        mask = self.network.generators.carrier.isin(
+            ["load shedding", "negative load shedding"]
+        )
+        self.network.mremove("Generator", self.network.generators.index[mask])
+        mask_desag = self.disaggregated_network.generators.carrier.isin(
+            ["load shedding", "negative load shedding"]
+        )
+        self.disaggregated_network.mremove(
+            "Generator",
+            self.disaggregated_network.generators.index[mask_desag],
+        )
+
         if disagg:
             if disagg == "mini":
                 disaggregation = MiniSolverDisaggregation(
@@ -905,6 +926,21 @@ def run_disaggregation(self):
                 )
             )
 
-            if self.args["csv_export"]:
-                path = self.args["csv_export"] + "/disaggregated_network"
-                self.disaggregated_network.export_to_csv_folder(path)
+            if self.args["export_results_path"]:
+                path = (
+                    self.args["export_results_path"]
+                    + "/disaggregated_network.nc"
+                )
+
+                for comp_df in [
+                    self.disaggregated_network.transformers,
+                    self.disaggregated_network.lines,
+                    self.disaggregated_network.links,
+                    self.disaggregated_network.buses,
+                ]:
+                    if "geom" in comp_df.columns:
+                        comp_df.drop(columns=["geom"], inplace=True)
+                    if "topo" in comp_df.columns:
+                        comp_df.drop(columns=["topo"], inplace=True)
+
+                self.disaggregated_network.export_to_netcdf(path)

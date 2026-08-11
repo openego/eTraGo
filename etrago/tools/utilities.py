@@ -32,7 +32,6 @@ import math
 import os
 import zipfile
 
-from pyomo.environ import Constraint, PositiveReals, Var
 from shapely.geometry import LineString, Point
 import geopandas as gpd
 import numpy as np
@@ -653,7 +652,7 @@ def connected_transformer(network, busids):
 def load_shedding(
     self,
     temporal_disaggregation=False,
-    negative_load_shedding=False,
+    negative_load_shedding=["Li_ion"],
     **kwargs,
 ):
     """Implement load shedding in existing network to identify
@@ -764,6 +763,7 @@ def set_control_strategies(network):
         network.generators.carrier.isin(
             [
                 "load shedding",
+                "negative load shedding",
                 "CH4",
                 "CH4_biogas",
                 "CH4_NG",
@@ -777,96 +777,6 @@ def set_control_strategies(network):
 
     # Assign storage units control strategy
     network.storage_units.loc[:, "control"] = "PV"
-
-
-def data_manipulation_sh(network):
-    """Adds missing components to run calculations with SH scenarios.
-
-    Parameters
-    ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
-
-    Returns
-    -------
-    None
-
-    """
-    from geoalchemy2.shape import from_shape, to_shape
-    from shapely.geometry import LineString, MultiLineString, Point
-
-    # add connection from Luebeck to Siems
-    new_bus = str(network.buses.index.astype(np.int64).max() + 1)
-    new_trafo = str(network.transformers.index.astype(np.int64).max() + 1)
-    new_line = str(network.lines.index.astype(np.int64).max() + 1)
-    network.add(
-        "Bus", new_bus, carrier="AC", v_nom=220, x=10.760835, y=53.909745
-    )
-    network.add(
-        "Transformer",
-        new_trafo,
-        bus0="25536",
-        bus1=new_bus,
-        x=1.29960,
-        tap_ratio=1,
-        s_nom=1600,
-    )
-    network.add(
-        "Line", new_line, bus0="26387", bus1=new_bus, x=0.0001, s_nom=1600
-    )
-    network.lines.loc[new_line, "cables"] = 3.0
-
-    # bus geom
-    point_bus1 = Point(10.760835, 53.909745)
-    network.buses.set_value(new_bus, "geom", from_shape(point_bus1, 4326))
-
-    # line geom/topo
-    network.lines.set_value(
-        new_line,
-        "geom",
-        from_shape(
-            MultiLineString(
-                [
-                    LineString(
-                        [to_shape(network.buses.geom["26387"]), point_bus1]
-                    )
-                ]
-            ),
-            4326,
-        ),
-    )
-    network.lines.set_value(
-        new_line,
-        "topo",
-        from_shape(
-            LineString([to_shape(network.buses.geom["26387"]), point_bus1]),
-            4326,
-        ),
-    )
-
-    # trafo geom/topo
-    network.transformers.set_value(
-        new_trafo,
-        "geom",
-        from_shape(
-            MultiLineString(
-                [
-                    LineString(
-                        [to_shape(network.buses.geom["25536"]), point_bus1]
-                    )
-                ]
-            ),
-            4326,
-        ),
-    )
-    network.transformers.set_value(
-        new_trafo,
-        "topo",
-        from_shape(
-            LineString([to_shape(network.buses.geom["25536"]), point_bus1]),
-            4326,
-        ),
-    )
 
 
 def _enumerate_row(row):
@@ -937,46 +847,6 @@ def export_to_csv(self, path):
             self.ch4_h2_mapping.to_json(d, indent=4)
 
     return
-
-
-def loading_minimization(network, snapshots):
-    """
-    Minimizes the sum of the products of each element in the passive_branches
-    of the model.
-
-    Parameters
-    ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
-    snapshots : 'pandas.core.indexes.datetimes.DatetimeIndex'
-        snapshots to perform the minimization
-
-    Returns
-    -------
-    None
-
-    """
-    network.model.number1 = Var(
-        network.model.passive_branch_p_index, within=PositiveReals
-    )
-    network.model.number2 = Var(
-        network.model.passive_branch_p_index, within=PositiveReals
-    )
-
-    def cRule(model, c, l0, t):
-        return (
-            model.number1[c, l0, t] - model.number2[c, l0, t]
-            == model.passive_branch_p[c, l0, t]
-        )
-
-    network.model.cRule = Constraint(
-        network.model.passive_branch_p_index, rule=cRule
-    )
-
-    network.model.objective.expr += 0.00001 * sum(
-        network.model.number1[i] + network.model.number2[i]
-        for i in network.model.passive_branch_p_index
-    )
 
 
 def _make_consense(component, attr):
@@ -1577,250 +1447,6 @@ def set_trafo_costs(
     return network
 
 
-def add_missing_components(self):
-    """
-    Add a missing transformer at Heizkraftwerk Nord in Munich and a missing
-    transformer in Stuttgart.
-
-    Parameters
-    ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
-
-    Returns
-    -------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
-
-    """
-
-    # Munich
-    # TODO: Manually adds lines between hard-coded buses. Has to be
-    #       changed for the next dataversion and should be moved to data
-    #       processing
-
-    """
-    "https://www.swm.de/privatkunden/unternehmen/energieerzeugung"
-    + "/heizkraftwerke.html?utm_medium=301"
-
-     to bus 25096:
-     25369 (86)
-     28232 (24)
-     25353 to 25356 (79)
-     to bus 23822: (110kV bus  of 380/110-kV-transformer)
-     25355 (90)
-     28212 (98)
-
-     25357 to 665 (85)
-     25354 to 27414 (30)
-     27414 to 28212 (33)
-     25354 to 28294 (32/63)
-     28335 to 28294 (64)
-     28335 to 28139 (28)
-     Overhead lines:
-     16573 to 24182 (part of 4)
-
-     Installierte Leistung der Umspannungsebene Höchst- zu Hochspannung
-     (380 kV / 110 kV): 2.750.000 kVA
-
-     "https://www.swm-infrastruktur.de/strom/netzstrukturdaten"
-     + "/strukturmerkmale.html
-    """
-    network = self.network
-
-    new_trafo = str(network.transformers.index.astype(int).max() + 1)
-
-    network.add(
-        "Transformer",
-        new_trafo,
-        bus0="16573",
-        bus1="23648",
-        x=0.135 / (2750 / 2),
-        r=0.0,
-        tap_ratio=1,
-        s_nom=2750 / 2,
-    )
-
-    def add_110kv_line(bus0, bus1, overhead=False):
-        new_line = str(network.lines.index.astype(int).max() + 1)
-        if not overhead:
-            network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=280)
-        else:
-            network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=260)
-        network.lines.loc[new_line, "scn_name"] = "Status Quo"
-        network.lines.loc[new_line, "v_nom"] = 110
-        network.lines.loc[new_line, "version"] = "added_manually"
-        network.lines.loc[new_line, "frequency"] = 50
-        network.lines.loc[new_line, "cables"] = 3.0
-        network.lines.loc[new_line, "country"] = "DE"
-        network.lines.loc[new_line, "length"] = (
-            pypsa.geo.haversine(
-                network.buses.loc[bus0, ["x", "y"]],
-                network.buses.loc[bus1, ["x", "y"]],
-            )[0][0]
-            * 1.2
-        )
-        if not overhead:
-            network.lines.loc[new_line, "r"] = (
-                network.lines.loc[new_line, "length"] * 0.0177
-            )
-            network.lines.loc[new_line, "g"] = 0
-            # or: (network.lines.loc[new_line, "length"]*78e-9)
-            network.lines.loc[new_line, "x"] = (
-                network.lines.loc[new_line, "length"] * 0.3e-3
-            )
-            network.lines.loc[new_line, "b"] = (
-                network.lines.loc[new_line, "length"] * 250e-9
-            )
-
-        elif overhead:
-            network.lines.loc[new_line, "r"] = (
-                network.lines.loc[new_line, "length"] * 0.05475
-            )
-            network.lines.loc[new_line, "g"] = 0
-            # or: (network.lines.loc[new_line, "length"]*40e-9)
-            network.lines.loc[new_line, "x"] = (
-                network.lines.loc[new_line, "length"] * 1.2e-3
-            )
-            network.lines.loc[new_line, "b"] = (
-                network.lines.loc[new_line, "length"] * 9.5e-9
-            )
-
-    add_110kv_line("16573", "28353")
-    add_110kv_line("16573", "28092")
-    add_110kv_line("25096", "25369")
-    add_110kv_line("25096", "28232")
-    add_110kv_line("25353", "25356")
-    add_110kv_line("23822", "25355")
-    add_110kv_line("23822", "28212")
-    add_110kv_line("25357", "665")
-    add_110kv_line("25354", "27414")
-    add_110kv_line("27414", "28212")
-    add_110kv_line("25354", "28294")
-    add_110kv_line("28335", "28294")
-    add_110kv_line("28335", "28139")
-    add_110kv_line("16573", "24182", overhead=True)
-
-    # Stuttgart
-    """
-         Stuttgart:
-         Missing transformer, because 110-kV-bus is situated outside
-         Heizkraftwerk Heilbronn:
-    """
-    # new_trafo = str(network.transformers.index.astype(int).max()1)
-    network.add(
-        "Transformer",
-        "99999",
-        bus0="18967",
-        bus1="25766",
-        x=0.135 / 300,
-        r=0.0,
-        tap_ratio=1,
-        s_nom=300,
-    )
-    """
-    According to:
-    https://assets.ctfassets.net/xytfb1vrn7of/NZO8x4rKesAcYGGcG4SQg/b780d6a3ca4c2600ab51a30b70950bb1/netzschemaplan-110-kv.pdf
-    the following lines are missing:
-    """
-    add_110kv_line("18967", "22449", overhead=True)  # visible in OSM & DSO map
-    add_110kv_line("21165", "24068", overhead=True)  # visible in OSM & DSO map
-    add_110kv_line("23782", "24089", overhead=True)
-    # visible in DSO map & OSM till 1 km from bus1
-    """
-    Umspannwerk Möhringen (bus 23697)
-    https://de.wikipedia.org/wiki/Umspannwerk_M%C3%B6hringen
-    there should be two connections:
-    to Sindelfingen (2*110kV)
-    to Wendingen (former 220kV, now 2*110kV)
-    the line to Sindelfingen is connected, but the connection of Sindelfingen
-    itself to 380kV is missing:
-    """
-    add_110kv_line("19962", "27671", overhead=True)  # visible in OSM & DSO map
-    add_110kv_line("19962", "27671", overhead=True)
-    """
-    line to Wendingen is missing, probably because it ends shortly before the
-    way of the substation and is connected via cables:
-    """
-    add_110kv_line("23697", "24090", overhead=True)  # visible in OSM & DSO map
-    add_110kv_line("23697", "24090", overhead=True)
-
-    # Lehrte
-    """
-    Lehrte: 220kV Bus located outsinde way of Betriebszentrtum Lehrte and
-    therefore not connected:
-    """
-
-    def add_220kv_line(bus0, bus1, overhead=False):
-        new_line = str(network.lines.index.astype(int).max() + 1)
-        if not overhead:
-            network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=550)
-        else:
-            network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=520)
-        network.lines.loc[new_line, "scn_name"] = "Status Quo"
-        network.lines.loc[new_line, "v_nom"] = 220
-        network.lines.loc[new_line, "version"] = "added_manually"
-        network.lines.loc[new_line, "frequency"] = 50
-        network.lines.loc[new_line, "cables"] = 3.0
-        network.lines.loc[new_line, "country"] = "DE"
-        network.lines.loc[new_line, "length"] = (
-            pypsa.geo.haversine(
-                network.buses.loc[bus0, ["x", "y"]],
-                network.buses.loc[bus1, ["x", "y"]],
-            )[0][0]
-            * 1.2
-        )
-        if not overhead:
-            network.lines.loc[new_line, "r"] = (
-                network.lines.loc[new_line, "length"] * 0.0176
-            )
-            network.lines.loc[new_line, "g"] = 0
-            # or: (network.lines.loc[new_line, "length"]*67e-9)
-            network.lines.loc[new_line, "x"] = (
-                network.lines.loc[new_line, "length"] * 0.3e-3
-            )
-            network.lines.loc[new_line, "b"] = (
-                network.lines.loc[new_line, "length"] * 210e-9
-            )
-
-        elif overhead:
-            network.lines.loc[new_line, "r"] = (
-                network.lines.loc[new_line, "length"] * 0.05475
-            )
-            network.lines.loc[new_line, "g"] = 0
-            # or: (network.lines.loc[new_line, "length"]*30e-9)
-            network.lines.loc[new_line, "x"] = (
-                network.lines.loc[new_line, "length"] * 1e-3
-            )
-            network.lines.loc[new_line, "b"] = (
-                network.lines.loc[new_line, "length"] * 11e-9
-            )
-
-    add_220kv_line("266", "24633", overhead=True)
-
-    # temporary turn buses of transformers
-    network.transformers["v_nom0"] = network.transformers.bus0.map(
-        network.buses.v_nom
-    )
-    network.transformers["v_nom1"] = network.transformers.bus1.map(
-        network.buses.v_nom
-    )
-    new_bus0 = network.transformers.bus1[
-        network.transformers.v_nom0 > network.transformers.v_nom1
-    ]
-    new_bus1 = network.transformers.bus0[
-        network.transformers.v_nom0 > network.transformers.v_nom1
-    ]
-    network.transformers.bus0[
-        network.transformers.v_nom0 > network.transformers.v_nom1
-    ] = new_bus0.values
-    network.transformers.bus1[
-        network.transformers.v_nom0 > network.transformers.v_nom1
-    ] = new_bus1.values
-
-    return network
-
-
 def convert_capital_costs(self):
     """Convert capital_costs to fit to considered timesteps
 
@@ -2050,40 +1676,25 @@ def get_clustering_data(self, path):
 
     """
 
-    try:
-        path_clus = os.path.join(path, "clustering")
-        if os.path.exists(path_clus):
-            ch4_h2_mapping_path = os.path.join(
-                path_clus, "ch4_h2_mapping.json"
-            )
-            if os.path.exists(ch4_h2_mapping_path):
-                with open(ch4_h2_mapping_path) as f:
-                    self.ch4_h2_mapping = pd.read_json(f, typ="series").astype(
-                        str
-                    )
-                    self.ch4_h2_mapping.index.name = "CH4_bus"
-                    self.ch4_h2_mapping.index = (
-                        self.ch4_h2_mapping.index.astype(str)
-                    )
-            else:
-                logger.info("""There is no CH4 to H2 bus mapping data
-                    available in the loaded object.""")
+    ch4_h2_mapping_path = os.path.join(path, "ch4_h2_mapping.json")
+    if os.path.exists(ch4_h2_mapping_path):
+        with open(ch4_h2_mapping_path) as f:
+            self.ch4_h2_mapping = pd.read_json(f, typ="series").astype(str)
+            self.ch4_h2_mapping.index.name = "CH4_bus"
+            self.ch4_h2_mapping.index = self.ch4_h2_mapping.index.astype(str)
+    else:
+        logger.info("""There is no CH4 to H2 bus mapping data
+            available in the loaded object.""")
 
-            busmap_path = os.path.join(path_clus, "busmap.json")
-            if os.path.exists(busmap_path):
-                with open(busmap_path) as f:
-                    self.busmap["busmap"] = json.load(f)
-                self.busmap["orig_network"] = pypsa.Network(
-                    path_clus, name="orig"
-                )
-            else:
-                logger.info(
-                    "There is no busmap data available in the loaded object."
-                )
-    except ValueError:
-        logger.info(
-            "There is no clustering data available in the loaded object."
+    busmap_path = os.path.join(path, "busmap.json")
+    if os.path.exists(busmap_path):
+        with open(busmap_path) as f:
+            self.busmap["busmap"] = json.load(f)
+        self.busmap["orig_network"] = pypsa.Network(
+            path + "/original_network_topology", name="orig"
         )
+    else:
+        logger.info("There is no busmap data available in the loaded object.")
 
 
 def set_random_noise(self, sigma=0.01):

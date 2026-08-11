@@ -30,7 +30,7 @@
     "scn_name": "eGon2035",
     "scn_extension": null,
     "lpfile": false,
-    "csv_export": "results",
+    "export_results_path": "results",
     "extendable": {
         "extendable_components": [
             "as_in_db"
@@ -73,7 +73,7 @@
             "algorithm": "kmedoids-dijkstra",
             "remove_stubs": false,
             "use_reduced_coordinates": false,
-            "line_length_factor": 1,
+            "line_length_factor": 1.15,
             "random_state": 42,
             "n_init": 10,
             "max_iter": 100,
@@ -83,15 +83,13 @@
         "electricity_grid": {
             "active": true,
             "cluster_within_focus": false,
-            "n_clusters": 30,
-            "k_elec_busmap": false
+            "n_clusters": 30
         },
         "gas_grids": {
             "active": true,
             "cluster_within_focus": false,
             "n_clusters_ch4": 15,
-            "n_clusters_h2": 15,
-            "k_ch4_busmap": false,
+            "n_clusters_h2": 15
         }
     },
     "spatial_disaggregation": null,

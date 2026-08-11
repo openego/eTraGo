@@ -25,10 +25,10 @@ Define your connection parameters and power flow settings before executing
 the function run_etrago.
 """
 
-
 import datetime
 import os
 import os.path
+import resource
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -64,7 +64,7 @@ args = {
             },
             "redispatch": True,
         },
-        "distribution_grids": False, # False or path to file with edisgo results
+        "distribution_grids": False,  # False or path to file with edisgo results
     },
     "pf_post_lopf": {
         "active": False,  # choose if perform a pf after lopf
@@ -89,7 +89,7 @@ args = {
     "scn_extension": None,  # None or array of extension scenarios
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
-    "csv_export": "results",  # save results as csv: False or /path/tofolder
+    "export_results_path": "results",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
         "extendable_components": [
@@ -124,7 +124,7 @@ args = {
             "algorithm": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
             "remove_stubs": False,  # remove stubs before kmeans clustering
             "use_reduced_coordinates": False,  # if True, do not average cluster coordinates (in remove stubs)
-            "line_length_factor": 1,  # Factor to multiply distance between new buses for new line lengths
+            "line_length_factor": 1.15,  # Factor to multiply distance between new buses for new line lengths
             "random_state": 42,  # random state for replicability of clustering results
             "n_init": 10,  # affects clustering algorithm, only change when neccesary
             "max_iter": 100,  # affects clustering algorithm, only change when neccesary
@@ -135,14 +135,12 @@ args = {
             "active": True,  # choose if clustering is activated
             "cluster_within_focus": False,  # False for very low clustering within focus region
             "n_clusters": 60,  # total number of resulting AC nodes
-            "k_elec_busmap": False,  # False or path/to/busmap.csv
         },
         "gas_grids": {
             "active": True,  # choose if clustering is activated
             "cluster_within_focus": False,  #  False for very low clustering within focus region
             "n_clusters_ch4": 15,  # total number of resulting CH4 nodes
             "n_clusters_h2": 15,  # total number of resulting H2 nodes
-            "k_ch4_busmap": False,  # False or path/to/ch4_busmap.csv
         },
     },
     "spatial_disaggregation": None,  # None or 'uniform'
@@ -290,9 +288,9 @@ def run_etrago(args, json_path):
     lpfile : bool or str
         State if and where you want to save pyomo's lp file. Options:
         False or '/path/tofile.lp'. Default: False.
-    csv_export : bool or str
-        State if and where you want to save results as csv files. Options:
-        False or '/path/tofolder'. Default: False.
+    export_results_path : bool or str
+        State if and where you want to save results as csv and .nc files.
+        Options: False or '/path/tofolder'. Default: False.
 
     extendable : dict
         Choose components you want to optimize and set upper bounds for grid
@@ -422,6 +420,11 @@ def run_etrago(args, json_path):
                 Enter a path to a shape-file or add a list of strings with Kreisnamen.
                 Needs to be one connected region with defined CRS.
                 Default: None.
+            * "per_country": bool
+                If True, the clusters are constrained to one cluster per foreign
+                country. If set to False, the AC buses outside and inside Germany
+                are clustered in one process.
+                Default: True.
             * "algortihm": dict
                 Algorithm used for clustering. You can choose between two
                 clustering methods:
@@ -441,7 +444,7 @@ def run_etrago(args, json_path):
             * "line_length_factor" : float
                 Defines the factor to multiply the crow-flies distance
                 between new buses by, in order to get new line lengths.
-                Default: 1.
+                Default: 1.15.
             * "random_state" : int
                 Random state for replicability of clustering results. Default: 42.
             * "n_init" : int
@@ -478,13 +481,6 @@ def run_etrago(args, json_path):
                 nodes if `cluster_foreign_AC` is set to True, otherwise only DE
                 nodes.
                 Default: 30.
-            * "cluster_foreign" : bool
-                If set to False, the AC buses outside Germany are not clustered
-                and the buses inside Germany are clustered to complete
-                ``'n_clusters'``. If set to True, foreign AC buses are clustered
-                as well and included in number of clusters specified through
-                ``'n_clusters'``.
-                Default: False.
             * "k_elec_busmap" : bool or str
                 With this option you can load cluster coordinates from a previous
                 AC clustering run. Options are False, in which case no previous
@@ -512,13 +508,6 @@ def run_etrago(args, json_path):
                 foreign nodes if `cluster_foreign_gas` is set to True, otherwise
                 only DE nodes.
                 Default: 15.
-            "cluster_foreign_ch4" : bool
-                If set to False, the gas buses outside Germany are not clustered
-                and the buses inside Germany are clustered to complete
-                ``'n_clusters_gas'``. If set to True, foreign gas buses are
-                clustered as well and included in number of clusters specified
-                through ``'n_clusters_ch4'``.
-                Default: False.
             * "k_ch4_busmap" : bool or str
                 With this option you can load cluster coordinates from a previous
                 gas clustering run. Options are False, in which case no previous
@@ -667,7 +656,14 @@ def run_etrago(args, json_path):
 if __name__ == "__main__":
     # execute etrago function
     print(datetime.datetime.now())
+
     etrago = run_etrago(args, json_path=None)
+
+    # RAM tracking
+    self_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    children_peak = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
+    total_peak = self_peak + children_peak
+    print(f"Peak RAM usage:    {total_peak / 10**6:.2f} GB")
 
     print(datetime.datetime.now())
     etrago.session.close()
