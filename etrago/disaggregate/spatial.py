@@ -803,7 +803,8 @@ class UniformDisaggregation(Disaggregation):
                     if delta > 1e-4:
                         print(
                             "Warning: Sum of disaggregated time series does"
-                            f" not match aggregated timeseries: {delta=} > 1e-4."
+                            " not match aggregated timeseries:"
+                            f" {delta=} > 1e-4."
                         )
 
                     assert delta < 1, (
