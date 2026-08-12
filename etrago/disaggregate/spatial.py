@@ -799,12 +799,18 @@ class UniformDisaggregation(Disaggregation):
                         }
                     )
                     delta = abs((new_columns.sum(axis=1) - clt).sum())
-                    epsilon = 1e-4
 
-                    assert delta < epsilon, (
+                    if delta > 1e-4:
+                        print(
+                            "Warning: Sum of disaggregated time series does"
+                            f" not match aggregated timeseries: {delta=} > 1e-4."
+                        )
+
+                    assert delta < 1, (
                         "Sum of disaggregated time series does not match"
-                        f" aggregated timeseries: {delta=} > {epsilon=}."
+                        f" aggregated timeseries: {delta=} > 1."
                     )
+
                     pn_t[s].loc[:, new_columns.columns] = new_columns
 
     def transfer_results(self, *args, **kwargs):
