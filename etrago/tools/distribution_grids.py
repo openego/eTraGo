@@ -756,7 +756,7 @@ def seperate_demands(
         names=hv_ind_loads_p.columns.astype(str) + "_transmission_grid",
         bus=hv_ind_loads_p.columns.values,
         carrier="AC",
-        scn_name="eGon2035",
+        scn_name=self.args["scn_name"],
     )
 
     self.network.loads_t.p_set.loc[
