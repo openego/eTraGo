@@ -243,7 +243,7 @@ def calc_investment_cost(self):
     ext_store = network.stores[network.stores.e_nom_extendable]
 
     if not ext_storage.empty:
-        sto_costs[0] = (ext_storage.p_nom_opt * ext_storage.capital_cost).sum()
+        sto_costs[0] = ((ext_storage.p_nom_opt-ext_storage.p_nom_min) * ext_storage.capital_cost).sum()
 
     if not ext_store.empty:
         sto_costs[1] = (ext_store.e_nom_opt * ext_store.capital_cost).sum()
