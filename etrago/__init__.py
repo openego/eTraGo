@@ -17,6 +17,6 @@ __author__ = (
     "ulfmueller, lukasol, wolfbunke, mariusves, s3pp, ClaraBuettner, "
     "CarlosEpia, KathiEsterl, fwitte, gnn, pieterhexen, AmeliaNadal"
 )
-__version__ = "0.10.1"
+__version__ = "0.11.0"
 
 from etrago.network import Etrago
