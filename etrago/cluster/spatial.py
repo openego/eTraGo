@@ -18,7 +18,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # File description for read-the-docs
-""" spatial.py defines the methods to run spatial clustering on networks."""
+"""spatial.py defines the methods to run spatial clustering on networks."""
 
 import os
 
@@ -737,10 +737,8 @@ def kmedoids_dijkstra_clustering(
     with threadpool_limits(limits=settings["CPU_cores"], user_api=None):
         # remove stubs
         if settings["remove_stubs"]:
-            logger.info(
-                """options remove_stubs and use_reduced_coordinates not
-                reasonable for k-medoids Dijkstra Clustering"""
-            )
+            logger.info("""options remove_stubs and use_reduced_coordinates not
+                reasonable for k-medoids Dijkstra Clustering""")
 
         bus_weightings = pd.Series(weight)
         buses_i = buses.index
@@ -784,13 +782,11 @@ def kmedoids_dijkstra_clustering(
                 etrago.args["network_clustering"]["CPU_cores"],
             )
         elif len(busmap) < n_clusters:
-            logger.warning(
-                f"""
+            logger.warning(f"""
             The number supplied to the parameter n_clusters for
             {buses.carrier[0]} buses is larger than the actual number of buses
             in the network.
-            """
-            )
+            """)
 
         busmap.index.name = "bus_id"
 

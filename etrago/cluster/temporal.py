@@ -18,7 +18,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # File description for read-the-docs
-""" This module contains functions for reducing the complexity of a PyPSA
+"""This module contains functions for reducing the complexity of a PyPSA
  network in temporal dimension by
 a) downsampling to every n-th snapshot
 b) clustering to typical periods (eg days, weeks)
@@ -469,10 +469,8 @@ def segmentation_extreme_periods(
                     break
 
         else:
-            raise ValueError(
-                """Choose 'append' or 'replace_cluster_center' for
-                 consideration of extreme periods with segmentation method"""
-            )
+            raise ValueError("""Choose 'append' or 'replace_cluster_center' for
+                 consideration of extreme periods with segmentation method""")
 
     # add timestep if it is not already calculated
     if mini not in timeseries.index.get_level_values("dates"):
@@ -591,10 +589,8 @@ def segmentation_extreme_periods(
                     break
 
         else:
-            raise ValueError(
-                """Choose 'append' or 'replace_cluster_center' for
-                consideration of extreme periods with segmentation method"""
-            )
+            raise ValueError("""Choose 'append' or 'replace_cluster_center' for
+                consideration of extreme periods with segmentation method""")
 
     if "row_no" in timeseries.columns:
         timeseries.drop("row_no", axis=1, inplace=True)

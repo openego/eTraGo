@@ -21,6 +21,7 @@
 """
 calc_results.py defines methods to calculate results of eTraGo
 """
+
 import os
 
 if "READTHEDOCS" not in os.environ:
@@ -281,11 +282,9 @@ def german_network(self):
         Network with all components in Germany
 
     """
-   
+
     keep_cntr = ["DE", "LU"]
-    new_idx = self.buses[
-        self.buses.country.isin(keep_cntr)
-    ].index
+    new_idx = self.buses[self.buses.country.isin(keep_cntr)].index
 
     new_network = self.copy()
 
@@ -500,7 +499,7 @@ def system_costs_germany(self):
     import_costs = (
         export_negative + import_positive - export_positive - import_negative
     )
-    #print(export_negative, import_positive, export_positive, import_negative)
+    # print(export_negative, import_positive, export_positive, import_negative)
     return marginal_cost, invest_cost, import_costs
 
 
@@ -534,6 +533,7 @@ def ac_export(self):
         .sum()
     )
 
+
 def ac_export_de_lu(self):
     """Calculate electricity exports and imports over AC lines
 
@@ -544,14 +544,14 @@ def ac_export_de_lu(self):
 
     """
     de_buses = self.network.buses[
-        (self.network.buses.country == "DE") |
-        (self.network.buses.country == "LU")
+        (self.network.buses.country == "DE")
+        | (self.network.buses.country == "LU")
     ]
-    
+
     for_buses = self.network.buses[
         ~self.network.buses.country.isin(["DE", "LU"])
     ]
-    
+
     exp = self.network.lines[
         (self.network.lines.bus0.isin(de_buses.index))
         & (self.network.lines.bus1.isin(for_buses.index))
@@ -570,6 +570,7 @@ def ac_export_de_lu(self):
         .mul(self.network.snapshot_weightings.generators)
         .sum()
     )
+
 
 def ac_export_per_country(self):
     """Calculate electricity exports and imports over AC lines per country
@@ -627,13 +628,12 @@ def ac_export_de_lu_per_country(self):
         Electricity export (if negative: import) from Germany in TWh
 
     """
-    
+
     de_lu_buses = self.network.buses[
-        (self.network.buses.country == "DE") |
-        (self.network.buses.country == "LU")
+        (self.network.buses.country == "DE")
+        | (self.network.buses.country == "LU")
     ]
 
-    
     for_buses = self.network.buses[
         ~self.network.buses.country.isin(["DE", "LU"])
     ]
@@ -717,14 +717,11 @@ def dc_export_de_lu(self):
     """
     network = self
     de_buses = network.buses[
-        (network.buses.country == "DE") |
-        (network.buses.country == "LU")
+        (network.buses.country == "DE") | (network.buses.country == "LU")
     ]
-    
-    for_buses = network.buses[
-        ~network.buses.country.isin(["DE", "LU"])
-    ]
-    
+
+    for_buses = network.buses[~network.buses.country.isin(["DE", "LU"])]
+
     exp = network.links[
         (network.links.carrier == "DC")
         & (network.links.bus0.isin(de_buses.index))
@@ -795,6 +792,7 @@ def dc_export_per_country(self):
 
     return result
 
+
 def dc_export_de_lu_per_country(self):
     """Calculate electricity exports and imports over DC lines per country
 
@@ -806,13 +804,10 @@ def dc_export_de_lu_per_country(self):
     """
     network = self
     de_lu_buses = network.buses[
-        (network.buses.country == "DE") |
-        (network.buses.country == "LU")
+        (network.buses.country == "DE") | (network.buses.country == "LU")
     ]
 
-    for_buses = network.buses[
-        ~network.buses.country.isin(["DE", "LU"])
-    ]
+    for_buses = network.buses[~network.buses.country.isin(["DE", "LU"])]
 
     result = pd.Series(index=for_buses.country.unique())
 
@@ -849,6 +844,7 @@ def dc_export_de_lu_per_country(self):
 
     return result
 
+
 def market_export_per_country(self):
     """
     Calculate electricity exports and imports over DC lines per country,
@@ -873,16 +869,24 @@ def market_export_per_country(self):
     for country in for_buses.country.unique():
         # Export-Links (von DE zum Land)
         exp_links = network.links[
-            (network.links.carrier == "DC") &
-            (network.links.bus0.isin(de_buses.index)) &
-            (network.links.bus1.isin(for_buses[for_buses.country == country].index))
+            (network.links.carrier == "DC")
+            & (network.links.bus0.isin(de_buses.index))
+            & (
+                network.links.bus1.isin(
+                    for_buses[for_buses.country == country].index
+                )
+            )
         ]
 
         # Import-Links (vom Land zu DE)
         imp_links = network.links[
-            (network.links.carrier == "DC") &
-            (network.links.bus1.isin(de_buses.index)) &
-            (network.links.bus0.isin(for_buses[for_buses.country == country].index))
+            (network.links.carrier == "DC")
+            & (network.links.bus1.isin(de_buses.index))
+            & (
+                network.links.bus0.isin(
+                    for_buses[for_buses.country == country].index
+                )
+            )
         ]
 
         # Berechne Export für ausgewählte Stunden
@@ -892,7 +896,9 @@ def market_export_per_country(self):
                 network.links_t.p0[exp_links.index]
                 .iloc[selected_hours]  # Nur ausgewählte Stunden
                 .sum(axis=1)
-                .mul(network.snapshot_weightings.generators.iloc[selected_hours])
+                .mul(
+                    network.snapshot_weightings.generators.iloc[selected_hours]
+                )
                 .sum()
             )
 
@@ -903,7 +909,9 @@ def market_export_per_country(self):
                 network.links_t.p1[imp_links.index]
                 .iloc[selected_hours]  # Nur ausgewählte Stunden
                 .sum(axis=1)
-                .mul(network.snapshot_weightings.generators.iloc[selected_hours])
+                .mul(
+                    network.snapshot_weightings.generators.iloc[selected_hours]
+                )
                 .sum()
             )
 
@@ -911,16 +919,19 @@ def market_export_per_country(self):
         export_twh = export_value * 1e-6
         import_twh = import_value * 1e-6
         saldo_twh = (export_value + import_value) * 1e-6
-    
+
         # DataFrame erstellen
-        df = pd.DataFrame({
-            'Land': [country],
-            'Import (TWh)': [import_twh],
-            'Export (TWh)': [export_twh],
-            'Saldo (TWh)': [saldo_twh]
-        })
+        df = pd.DataFrame(
+            {
+                "Land": [country],
+                "Import (TWh)": [import_twh],
+                "Export (TWh)": [export_twh],
+                "Saldo (TWh)": [saldo_twh],
+            }
+        )
 
     return df
+
 
 def calc_etrago_results(self):
     """Function that calculates main results of grid optimization
@@ -1252,37 +1263,41 @@ def total_redispatch(network, only_de=True, plot=False):
 
 
 def battery_capacity(self):
-    
-    ac_buses = self.buses[(self.buses.carrier=="AC")]
+
+    ac_buses = self.buses[(self.buses.carrier == "AC")]
     ac_buses_de = ac_buses[ac_buses.country.isin(["DE", "LU"])]
-    storages = self.storage_units[self.storage_units.bus.isin(ac_buses_de.index)]
-    batteries = storages[storages.carrier =="battery"]
-    
+    storages = self.storage_units[
+        self.storage_units.bus.isin(ac_buses_de.index)
+    ]
+    batteries = storages[storages.carrier == "battery"]
+
     return batteries.p_nom_opt.sum()
 
+
 def electrolyser_capacity(self):
-    ac_buses = self.buses[(self.buses.carrier=="AC")]
-    ac_buses_de = ac_buses[ac_buses.country.isin(["DE", "LU"])]
-    links = self.links[self.links.bus0.isin(ac_buses_de.index)]
-    electrolysers = links[links.carrier =="power_to_H2"]
-    
-    return electrolysers
-    
-def electrolyser_dispatch(self):
-    ac_buses = self.buses[(self.buses.carrier=="AC")]
+    ac_buses = self.buses[(self.buses.carrier == "AC")]
     ac_buses_de = ac_buses[ac_buses.country.isin(["DE", "LU"])]
     links = self.links[self.links.bus0.isin(ac_buses_de.index)]
     electrolysers = links[links.carrier == "power_to_H2"]
-    electrolyser_dispatch = self.links_t.p0[electrolysers.index]   
-    
+
+    return electrolysers
+
+
+def electrolyser_dispatch(self):
+    ac_buses = self.buses[(self.buses.carrier == "AC")]
+    ac_buses_de = ac_buses[ac_buses.country.isin(["DE", "LU"])]
+    links = self.links[self.links.bus0.isin(ac_buses_de.index)]
+    electrolysers = links[links.carrier == "power_to_H2"]
+    electrolyser_dispatch = self.links_t.p0[electrolysers.index]
+
     sum_per_link = electrolyser_dispatch.sum(axis=0)
     return electrolyser_dispatch
-    
+
 
 def fuel_cell_capacity(self):
-    ac_buses = self.buses[(self.buses.carrier=="AC")]
+    ac_buses = self.buses[(self.buses.carrier == "AC")]
     ac_buses_de = ac_buses[ac_buses.country.isin(["DE", "LU"])]
     links = self.links[self.links.bus1.isin(ac_buses_de.index)]
-    fuel_cells = links[links.carrier =="H2_to_power"]
-    
-    return fuel_cells.p_nom_opt.sum() 
+    fuel_cells = links[links.carrier == "H2_to_power"]
+
+    return fuel_cells.p_nom_opt.sum()
