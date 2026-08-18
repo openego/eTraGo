@@ -53,13 +53,13 @@ args = {
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
         "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        "formulation": "linopy",
+        "formulation": "pyomo",
         "market_optimization": {
             "active": True,
             "market_zones": "DE5",  # only used if type='market_grid'; "status_quo", "DE2", "DE3", "DE4" or "DE5"
             "rolling_horizon": {  # Define parameter of market optimization
-                "planning_horizon": 168,  # number of snapshots in each optimization
-                "overlap": 120,  # number of overlapping hours
+                "planning_horizon": 24,  #168 number of snapshots in each optimization
+                "overlap": 0,  #120 number of overlapping hours
             },
             "redispatch": True,
         },
@@ -70,16 +70,21 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 1000,
+    "end_snapshot": 168,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
-        "BarConvTol": 1.0e-5,
-        "FeasibilityTol": 1.0e-5,
+        "BarConvTol": 1.0e-5,  #was 1.0e-5
+        "FeasibilityTol": 1.0e-5,  #was 1.0e-5
         "method": 2,
-        "crossover": 0,
-        "logFile": "solver_etrago.log",
-        "threads": 7,
+        #"crossover": 0,
+        "logFile": "solver_DE5_ac50_s168_pyomo_uc.log",
+        "threads": 4,
+        "SoftMemLimit": 120,
+        "NumericFocus": 3,
+        "ScaleFlag": 2,
+        "MIGap": 1.0e-3,
     },
+    
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
     # Scenario variations:
@@ -87,7 +92,7 @@ args = {
     "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
-    "csv_export": "results_DE5_test",  # save results as csv: False or /path/tofolder
+    "csv_export": "results_DE5_ac50_8760_pyomo",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
         "extendable_components": [
@@ -279,7 +284,44 @@ def run_etrago(args, json_path):
 
         Default: None.
     scn_decommissioning : NoneType or str
-        This option does currently not work!
+        This option does currently not worINFO:pypsa.io:Exported network pre_market has links, generators, buses, stores, carriers, storage_units, loads
+INFO:etrago.execute.market_optimization:Preparing short-term UC market model
+/home/mansouri/projects/spread-sh/etrago/tools/utilities.py:330: FutureWarning: Setting an item of incompatible dtype is deprecated and will raise in a future error of pandas. Value 'PL' has dtype incompatible with float64, please explicitly cast to a compatible dtype first.
+  geobuses["country"][
+INFO:etrago.execute.market_optimization:Start solving short-term UC market model
+INFO:etrago.execute.market_optimization:Optimizing network for snapshot horizon
+            [2011-01-01 00:00:00:2011-01-07 23:00:00] (1/183).
+Traceback (most recent call last):
+  File "/home/mansouri/projects/spread-sh/etrago/appl.py", line 720, in <module>
+    etrago = run_etrago(args, json_path=None)
+  File "/home/mansouri/projects/spread-sh/etrago/appl.py", line 700, in run_etrago
+    etrago.optimize()
+  File "/home/mansouri/projects/spread-sh/etrago/execute/__init__.py", line 432, in optimize
+    self.market_optimization()
+  File "/home/mansouri/projects/spread-sh/etrago/execute/market_optimization.py", line 102, in market_optimization
+    optimize_with_rolling_horizon(
+  File "/home/mansouri/projects/spread-sh/etrago/execute/market_optimization.py", line 181, in optimize_with_rolling_horizon
+    n.stores.loc[stores_no_dsm, "e_initial"] = n.stores_t.e.loc[
+  File "/home/mansouri/miniconda3/envs/spread-sh/lib/python3.10/site-packages/pandas/core/indexing.py", line 1147, in __getitem__
+    return self._getitem_tuple(key)
+  File "/home/mansouri/miniconda3/envs/spread-sh/lib/python3.10/site-packages/pandas/core/indexing.py", line 1330, in _getitem_tuple
+    return self._getitem_lowerdim(tup)
+  File "/home/mansouri/miniconda3/envs/spread-sh/lib/python3.10/site-packages/pandas/core/indexing.py", line 1063, in _getitem_lowerdim
+    return getattr(section, self.name)[new_key]
+  File "/home/mansouri/miniconda3/envs/spread-sh/lib/python3.10/site-packages/pandas/core/indexing.py", line 1153, in __getitem__
+    return self._getitem_axis(maybe_callable, axis=axis)
+  File "/home/mansouri/miniconda3/envs/spread-sh/lib/python3.10/site-packages/pandas/core/indexing.py", line 1382, in _getitem_axis
+    return self._getitem_iterable(key, axis=axis)
+  File "/home/mansouri/miniconda3/envs/spread-sh/lib/python3.10/site-packages/pandas/core/indexing.py", line 1322, in _getitem_iterable
+    keyarr, indexer = self._get_listlike_indexer(key, axis)
+  File "/home/mansouri/miniconda3/envs/spread-sh/lib/python3.10/site-packages/pandas/core/indexing.py", line 1520, in _get_listlike_indexer
+    keyarr, indexer = ax._get_indexer_strict(key, axis_name)
+  File "/home/mansouri/miniconda3/envs/spread-sh/lib/python3.10/site-packages/pandas/core/indexes/base.py", line 6115, in _get_indexer_strict
+    self._raise_if_missing(keyarr, indexer, axis_name)
+  File "/home/mansouri/miniconda3/envs/spread-sh/lib/python3.10/site-packages/pandas/core/indexes/base.py", line 6176, in _raise_if_missing
+    raise KeyError(f"None of [{key}] are in the [{axis_name}]")
+KeyError: "None of [Index(['48639 CH4', '48640 CH4', '48642 CH4', '48643 CH4', '48644 CH4',\n       '48645 CH4', '48647 CH4', '48649 CH4', '48650 CH4',\n       '48653 H2_underground',\n       ...\n       '77988 central_heat_store', '77989 central_heat_store',\n       '77990 central_heat_store', '77991 central_heat_store',\n       '77992 central_heat_store', '77993 central_heat_store',\n       '77994 central_heat_store', '77995 central_heat_store',\n       '77996 central_heat_store', '77997 central_heat_store'],\n      dtype='object', name='Store', length=325)] are in the [index]"
+k!
 
         Choose an extra scenario which includes lines you want to decommission
         from the existing network. Data of the decommissioning scenarios are
@@ -720,6 +762,10 @@ if __name__ == "__main__":
     etrago = run_etrago(args, json_path=None)
 
     print(datetime.datetime.now())
+    
+    etrago.session.close()
+
+"""
 
     market_zones = args["method"]["market_optimization"]["market_zones"]
 
@@ -770,3 +816,4 @@ if __name__ == "__main__":
     )
 
     etrago.session.close()
+"""
