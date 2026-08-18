@@ -21,6 +21,7 @@
 """
 Defines the market optimization within eTraGo
 """
+
 import os
 import numpy as np
 from pyomo.core import TransformationFactory, Var
@@ -35,8 +36,7 @@ if "READTHEDOCS" not in os.environ:
     import geopandas as gpd
     import requests
     import os
-    
-    
+
     from etrago.cluster.electrical import postprocessing, preprocessing
     from etrago.tools.constraints import Constraints
     from etrago.tools.market_zones import create_market_zone_busmap
@@ -69,8 +69,7 @@ def log_committable_components(net):
         selected = df.loc[mask].copy()
 
         print(
-            f"\n{component_name}: "
-            f"{len(selected)} committable components",
+            f"\n{component_name}: " f"{len(selected)} committable components",
             flush=True,
         )
 
@@ -133,39 +132,25 @@ def _apply_unit_commitment_attributes(net):
     # Diagnostic: compare network carriers with UC CSV carriers
     # ==============================================================
 
-    uc_carriers = list(
-        unit_commitment.columns.astype(str)
-    )
+    uc_carriers = list(unit_commitment.columns.astype(str))
 
     if not net.generators.empty:
         gen_carriers = sorted(
-            net.generators.carrier
-            .dropna()
-            .astype(str)
-            .unique()
-            .tolist()
+            net.generators.carrier.dropna().astype(str).unique().tolist()
         )
     else:
         gen_carriers = []
 
     if not net.links.empty:
         link_carriers = sorted(
-            net.links.carrier
-            .dropna()
-            .astype(str)
-            .unique()
-            .tolist()
+            net.links.carrier.dropna().astype(str).unique().tolist()
         )
     else:
         link_carriers = []
 
-    gen_overlap = sorted(
-        set(gen_carriers).intersection(uc_carriers)
-    )
+    gen_overlap = sorted(set(gen_carriers).intersection(uc_carriers))
 
-    link_overlap = sorted(
-        set(link_carriers).intersection(uc_carriers)
-    )
+    link_overlap = sorted(set(link_carriers).intersection(uc_carriers))
 
     logger.info(
         "UC DEBUG: UC carriers = %s",
@@ -215,9 +200,7 @@ def _apply_unit_commitment_attributes(net):
 
             try:
                 mapped = mapped.astype(
-                    net.generators.carrier.map(
-                        unit_commitment.loc[attr]
-                    ).dtype
+                    net.generators.carrier.map(unit_commitment.loc[attr]).dtype
                 )
             except Exception:
                 pass
@@ -233,16 +216,12 @@ def _apply_unit_commitment_attributes(net):
 
         if "min_up_time" in net.generators.columns:
             net.generators["min_up_time"] = (
-                net.generators["min_up_time"]
-                .fillna(0)
-                .astype(int)
+                net.generators["min_up_time"].fillna(0).astype(int)
             )
 
         if "min_down_time" in net.generators.columns:
             net.generators["min_down_time"] = (
-                net.generators["min_down_time"]
-                .fillna(0)
-                .astype(int)
+                net.generators["min_down_time"].fillna(0).astype(int)
             )
 
         # ----------------------------------------------------------
@@ -251,22 +230,15 @@ def _apply_unit_commitment_attributes(net):
 
         if "ramp_limit_down" in net.generators.columns:
 
-            mask = (
-                net.generators["committable"]
-                .fillna(False)
-                .astype(bool)
-            )
+            mask = net.generators["committable"].fillna(False).astype(bool)
 
             net.generators.loc[
                 mask,
                 "ramp_limit_down",
-            ] = (
-                net.generators.loc[
-                    mask,
-                    "ramp_limit_down",
-                ]
-                .fillna(1.0)
-            )
+            ] = net.generators.loc[
+                mask,
+                "ramp_limit_down",
+            ].fillna(1.0)
 
         # ----------------------------------------------------------
         # Preserve existing treatment of start/shutdown costs
@@ -274,11 +246,7 @@ def _apply_unit_commitment_attributes(net):
 
         if "start_up_cost" in net.generators.columns:
 
-            mask = (
-                net.generators["committable"]
-                .fillna(False)
-                .astype(bool)
-            )
+            mask = net.generators["committable"].fillna(False).astype(bool)
 
             net.generators.loc[
                 mask,
@@ -287,11 +255,7 @@ def _apply_unit_commitment_attributes(net):
 
         if "shut_down_cost" in net.generators.columns:
 
-            mask = (
-                net.generators["committable"]
-                .fillna(False)
-                .astype(bool)
-            )
+            mask = net.generators["committable"].fillna(False).astype(bool)
 
             net.generators.loc[
                 mask,
@@ -306,24 +270,22 @@ def _apply_unit_commitment_attributes(net):
 
         # Link is committable when its carrier occurs as a
         # column in unit_commitment.csv.
-        link_attrs = net.links.carrier.isin(
-            unit_commitment.columns
-        ).to_frame("committable")
+        link_attrs = net.links.carrier.isin(unit_commitment.columns).to_frame(
+            "committable"
+        )
 
         # Assign all UC attributes from unit_commitment.csv.
         for attr in unit_commitment.index:
 
             default = component_attrs["Link"].default[attr]
 
-            mapped = net.links.carrier.map(
-                unit_commitment.loc[attr]
-            ).fillna(default)
+            mapped = net.links.carrier.map(unit_commitment.loc[attr]).fillna(
+                default
+            )
 
             try:
                 mapped = mapped.astype(
-                    net.links.carrier.map(
-                        unit_commitment.loc[attr]
-                    ).dtype
+                    net.links.carrier.map(unit_commitment.loc[attr]).dtype
                 )
             except Exception:
                 pass
@@ -339,16 +301,12 @@ def _apply_unit_commitment_attributes(net):
 
         if "min_up_time" in net.links.columns:
             net.links["min_up_time"] = (
-                net.links["min_up_time"]
-                .fillna(0)
-                .astype(int)
+                net.links["min_up_time"].fillna(0).astype(int)
             )
 
         if "min_down_time" in net.links.columns:
             net.links["min_down_time"] = (
-                net.links["min_down_time"]
-                .fillna(0)
-                .astype(int)
+                net.links["min_down_time"].fillna(0).astype(int)
             )
 
         # ----------------------------------------------------------
@@ -357,22 +315,15 @@ def _apply_unit_commitment_attributes(net):
 
         if "ramp_limit_down" in net.links.columns:
 
-            mask = (
-                net.links["committable"]
-                .fillna(False)
-                .astype(bool)
-            )
+            mask = net.links["committable"].fillna(False).astype(bool)
 
             net.links.loc[
                 mask,
                 "ramp_limit_down",
-            ] = (
-                net.links.loc[
-                    mask,
-                    "ramp_limit_down",
-                ]
-                .fillna(1.0)
-            )
+            ] = net.links.loc[
+                mask,
+                "ramp_limit_down",
+            ].fillna(1.0)
 
         # ----------------------------------------------------------
         # Preserve reversible-link treatment
@@ -389,9 +340,7 @@ def _apply_unit_commitment_attributes(net):
             ]
 
             net.links.loc[
-                net.links.carrier.isin(
-                    reversible_carriers
-                ),
+                net.links.carrier.isin(reversible_carriers),
                 "p_min_pu",
             ] = -1.0
 
@@ -401,11 +350,7 @@ def _apply_unit_commitment_attributes(net):
 
         if "start_up_cost" in net.links.columns:
 
-            mask = (
-                net.links["committable"]
-                .fillna(False)
-                .astype(bool)
-            )
+            mask = net.links["committable"].fillna(False).astype(bool)
 
             net.links.loc[
                 mask,
@@ -414,11 +359,7 @@ def _apply_unit_commitment_attributes(net):
 
         if "shut_down_cost" in net.links.columns:
 
-            mask = (
-                net.links["committable"]
-                .fillna(False)
-                .astype(bool)
-            )
+            mask = net.links["committable"].fillna(False).astype(bool)
 
             net.links.loc[
                 mask,
@@ -429,28 +370,16 @@ def _apply_unit_commitment_attributes(net):
     # Final diagnostic
     # ==============================================================
 
-    if (
-        not net.generators.empty
-        and "committable" in net.generators.columns
-    ):
+    if not net.generators.empty and "committable" in net.generators.columns:
         n_gen_uc = int(
-            net.generators["committable"]
-            .fillna(False)
-            .astype(bool)
-            .sum()
+            net.generators["committable"].fillna(False).astype(bool).sum()
         )
     else:
         n_gen_uc = 0
 
-    if (
-        not net.links.empty
-        and "committable" in net.links.columns
-    ):
+    if not net.links.empty and "committable" in net.links.columns:
         n_link_uc = int(
-            net.links["committable"]
-            .fillna(False)
-            .astype(bool)
-            .sum()
+            net.links["committable"].fillna(False).astype(bool).sum()
         )
     else:
         n_link_uc = 0
@@ -464,6 +393,7 @@ def _apply_unit_commitment_attributes(net):
         "UC DEBUG: assigned committable links = %d",
         n_link_uc,
     )
+
 
 def _disable_unit_commitment(net):
     """Ensure that the annual pre-market model is a continuous LP."""
@@ -612,6 +542,7 @@ def _get_timeseries_row(ts_df, snapshot, components, label):
     )
     return pd.Series(dtype=float)
 
+
 def gas_clustering_market_model(self):
     from etrago.cluster.gas import (
         gas_postprocessing,
@@ -697,6 +628,7 @@ def gas_clustering_market_model(self):
         aggregate_generators_carriers=[],
     )
 
+
 def market_optimization(self):
     logger.info("Start building pre market model")
 
@@ -706,7 +638,7 @@ def market_optimization(self):
     # Diagnostic only:
     # list components that create binaries in the pre-market model.
     log_committable_components(self.pre_market_model)
-    
+
     pm_gen_uc = int(
         self.pre_market_model.generators.get(
             "committable",
@@ -757,10 +689,8 @@ def market_optimization(self):
                 )
             )
 
-            transformation = TransformationFactory(
-                "core.relax_integer_vars"
-            )
-            
+            transformation = TransformationFactory("core.relax_integer_vars")
+
             if transformation is None:
                 raise RuntimeError(
                     "Pyomo transformation core.relax_integer_vars "
@@ -806,13 +736,10 @@ def market_optimization(self):
         )
 
     else:
-        raise ValueError(
-            "Method type must be either 'pyomo' or 'linopy'."
-        )
+        raise ValueError("Method type must be either 'pyomo' or 'linopy'.")
 
     logger.info(
-        "Pre-market optimization finished with "
-        "status=%s and condition=%s",
+        "Pre-market optimization finished with " "status=%s and condition=%s",
         status,
         condition,
     )
@@ -836,9 +763,7 @@ def market_optimization(self):
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
 
-        self.pre_market_model.export_to_csv_folder(
-            path + "/pre_market"
-        )
+        self.pre_market_model.export_to_csv_folder(path + "/pre_market")
 
     logger.info("Preparing short-term UC market model")
 
@@ -885,9 +810,8 @@ def market_optimization(self):
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
 
-        self.market_model.export_to_csv_folder(
-            path + "/market"
-        )
+        self.market_model.export_to_csv_folder(path + "/market")
+
 
 def build_market_model(self):
     """
@@ -918,9 +842,7 @@ def build_market_model(self):
         apply_on="market_model",
     )
 
-    market_zones = self.args["method"]["market_optimization"][
-        "market_zones"
-    ]
+    market_zones = self.args["method"]["market_optimization"]["market_zones"]
 
     # ==============================================================
     # Build market-zone busmap
@@ -945,11 +867,7 @@ def build_market_model(self):
             "marketzone",
         ] = "DE/LU"
 
-        df["cluster"] = (
-            df.groupby(df.marketzone)
-            .grouper
-            .group_info[0]
-        )
+        df["cluster"] = df.groupby(df.marketzone).grouper.group_info[0]
 
         for country in net.buses.country.unique():
             net.buses.loc[
@@ -990,9 +908,7 @@ def build_market_model(self):
     # Market-zone-specific clustering
     # ==============================================================
 
-    logger.info(
-        "Start market zone specific clustering"
-    )
+    logger.info("Start market zone specific clustering")
 
     clustering, busmap = postprocessing(
         self,
@@ -1010,21 +926,13 @@ def build_market_model(self):
     # Convert clustered AC lines to abstract market links
     # ==============================================================
 
-    if (
-        not net.lines.empty
-        and "carrier" in net.lines.columns
-    ):
+    if not net.lines.empty and "carrier" in net.lines.columns:
 
-        ac = net.lines[
-            net.lines.carrier == "AC"
-        ].copy()
+        ac = net.lines[net.lines.carrier == "AC"].copy()
 
         if not ac.empty:
 
-            ac.index = (
-                "transshipment_"
-                + ac.index.astype(str)
-            )
+            ac.index = "transshipment_" + ac.index.astype(str)
 
             link_df = (
                 ac.loc[
@@ -1036,27 +944,13 @@ def build_market_model(self):
                         "length",
                     ],
                 ]
-                .assign(
-                    p_nom=ac.s_nom
-                )
-                .assign(
-                    p_nom_min=ac.s_nom_min
-                )
-                .assign(
-                    p_nom_max=ac.s_nom_max
-                )
-                .assign(
-                    p_nom_extendable=ac.s_nom_extendable
-                )
-                .assign(
-                    p_max_pu=ac.s_max_pu
-                )
-                .assign(
-                    p_min_pu=-1.0
-                )
-                .assign(
-                    carrier="DC"
-                )
+                .assign(p_nom=ac.s_nom)
+                .assign(p_nom_min=ac.s_nom_min)
+                .assign(p_nom_max=ac.s_nom_max)
+                .assign(p_nom_extendable=ac.s_nom_extendable)
+                .assign(p_max_pu=ac.s_max_pu)
+                .assign(p_min_pu=-1.0)
+                .assign(carrier="DC")
                 .set_index(ac.index)
             )
 
@@ -1066,9 +960,7 @@ def build_market_model(self):
             )
 
             net.lines.drop(
-                net.lines.loc[
-                    net.lines.carrier == "AC"
-                ].index,
+                net.lines.loc[net.lines.carrier == "AC"].index,
                 inplace=True,
             )
 
@@ -1079,16 +971,11 @@ def build_market_model(self):
     if hasattr(self, "network_tsa"):
 
         try:
-            net.generators_t.p_max_pu = (
-                self.network_tsa
-                .generators_t
-                .p_max_pu
-            )
+            net.generators_t.p_max_pu = self.network_tsa.generators_t.p_max_pu
 
         except Exception as exc:
             logger.warning(
-                "Could not assign "
-                "network_tsa.generators_t.p_max_pu: %s",
+                "Could not assign " "network_tsa.generators_t.p_max_pu: %s",
                 exc,
             )
 
@@ -1096,10 +983,7 @@ def build_market_model(self):
     # Configure cyclic storage behavior for pre-market model
     # ==============================================================
 
-    if (
-        not net.stores.empty
-        and "carrier" in net.stores.columns
-    ):
+    if not net.stores.empty and "carrier" in net.stores.columns:
 
         net.stores.loc[
             net.stores.carrier != "battery_storage",
@@ -1108,9 +992,7 @@ def build_market_model(self):
 
     if not net.storage_units.empty:
 
-        net.storage_units[
-            "cyclic_state_of_charge"
-        ] = True
+        net.storage_units["cyclic_state_of_charge"] = True
 
     # ==============================================================
     # Assign network as pre-market model
@@ -1122,9 +1004,7 @@ def build_market_model(self):
     # Gas-network reduction
     # ==============================================================
 
-    logger.info(
-        "Start gas clustering for pre-market model"
-    )
+    logger.info("Start gas clustering for pre-market model")
 
     gas_clustering_market_model(self)
 
@@ -1133,8 +1013,7 @@ def build_market_model(self):
     # ==============================================================
 
     logger.info(
-        "Aggregate parallel sector-coupling links "
-        "in pre-market model"
+        "Aggregate parallel sector-coupling links " "in pre-market model"
     )
 
     (
@@ -1167,13 +1046,10 @@ def build_market_model(self):
     # ==============================================================
 
     logger.info(
-        "Apply unit-commitment attributes "
-        "to final pre-market model"
+        "Apply unit-commitment attributes " "to final pre-market model"
     )
 
-    _apply_unit_commitment_attributes(
-        self.pre_market_model
-    )
+    _apply_unit_commitment_attributes(self.pre_market_model)
 
     # ==============================================================
     # Final diagnostics
@@ -1184,13 +1060,11 @@ def build_market_model(self):
 
     if (
         not self.pre_market_model.generators.empty
-        and "committable"
-        in self.pre_market_model.generators.columns
+        and "committable" in self.pre_market_model.generators.columns
     ):
 
         n_gen_uc = int(
-            self.pre_market_model
-            .generators["committable"]
+            self.pre_market_model.generators["committable"]
             .fillna(False)
             .astype(bool)
             .sum()
@@ -1198,13 +1072,11 @@ def build_market_model(self):
 
     if (
         not self.pre_market_model.links.empty
-        and "committable"
-        in self.pre_market_model.links.columns
+        and "committable" in self.pre_market_model.links.columns
     ):
 
         n_link_uc = int(
-            self.pre_market_model
-            .links["committable"]
+            self.pre_market_model.links["committable"]
             .fillna(False)
             .astype(bool)
             .sum()
@@ -1222,13 +1094,10 @@ def build_market_model(self):
     # Country/geolocation information
     # ==============================================================
 
-    self.buses_by_country(
-        apply_on="pre_market_model"
-    )
+    self.buses_by_country(apply_on="pre_market_model")
 
-    self.geolocation_buses(
-        apply_on="pre_market_model"
-    )
+    self.geolocation_buses(apply_on="pre_market_model")
+
 
 def optimize_with_rolling_horizon(
     n,
@@ -1259,9 +1128,7 @@ def optimize_with_rolling_horizon(
         return n
 
     if horizon <= overlap:
-        raise ValueError(
-            "overlap must be smaller than horizon"
-        )
+        raise ValueError("overlap must be smaller than horizon")
 
     if not n.links.empty:
         n.links["marginal_cost_quadratic"] = 0.0
@@ -1289,12 +1156,10 @@ def optimize_with_rolling_horizon(
         )
 
     if not n.storage_units.empty:
-        n.storage_units_t.state_of_charge = (
-            _ensure_time_series_columns(
-                n.storage_units_t.state_of_charge,
-                n.storage_units.index,
-                fill_value=0.0,
-            )
+        n.storage_units_t.state_of_charge = _ensure_time_series_columns(
+            n.storage_units_t.state_of_charge,
+            n.storage_units.index,
+            fill_value=0.0,
         )
 
     if not pre_market.stores.empty:
@@ -1405,9 +1270,7 @@ def optimize_with_rolling_horizon(
                     pre_market.stores.index
                 )
 
-                available = available.intersection(
-                    n.stores.index
-                )
+                available = available.intersection(n.stores.index)
 
                 if len(available) > 0:
                     e_nom = _effective_nominal(
@@ -1434,33 +1297,29 @@ def optimize_with_rolling_horizon(
                     ratio = seasonal_values.div(e_nom)
 
                     # Remove NaN and infinite ratios.
-                    ratio = ratio.where(
-                        np.isfinite(ratio)
-                    ).dropna()
+                    ratio = ratio.where(np.isfinite(ratio)).dropna()
 
                     if len(ratio) > 0:
                         for store in ratio.index:
-                            if (
-                                store
-                                not in n.stores_t.e_max_pu.columns
-                            ):
+                            if store not in n.stores_t.e_max_pu.columns:
                                 n.stores_t.e_max_pu[store] = 1.0
 
-                            if (
-                                store
-                                not in n.stores_t.e_min_pu.columns
-                            ):
+                            if store not in n.stores_t.e_min_pu.columns:
                                 n.stores_t.e_min_pu[store] = 0.0
 
                         n.stores_t.e_max_pu.loc[
                             end_snapshot,
                             ratio.index,
-                        ] = ratio * 1.01
+                        ] = (
+                            ratio * 1.01
+                        )
 
                         n.stores_t.e_min_pu.loc[
                             end_snapshot,
                             ratio.index,
-                        ] = ratio * 0.99
+                        ] = (
+                            ratio * 0.99
+                        )
 
             n.stores_t.e_min_pu.fillna(
                 0.0,
@@ -1482,13 +1341,9 @@ def optimize_with_rolling_horizon(
                 # Preserve the original logic:
                 # the first short-term window starts from the
                 # end-of-period pre-market SOC.
-                if (
-                    not pre_market.storage_units_t
-                    .state_of_charge.empty
-                ):
+                if not pre_market.storage_units_t.state_of_charge.empty:
                     first_soc_snapshot = (
-                        pre_market.storage_units_t
-                        .state_of_charge.index[-1]
+                        pre_market.storage_units_t.state_of_charge.index[-1]
                     )
 
                     soc_initial = _get_timeseries_row(
@@ -1509,10 +1364,7 @@ def optimize_with_rolling_horizon(
                     n.storage_units_t.state_of_charge,
                     previous_snapshot,
                     storage_units,
-                    (
-                        "n.storage_units_t.state_of_charge "
-                        "rolling handover"
-                    ),
+                    ("n.storage_units_t.state_of_charge " "rolling handover"),
                 )
 
             if not soc_initial.empty:
@@ -1575,8 +1427,7 @@ def optimize_with_rolling_horizon(
         )
 
         logger.info(
-            "Rolling window %s/%s finished with "
-            "status=%s and condition=%s",
+            "Rolling window %s/%s finished with " "status=%s and condition=%s",
             i + 1,
             len(starting_points),
             status,
@@ -1600,9 +1451,6 @@ def optimize_with_rolling_horizon(
                 )
 
     return n
-
-
-
 
 
 def build_shortterm_market_model(self):

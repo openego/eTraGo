@@ -21,6 +21,7 @@
 """
 Defines the market optimization within eTraGo
 """
+
 import os
 
 if "READTHEDOCS" not in os.environ:
@@ -73,7 +74,7 @@ def grid_optimization(
         time_depended_cost,
         fre_mangement_fee,
     )
-    
+
     relax_battery_stores_for_grid_optimization(
         self,
         initial_soc=0.5,
@@ -112,9 +113,11 @@ def grid_optimization(
     self.network.links_t.p_max_pu.where(
         self.network.links_t.p_max_pu.abs() > 1e-7, other=0.0, inplace=True
     )
-    
+
     self.network.links_t.p_min_pu.where(
-        self.network.links_t.p_min_pu.abs() > 1e-7, other=0.0, inplace=True,
+        self.network.links_t.p_min_pu.abs() > 1e-7,
+        other=0.0,
+        inplace=True,
     )
 
     self.network.links.loc[
@@ -458,9 +461,11 @@ def fix_battery_stores_from_market_model(
             return pd.Series(dtype=float)
 
         e_nom = pd.to_numeric(
-            stores.loc[idx, "e_nom"]
-            if "e_nom" in stores.columns
-            else pd.Series(index=idx),
+            (
+                stores.loc[idx, "e_nom"]
+                if "e_nom" in stores.columns
+                else pd.Series(index=idx)
+            ),
             errors="coerce",
         )
         e_nom.index = idx
@@ -495,7 +500,9 @@ def fix_battery_stores_from_market_model(
         self.market_model.stores.carrier.astype(str).eq("battery_storage")
     ].astype(str)
 
-    batteries = pd.Index(grid_batteries).intersection(pd.Index(market_batteries))
+    batteries = pd.Index(grid_batteries).intersection(
+        pd.Index(market_batteries)
+    )
 
     if len(batteries) == 0:
         logger.info(
@@ -528,10 +535,14 @@ def fix_battery_stores_from_market_model(
         "market battery stores",
     )
 
-    market_e = market_e_all.reindex(
-        index=snapshots,
-        columns=batteries,
-    ).ffill().bfill()
+    market_e = (
+        market_e_all.reindex(
+            index=snapshots,
+            columns=batteries,
+        )
+        .ffill()
+        .bfill()
+    )
 
     if market_e.isna().any().any():
         logger.warning(
@@ -584,9 +595,7 @@ def fix_battery_stores_from_market_model(
                 first_pos = first_pos.start
 
             previous_pos = (
-                first_pos - 1
-                if first_pos > 0
-                else len(market_index) - 1
+                first_pos - 1 if first_pos > 0 else len(market_index) - 1
             )
         else:
             previous_pos = len(market_index) - 1
@@ -598,9 +607,8 @@ def fix_battery_stores_from_market_model(
             batteries,
         ].astype(float)
 
-        previous_market_soc = (
-            previous_market_e.div(market_e_nom)
-            .clip(lower=0.0, upper=1.0)
+        previous_market_soc = previous_market_e.div(market_e_nom).clip(
+            lower=0.0, upper=1.0
         )
 
         e_initial = previous_market_soc.mul(grid_e_nom).astype(float)
@@ -648,10 +656,15 @@ def fix_battery_stores_from_market_model(
             )
             return
 
-        market_p = self.market_model.stores_t.p.reindex(
-            index=snapshots,
-            columns=batteries,
-        ).ffill().bfill().fillna(0.0)
+        market_p = (
+            self.market_model.stores_t.p.reindex(
+                index=snapshots,
+                columns=batteries,
+            )
+            .ffill()
+            .bfill()
+            .fillna(0.0)
+        )
 
         # Scale Store-p consistently with energy-capacity ratio.
         scale = (
@@ -780,9 +793,9 @@ def add_redispatch_generators(
             comps = component_bus.index[component_bus == bus]
 
             if bus in prices.columns:
-                out.loc[:, comps] = prices.loc[:, bus].astype(float).values[
-                    :, None
-                ]
+                out.loc[:, comps] = (
+                    prices.loc[:, bus].astype(float).values[:, None]
+                )
             else:
                 missing_buses.append(bus)
                 out.loc[:, comps] = fallback_price.values[:, None]
@@ -1015,11 +1028,9 @@ def add_redispatch_generators(
             gens_redispatch,
         )
 
-        fixed_gen_pu = (
-            market_gen_dispatch
-            .div(market_gen_p_nom, axis=1)
-            .fillna(0.0)
-        )
+        fixed_gen_pu = market_gen_dispatch.div(
+            market_gen_p_nom, axis=1
+        ).fillna(0.0)
 
         self.network.generators_t.p_max_pu = _ensure_ts_columns(
             self.network.generators_t.p_max_pu,
@@ -1052,11 +1063,9 @@ def add_redispatch_generators(
             links_redispatch,
         )
 
-        fixed_link_pu = (
-            market_link_dispatch
-            .div(market_link_p_nom, axis=1)
-            .fillna(0.0)
-        )
+        fixed_link_pu = market_link_dispatch.div(
+            market_link_p_nom, axis=1
+        ).fillna(0.0)
 
         self.network.links_t.p_max_pu = _ensure_ts_columns(
             self.network.links_t.p_max_pu,
@@ -1087,11 +1096,9 @@ def add_redispatch_generators(
     market_price_per_bus.columns = market_price_per_bus.columns.astype(str)
 
     if len(gens_redispatch) > 0:
-        market_generator_buses = (
-            self.market_model.generators
-            .loc[gens_redispatch, "bus"]
-            .astype(str)
-        )
+        market_generator_buses = self.market_model.generators.loc[
+            gens_redispatch, "bus"
+        ].astype(str)
 
         market_price_per_generator_ts = _component_market_prices(
             market_price_per_bus,
@@ -1106,11 +1113,9 @@ def add_redispatch_generators(
         )
 
     if len(links_redispatch) > 0:
-        market_link_buses = (
-            self.market_model.links
-            .loc[links_redispatch, "bus1"]
-            .astype(str)
-        )
+        market_link_buses = self.market_model.links.loc[
+            links_redispatch, "bus1"
+        ].astype(str)
 
         market_price_per_link_ts = _component_market_prices(
             market_price_per_bus,
@@ -1161,11 +1166,9 @@ def add_redispatch_generators(
                 fill_value=0.0,
             )
 
-            ramp_down_costs = (
-                market_price_per_generator
-                .sub(generator_marginal_cost, axis=1)
-                .add(management_cost_per_generator, fill_value=0.0)
-            )
+            ramp_down_costs = market_price_per_generator.sub(
+                generator_marginal_cost, axis=1
+            ).add(management_cost_per_generator, fill_value=0.0)
 
         else:
             ramp_up_costs = pd.concat(
@@ -1328,11 +1331,9 @@ def add_redispatch_generators(
         )
 
         ramp_up_link_pu = (
-            link_p_nom_grid
-            .reindex(links_redispatch)
+            link_p_nom_grid.reindex(links_redispatch)
             .to_frame()
-            .T
-            .reindex(index=snapshots)
+            .T.reindex(index=snapshots)
         )
 
         for link in links_redispatch:
@@ -1414,8 +1415,7 @@ def add_redispatch_generators(
         )
 
         ramp_down_gen_pu = (
-            -market_gen_dispatch
-            .clip(lower=0.0)
+            -market_gen_dispatch.clip(lower=0.0)
             .div(gen_p_nom_grid, axis=1)
             .fillna(0.0)
         )
@@ -1466,8 +1466,7 @@ def add_redispatch_generators(
         )
 
         ramp_down_link_pu = (
-            -market_link_dispatch
-            .clip(lower=0.0)
+            -market_link_dispatch.clip(lower=0.0)
             .div(link_p_nom_grid, axis=1)
             .fillna(0.0)
         )
@@ -1482,5 +1481,7 @@ def add_redispatch_generators(
     # ------------------------------------------------------------------
 
     self.network.consistency_check()
+
+
 def extra_functionality():
     return None
