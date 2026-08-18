@@ -384,7 +384,8 @@ def relax_battery_stores_for_grid_optimization(
         "e_initial",
     ] = (initial_soc * e_nom).values
 
-    # Avoid an additional cyclic condition conflicting with the chosen initial state.
+    # Avoid an additional cyclic condition conflicting with
+    # the chosen initial state.
     self.network.stores.loc[
         battery_stores,
         "e_cyclic",

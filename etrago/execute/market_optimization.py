@@ -25,17 +25,13 @@ Defines the market optimization within eTraGo
 import os
 import numpy as np
 from pyomo.core import TransformationFactory, Var
-import pyomo.core.plugins.transform
+import pyomo.core.plugins.transform  # noqa: F401
 
 if "READTHEDOCS" not in os.environ:
     import logging
 
     from pypsa.components import component_attrs
-    from shapely.geometry import Point
     import pandas as pd
-    import geopandas as gpd
-    import requests
-    import os
 
     from etrago.cluster.electrical import postprocessing, preprocessing
     from etrago.tools.constraints import Constraints
