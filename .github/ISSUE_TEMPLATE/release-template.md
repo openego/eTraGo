@@ -43,7 +43,7 @@ Final checks and testing before cutting the release branch.
 
 ---
 
-## 3. Release
+## 3. Merge Branches
 
 Merging the release branch through to production.
 
@@ -68,6 +68,10 @@ Creating the official GitHub release.
 ---
 
 ## 5. Publish to PyPI
+
+**For the next steps, you need the appropriate permissions for etrago on both TestPyPI and PyPI.**
+
+Currently, @ClaraBuettner and @KathiEsterl have the required permissions. Please make sure you have the corresponding tokens ready for uploading the release.
 
 All steps performed inside `venv-release`.
 
