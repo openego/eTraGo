@@ -31,10 +31,10 @@ from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
 from pypsa.plot import draw_map_cartopy
 import matplotlib
+import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
-import matplotlib.colors as mcolors
 
 from etrago.tools.market_zones import (
     assign_market_zone_column_to_network,
@@ -3005,9 +3005,6 @@ def plot_grid(
                     ].max()
                 except KeyError:
                     max_value = bus_sizes.max()
-                    scale_for_legend = max_value / (
-                        bus_scaling
-                    )  # 300 ist tuning-wert
 
                 handles.append(
                     make_legend_circles_for(
@@ -3086,7 +3083,9 @@ def plot_grid(
         if not boundaries:
             boundaries = [
                 min(round(line_colors.min(), 1), round(link_colors.min(), 1)),
-                500,  # max(round(line_colors.max()), round(link_colors.max())),
+                # Fixed maximum; alternatively use the rounded maximum of
+                # line_colors and link_colors.
+                500,
             ]
 
         # Create ticks for legend
@@ -4371,8 +4370,12 @@ def total_load(self):
     )
 
     print(f"Netz {total_load_net} TWh\nMarkt {total_load_market} TWh")
+    static_load_net = ac_loads_net.sum().sum() * 5 * 1e-6
+    flexible_load_net = link_ac_loads_net.sum().sum() * 5 * 1e-6
+
     print(
-        f"Statische Lasten Netz {ac_loads_net.sum().sum()*5*1e-6} TWh\n Flexible Lasten Netz {link_ac_loads_net.sum().sum()*5*1e-6} TWh"
+        f"Statische Lasten Netz {static_load_net} TWh\n"
+        f" Flexible Lasten Netz {flexible_load_net} TWh"
     )
     return
 
@@ -5125,8 +5128,6 @@ def total_load_wind_and_solar_by_zone(
         "wind_offshore",
     ]
 
-    all_carriers = solar_carriers + wind_carriers
-
     if market_zones != "NONE":
         assign_market_zones_to_buses(self.market_model, market_zones)
 
@@ -5589,7 +5590,6 @@ def total_load_t_de(self):
     ac_buses_market = buses_market[
         buses_market["carrier"] == "AC"
     ].index.astype(str)
-    # ac_columns_net = [col for col in loads_net.columns if col.split()[0] in ac_buses_net and col.split()[1] == 'AC']
     ac_columns_market = [
         col
         for col in loads_market.columns
@@ -5605,12 +5605,10 @@ def total_load_t_de(self):
     links_to_ac_buses_market = links_to_ac_buses_market[
         links_to_ac_buses_market.carrier != "DC"
     ]
-    # link_ac_loads_net = link_loads_net[link_loads_net.columns.intersection(links_to_ac_buses_net.index)]
     link_ac_loads_market = link_loads_market[
         link_loads_market.columns.intersection(links_to_ac_buses_market.index)
     ]
 
-    # total_load_net = ac_loads_net.sum().sum()*5*1e-6 + link_ac_loads_net.sum().sum()*5*1e-6
     total_load_market = ac_loads_market.copy()
     total_load_market.iloc[:, 0] += link_ac_loads_market.sum(axis=1)
 
@@ -5634,16 +5632,14 @@ def residual_t(self):
     return residual_t
 
 
-import pandas as pd
-
-
 def prices_t(self):
     """Calculate electricity exports and imports over DC lines
 
     Returns
     -------
     pd.DataFrame
-        DataFrame with timestamps as rows, and three columns for export, import and net position
+        DataFrame with timestamps as rows, and three columns:
+        export, import and net position.
     """
     network = self
     de_buses = network.buses[network.buses.country == "DE"]
@@ -5703,7 +5699,8 @@ def prices_t(self):
                 if column in bus_dict:
                     corresponding_buses.append(bus_dict[column])
 
-            # If there are corresponding buses, find the one with the highest marginal price
+            # If there are corresponding buses, find the one with the
+            # highest marginal price.
             if corresponding_buses:
                 # Get the marginal prices for these buses at this timestamp
                 bus_prices = bus_prices_t.loc[timestamp, corresponding_buses]
@@ -5732,17 +5729,22 @@ def prices_t(self):
 
 
 def zone_prices_t(self, market_zones="none"):
-    """Calculate electricity exports and imports over DC lines, considering market zones if specified.
+    """
+    Calculate electricity exports and imports over DC lines.
+
+    Market zones are considered when requested.
 
     Parameters
     ----------
     market_zones : str, optional
-        Specifies whether to consider market zones. Can be "none" or "DE3". Default is "none".
+        Market-zone configuration, such as ``"none"`` or ``"DE3"``.
+        The default is ``"none"``.
 
     Returns
     -------
     pd.DataFrame
-        DataFrame with timestamps as rows, and columns for highest_price, corresponding_bus, and german_bus_price
+        Timestamps with the highest price, corresponding bus, and
+        German bus price.
     """
     network = self
 
@@ -5840,7 +5842,6 @@ def zone_prices_t(self, market_zones="none"):
             # Convert zone to integer
             zone_int = int(zone)
 
-            zone_buses = network.buses[network.buses.zone == zone]
             zone_prices = pd.DataFrame(index=all_exports.index)
             zone_prices[f"highest_price_{zone_int}"] = None
             zone_prices[f"corresponding_bus_{zone_int}"] = None
@@ -5894,17 +5895,18 @@ def zone_prices_t(self, market_zones="none"):
 
 
 def check_net_position(network):
-    """Check if the net position is positive or negative for each timestamp
+    """
+    Check whether the net position is positive or negative.
 
     Parameters
     ----------
     network : object
-        The network object containing the necessary data
+        Network containing the required data.
 
     Returns
     -------
     pd.DataFrame
-        DataFrame with timestamps as rows, and columns for export, import, net position, and a check if net position is positive
+        Timestamps with export, import, net position, and its sign.
     """
     # Get the DataFrame from the dc_export function
     df = network.dc_export()
@@ -5928,27 +5930,13 @@ def check_net_position(network):
 
 
 def electrolyser_dispatch(self):
-
-    ac_buses_de = self.buses[
-        (self.buses.carrier == "AC") & (self.buses.country == "DE")
-    ]
-    electrolyser = self.links[self.links.carrier == "power_to_H2"]
-    electrolyser_de = electrolyser[electrolyser.bus0.isin(ac_buses_de.index)]
-    electrolyser_t = self.links_t.p0[electrolyser.index]
-
-    return electrolyser_t
+    electrolysers = self.links[self.links.carrier == "power_to_H2"]
+    return self.links_t.p0[electrolysers.index]
 
 
 def fuel_cell_dispatch(self):
-
-    ac_buses_de = self.buses[
-        (self.buses.carrier == "AC") & (self.buses.country == "DE")
-    ]
-    electrolyser = self.links[self.links.carrier == "H2_to_power"]
-    electrolyser_de = electrolyser[electrolyser.bus1.isin(ac_buses_de.index)]
-    electrolyser_t = self.links_t.p1[electrolyser.index]
-
-    return electrolyser_t
+    fuel_cells = self.links[self.links.carrier == "H2_to_power"]
+    return self.links_t.p1[fuel_cells.index]
 
 
 def CH4_to_H2(self):
@@ -5962,20 +5950,10 @@ def CH4_to_H2(self):
 
 def plot_dispatch_and_prices(networks_dict, start, end):
     """
-    Für jedes Szenario (außer "Nodal"):
-      - oben: Zonenpreise (nur AC-Busse in DE) je Zone vs Status Quo
-      - unten: Elektrolyser-Auslastung [%] vs Status Quo, mit schraffierter Differenz
+    Plot zonal prices and electrolyser utilization for all scenarios.
 
-    Automatische Ableitung der Zone aus den x/y-Koordinaten der AC-Busse:
-      * len=1 → einzige Zone "Status Quo"
-      * len=2 → DE2: höhere y → "Zone Nord", andere → "Zone Süd"
-      * len=3 → DE3: niedrigste y → "Zone Süd",
-                 höchste x → "Zone Nordost",
-                 verbleibende → "Zone Nordwest"
-      * len=4 → DE4: niedrigste y → "Zone Süd",
-                 höchste x → "Zone Nordost",
-                 niedrigste x → "Zone West",
-                 verbleibende → "Zone Nordwest"
+    The nodal scenario uses bus 159 and the mean AC-bus price. Its
+    five-hourly values are repeated to create an hourly time series.
     """
     # 1) Elektrolyser-Dispatch sammeln
     dispatch_df = {}
@@ -6182,18 +6160,12 @@ def plot_dispatch_and_prices(networks_dict, start, end):
         plt.show()
 
 
-def plot_dispatch_and_prices(networks_dict, start, end):
+def plot_dispatch_and_prices(networks_dict, start, end):  # noqa: F811
     """
-    Für jedes Szenario (einschließlich 'Nodal'):
-      - Oben: Zonenpreise (nur AC-Busse in DE) vs. Status Quo
-      - Unten: Elektrolyser-Auslastung [%] vs. Status Quo, mit schraffierter Differenz
+    Plot zonal prices and electrolyser utilization for all scenarios.
 
-    Für 'Nodal':
-      • Bus '159' und Ø aller AC‑Buses, jeweils aus p["159"] bzw. p.mean(axis=1)
-      • Werte sind alle 5 Stunden → hier 5× repeat auf stündlich (8760)
-
-    networks_dict: Dict[str, Netzobjekt] mit Keys "SQ","DE2","DE3","DE4","Nodal"
-    start,end: z.B. "2011-01-21 18:00", "2011-01-23 18:00"
+    The nodal scenario uses bus 159 and the mean AC-bus price. Its
+    five-hourly values are repeated to create an hourly time series.
     """
     # 1) Dispatch einsammeln + bei Nodal expandieren
     dispatch_df = {}
@@ -6320,7 +6292,8 @@ def plot_dispatch_and_prices(networks_dict, start, end):
             ax_price.plot(scen_price.index, scen_price[zone], label=zone)
         ax_price.set_ylabel("Preis [€/MWh]", fontsize=14)
         ax_price.set_title(
-            f"{name} – Stromgestehungskosten und Elektrolyserdispatch vs Status Quo",
+            f"{name} – Stromgestehungskosten und "
+            "Elektrolyserdispatch vs Status Quo",
             fontsize=16,
         )
         ax_price.grid(True)
@@ -6376,18 +6349,12 @@ def plot_dispatch_and_prices(networks_dict, start, end):
         plt.show()
 
 
-def plot_dispatch_and_prices(networks_dict, start, end):
+def plot_dispatch_and_prices(networks_dict, start, end):  # noqa: F811
     """
-    Für jedes Szenario (einschließlich 'Nodal'):
-      - Oben: Zonenpreise (nur AC-Busse in DE) vs. Status Quo
-      - Unten: Elektrolyser-Auslastung [%] vs. Status Quo, mit schraffierter Differenz
+    Plot zonal prices and electrolyser utilization for all scenarios.
 
-    Für 'Nodal':
-      • Bus '159' und Ø aller AC‑Buses, jeweils aus p["159"] bzw. p.mean(axis=1)
-      • Werte sind alle 5 Stunden → hier 5× repeat auf stündlich (8760)
-
-    networks_dict: Dict[str, Netzobjekt] mit Keys "SQ","DE2","DE3","DE4","Nodal"
-    start,end: z.B. "2011-01-21 18:00", "2011-01-23 18:00"
+    The nodal scenario uses bus 159 and the mean AC-bus price. Its
+    five-hourly values are repeated to create an hourly time series.
     """
     # 1) Dispatch einsammeln + bei Nodal expandieren
     dispatch_df = {}
@@ -6481,14 +6448,12 @@ def plot_dispatch_and_prices(networks_dict, start, end):
             )
 
     # reference series
-    ref_util = util_win["SQ"]
     ref_price = price_df["SQ"]
 
     # 3) Plot je Szenario
     for name in util_win.columns:
         if name == "SQ":
             continue
-        scen_util = util_win[name]
         scen_price = price_df[name]
 
         fig, (ax_price, ax_util) = plt.subplots(
@@ -6514,7 +6479,8 @@ def plot_dispatch_and_prices(networks_dict, start, end):
             ax_price.plot(scen_price.index, scen_price[zone], label=zone)
         ax_price.set_ylabel("Preis [€/MWh]", fontsize=14)
         ax_price.set_title(
-            f"{name} – Stromgestehungskosten und Elektrolyserdispatch vs Status Quo",
+            f"{name} – Stromgestehungskosten und "
+            "Elektrolyserdispatch vs Status Quo",
             fontsize=16,
         )
         ax_price.grid(True)
@@ -6613,7 +6579,8 @@ def plot_nodal_prices(self):
     # 2) Durchschnittliche nodalen Preise über die Zeit für AC-Busse
     avg_prices_ac = self.buses_t.marginal_price[ac_index].mean(axis=0)
 
-    # 3) Vollständige Series mit NaNs für Nicht-AC, damit self.plot den Rest ignoriert
+    # 3) Vollständige Series mit NaNs für Nicht-AC, damit self.plot
+    # den Rest ignoriert
     prices_all = pd.Series(index=self.buses.index, dtype=float)
     prices_all.loc[ac_index] = avg_prices_ac
 
@@ -6714,7 +6681,6 @@ def prepare_bus_values(networks_dict, carrier):
         "DE4":         (net_DE4, "DE4"),
         }, carrier = "OCGT")
     """
-    import pandas as pd
 
     bus_values = {}
     for title, (net, _) in networks_dict.items():
@@ -6734,7 +6700,6 @@ def prepare_electrolyser_redispatch_per_bus(networks_dict):
     Liefert dict title -> pd.Series (Index: alle Bus‑IDs des Netz),
     füllt mit 0 für Busse ohne Elektrolyseur.
     """
-    import pandas as pd
 
     bus_values = {}
     for title, (net_m, net_n) in networks_dict.items():
@@ -6810,11 +6775,10 @@ def plot_multi_network_redispatch(
     scaling : float
         Multiplier for bus marker sizes.
     """
-    import matplotlib.pyplot as plt
-    import matplotlib.colors as mcolors
     import cartopy.crs as ccrs
+    import matplotlib.colors as mcolors
+    import matplotlib.pyplot as plt
     import numpy as np
-    import pandas as pd
 
     from etrago.tools.market_zones import load_market_zones_from_zenodo
 

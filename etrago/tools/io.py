@@ -79,7 +79,6 @@ class ScenarioBase:
     """
 
     def __init__(self, engine, session, version=None):
-        global carr_ormclass
 
         saio.register_schema("grid", engine)
         self.session = session

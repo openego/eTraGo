@@ -863,9 +863,6 @@ def market_export_per_country(self):
     # Erstelle eine Liste mit jedem 5. Stundenindex (0, 5, 10, ..., 8755)
     selected_hours = range(0, 8760, 5)
 
-    # Initialisiere Ergebnis-Serie
-    result = pd.Series(index=for_buses.country.unique(), dtype=float)
-
     for country in for_buses.country.unique():
         # Export-Links (von DE zum Land)
         exp_links = network.links[
@@ -1290,7 +1287,6 @@ def electrolyser_dispatch(self):
     electrolysers = links[links.carrier == "power_to_H2"]
     electrolyser_dispatch = self.links_t.p0[electrolysers.index]
 
-    sum_per_link = electrolyser_dispatch.sum(axis=0)
     return electrolyser_dispatch
 
 

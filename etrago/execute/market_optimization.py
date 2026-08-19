@@ -23,8 +23,9 @@ Defines the market optimization within eTraGo
 """
 
 import os
-import numpy as np
+
 from pyomo.core import TransformationFactory, Var
+import numpy as np
 import pyomo.core.plugins.transform  # noqa: F401
 
 if "READTHEDOCS" not in os.environ:
@@ -34,9 +35,9 @@ if "READTHEDOCS" not in os.environ:
     import pandas as pd
 
     from etrago.cluster.electrical import postprocessing, preprocessing
+    from etrago.cluster.spatial import group_links
     from etrago.tools.constraints import Constraints
     from etrago.tools.market_zones import create_market_zone_busmap
-    from etrago.cluster.spatial import group_links
 
     logger = logging.getLogger(__name__)
 

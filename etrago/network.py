@@ -58,8 +58,8 @@ from etrago.analyze.plot import (
     plot_heat_loads,
     plot_heat_summary,
     shifted_energy,
-    total_load_by_zone,
     total_load_and_renewables_by_zone,
+    total_load_by_zone,
     total_load_wind_and_solar_by_zone,
 )
 from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
