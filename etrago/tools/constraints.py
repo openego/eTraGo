@@ -33,6 +33,7 @@ from pypsa.optimization.compat import get_var, define_constraints, linexpr
 import numpy as np
 import pandas as pd
 import pyomo.environ as po
+import xarray as xr
 
 if "READTHEDOCS" not in os.environ:
     from etrago.tools import db
@@ -3276,32 +3277,41 @@ class Constraints:
         for constraint in self.args["extra_functionality"].keys():
             if self.args["method"]["formulation"] == "pyomo":
                 try:
-                    eval("_" + constraint + "(self, network, snapshots)")
+                    eval(
+                        "_" + constraint
+                        + "(self, network, snapshots)"
+                    )
+
                     logger.info(
-                        "Added extra_functionality {}".format(constraint)
+                        "Added extra_functionality %s",
+                        constraint,
                     )
-                except:
-                    logger.warning(
-                        "Constraint {} not defined".format(constraint)
-                        + ". New constraints can be defined in"
-                        + " etrago/tools/constraint.py."
+
+                except Exception:
+                    logger.exception(
+                        "Failed to add extra_functionality %s",
+                        constraint,
                     )
+                    raise
             elif self.args["method"]["formulation"] == "linopy":
                 try:
                     eval(
-                        "_" + constraint + "_linopy(self, network, snapshots)"
+                        "_"
+                        + constraint
+                        + "_linopy(self, network, snapshots)"
                     )
+
                     logger.info(
-                        "Added extra_functionality {}".format(constraint)
+                        "Added Linopy extra_functionality %s",
+                        constraint,
                     )
-                except:
-                    logger.warning(
-                        "Constraint {} not defined for linopy formulation".format(
-                            constraint
-                        )
-                        + ". New constraints can be defined in"
-                        + " etrago/tools/constraint.py."
+
+                except Exception:
+                    logger.exception(
+                        "Failed to add Linopy extra_functionality %s",
+                        constraint,
                     )
+                    raise
             else:
                 try:
                     eval("_" + constraint + "_nmp(self, network, snapshots)")
@@ -3657,3 +3667,682 @@ def add_chp_constraints_linopy(network, snapshots):
                 "Link",
                 "top_iso_fuel_line_" + i + "_" + str(snapshot),
             )
+
+
+def _rfnbo_linopy(self, network, snapshots):
+    """
+    Add RFNBO classification and support to Linopy market models.
+
+    Modes
+    -----
+    baseline:
+        No RFNBO classification or support.
+    incentive:
+        Electrolysers operate freely, but only eligible hydrogen
+        production receives support.
+    rfnbo_only:
+        All electrolyser operation must occur in RFNBO-eligible hours.
+    """
+
+    # RFNBO belongs to the pre-market and short-term market models.
+    if self.apply_on not in {
+        "pre_market_model",
+        "market_model",
+        "last_market_model",
+    }:
+        logger.info(
+            "Skip Linopy RFNBO constraint for apply_on=%s",
+            self.apply_on,
+        )
+        return
+
+    cfg = self.args["extra_functionality"].get("rfnbo", {})
+    mode = cfg.get("mode", "baseline")
+
+    if mode == "baseline":
+        logger.info(
+            "RFNBO baseline mode: no RFNBO constraints or support added."
+        )
+        return
+
+    valid_modes = {"incentive", "rfnbo_only"}
+
+    if mode not in valid_modes:
+        raise ValueError(
+            f"Unknown RFNBO mode {mode!r}. "
+            f"Expected one of {sorted(valid_modes)}."
+        )
+
+    carriers = cfg.get(
+        "electrolyser_carriers",
+        ["power_to_H2"],
+    )
+    zone_column = cfg.get(
+        "zone_column",
+        "bidding_zone",
+    )
+    support = float(
+        cfg.get("support_eur_per_mwh_h2", 0.0)
+    )
+
+    if support < 0:
+        raise ValueError(
+            "support_eur_per_mwh_h2 must be non-negative."
+        )
+
+    if zone_column not in network.links.columns:
+        raise KeyError(
+            f"Electrolyser zone column {zone_column!r} "
+            "does not exist in network.links."
+        )
+
+    electrolysers = network.links.index[
+        network.links.carrier.isin(carriers)
+    ]
+
+    if electrolysers.empty:
+        logger.warning(
+            "No RFNBO electrolysers were found for apply_on=%s.",
+            self.apply_on,
+        )
+        return
+
+    missing_zone = network.links.loc[
+        electrolysers,
+        zone_column,
+    ].isna()
+
+    if missing_zone.any():
+        missing_links = list(
+            missing_zone.index[missing_zone]
+        )
+
+        raise ValueError(
+            "The following RFNBO electrolysers have no bidding zone: "
+            f"{missing_links[:20]}"
+        )
+
+    electrolyser_zones = network.links.loc[
+        electrolysers,
+        zone_column,
+    ].astype(str)
+
+    snapshots = pd.Index(snapshots)
+
+    # ----------------------------------------------------------
+    # Determine global snapshot positions
+    # ----------------------------------------------------------
+    #
+    # Do not enumerate every rolling window from zero. The network
+    # retains its full snapshot index while snapshots is the current
+    # rolling-horizon subset.
+    # ----------------------------------------------------------
+
+    snapshot_positions_array = network.snapshots.get_indexer(
+        snapshots
+    )
+
+    if (snapshot_positions_array < 0).any():
+        missing_snapshots = snapshots[
+            snapshot_positions_array < 0
+        ]
+
+        raise ValueError(
+            "Some optimization snapshots do not occur in "
+            "network.snapshots: "
+            f"{list(missing_snapshots[:20])}"
+        )
+
+    snapshot_positions = pd.Series(
+        snapshot_positions_array,
+        index=snapshots,
+    )
+
+    # ----------------------------------------------------------
+    # Read eligibility CSV
+    # ----------------------------------------------------------
+
+    eligibility_file = cfg.get(
+        "eligibility_mask_file",
+        "data/rfnbo/rfnbo_hourly_eligibility.csv",
+    )
+
+    eligibility_file = os.path.abspath(
+        os.path.expanduser(eligibility_file)
+    )
+
+    if not os.path.exists(eligibility_file):
+        raise FileNotFoundError(
+            f"RFNBO eligibility file not found: "
+            f"{eligibility_file}"
+        )
+
+    eligibility_df = pd.read_csv(
+        eligibility_file,
+        dtype={"bidding_zone": str},
+    )
+
+    required_columns = {
+        "snapshot_position",
+        "bidding_zone",
+        "rfnbo_eligible",
+    }
+
+    missing_columns = required_columns.difference(
+        eligibility_df.columns
+    )
+
+    if missing_columns:
+        raise ValueError(
+            "RFNBO eligibility file is missing columns: "
+            f"{sorted(missing_columns)}"
+        )
+
+    eligibility_df["snapshot_position"] = pd.to_numeric(
+        eligibility_df["snapshot_position"],
+        errors="raise",
+    ).astype(int)
+
+    eligibility_df["rfnbo_eligible"] = pd.to_numeric(
+        eligibility_df["rfnbo_eligible"],
+        errors="raise",
+    ).astype(int)
+
+    invalid = ~eligibility_df["rfnbo_eligible"].isin([0, 1])
+
+    if invalid.any():
+        raise ValueError(
+            "Column rfnbo_eligible may contain only 0 or 1."
+        )
+
+    duplicate_rows = eligibility_df.duplicated(
+        ["snapshot_position", "bidding_zone"],
+        keep=False,
+    )
+
+    if duplicate_rows.any():
+        duplicates = eligibility_df.loc[
+            duplicate_rows,
+            ["snapshot_position", "bidding_zone"],
+        ].head(20)
+
+        raise ValueError(
+            "Duplicate RFNBO eligibility rows found:\n"
+            f"{duplicates}"
+        )
+
+    eligibility_lookup = eligibility_df.set_index(
+        ["snapshot_position", "bidding_zone"]
+    )["rfnbo_eligible"].to_dict()
+
+    # ----------------------------------------------------------
+    # Construct snapshot × electrolyser eligibility matrix
+    # ----------------------------------------------------------
+
+    eligibility_values = np.zeros(
+        (len(snapshots), len(electrolysers)),
+        dtype=float,
+    )
+
+    missing_entries = []
+
+    for snapshot_number, snapshot in enumerate(snapshots):
+        global_position = int(
+            snapshot_positions.loc[snapshot]
+        )
+
+        for link_number, link in enumerate(electrolysers):
+            zone = electrolyser_zones.loc[link]
+            key = (global_position, zone)
+
+            if key not in eligibility_lookup:
+                missing_entries.append(
+                    (
+                        link,
+                        snapshot,
+                        global_position,
+                        zone,
+                    )
+                )
+                continue
+
+            eligibility_values[
+                snapshot_number,
+                link_number,
+            ] = eligibility_lookup[key]
+
+    if missing_entries:
+        raise ValueError(
+            "Missing RFNBO eligibility entries. Examples: "
+            f"{missing_entries[:20]}"
+        )
+
+    eligibility = xr.DataArray(
+        eligibility_values,
+        coords={
+            "snapshot": snapshots,
+            "Link": electrolysers,
+        },
+        dims=("snapshot", "Link"),
+    )
+
+    # ----------------------------------------------------------
+    # Access Linopy link-dispatch variables
+    # ----------------------------------------------------------
+
+    model = network.model
+
+    if "Link-p" not in model.variables:
+        raise KeyError(
+            "Linopy variable 'Link-p' was not found. Available "
+            f"variables: {list(model.variables)}"
+        )
+
+    link_p = model.variables["Link-p"].sel(
+        snapshot=snapshots,
+        Link=electrolysers,
+    )
+
+    # Green electrical input to electrolysers [MW_el].
+    green_power_lower = xr.DataArray(
+        np.zeros(
+            (len(snapshots), len(electrolysers)),
+            dtype=float,
+        ),
+        coords={
+            "snapshot": snapshots,
+            "Link": electrolysers,
+        },
+        dims=("snapshot", "Link"),
+    )
+
+    green_power = model.add_variables(
+        lower=green_power_lower,
+        name="Link-rfnbo_green_power",
+    )
+
+    # Green operation cannot exceed total electrolyser operation.
+    model.add_constraints(
+        green_power <= link_p,
+        name="rfnbo-green-below-total",
+    )
+
+    # Green operation is zero when the zone/hour is not eligible.
+    model.add_constraints(
+        green_power <= eligibility * link_p,
+        name="rfnbo-hourly-eligibility",
+    )
+
+    # In the RFNBO-only scenario, all operation must be green.
+    if mode == "rfnbo_only":
+        model.add_constraints(
+            green_power == link_p,
+            name="rfnbo-all-electrolysis-green",
+        )
+
+    # ----------------------------------------------------------
+    # Add RFNBO support to the objective
+    # ----------------------------------------------------------
+
+    if isinstance(
+        network.snapshot_weightings,
+        pd.DataFrame,
+    ):
+        objective_weights = network.snapshot_weightings.loc[
+            snapshots,
+            "objective",
+        ]
+    else:
+        objective_weights = network.snapshot_weightings.loc[
+            snapshots
+        ]
+
+    efficiencies = network.links.loc[
+        electrolysers,
+        "efficiency",
+    ].astype(float)
+
+    objective_weight_array = xr.DataArray(
+        objective_weights.values,
+        coords={"snapshot": snapshots},
+        dims=("snapshot",),
+    )
+
+    efficiency_array = xr.DataArray(
+        efficiencies.values,
+        coords={"Link": electrolysers},
+        dims=("Link",),
+    )
+
+    if mode == "incentive" and support > 0:
+        support_term = (
+            support
+            * objective_weight_array
+            * efficiency_array
+            * green_power
+        ).sum()
+
+        model.objective -= support_term
+
+    eligible_link_hours = int(
+        eligibility_values.sum()
+    )
+
+    logger.info(
+        "Linopy RFNBO constraint added: apply_on=%s, mode=%s, "
+        "electrolysers=%d, snapshots=%d, "
+        "eligible_link_hours=%d, support=%s EUR/MWh_H2",
+        self.apply_on,
+        mode,
+        len(electrolysers),
+        len(snapshots),
+        eligible_link_hours,
+        support,
+    )
+
+
+def _rfnbo(self, network, snapshots):
+    """
+    Classify electrolyser operation as RFNBO-compliant and apply support.
+    """
+
+    # RFNBO support belongs to the market-clearing model.
+    # Do not add it again to the detailed grid/redispatch model.
+    if self.apply_on not in {
+        "market_model",
+        "last_market_model",
+    }:
+        logger.info(
+            "Skip RFNBO constraint for apply_on=%s",
+            self.apply_on,
+        )
+        return
+
+    cfg = self.args["extra_functionality"].get("rfnbo", {})
+    mode = cfg.get("mode", "baseline")
+
+    if mode == "baseline":
+        return
+
+    model = network.model
+
+    carriers = cfg.get(
+        "electrolyser_carriers",
+        ["power_to_H2"],
+    )
+    zone_column = cfg.get("zone_column", "market_zone")
+    support = cfg.get("support_eur_per_mwh_h2", 0.0)
+
+    electrolysers = list(
+        network.links.index[
+            network.links.carrier.isin(carriers)
+        ]
+    )
+
+    if not electrolysers:
+        logger.warning("No RFNBO electrolysers were found.")
+        return
+
+    snapshots = list(snapshots)
+
+    # Green electricity input to each electrolyser [MW_el].
+    model.rfnbo_green_power = po.Var(
+        electrolysers,
+        snapshots,
+        domain=po.NonNegativeReals,
+    )
+
+    def green_below_total_rule(model, link, snapshot):
+        return (
+            model.rfnbo_green_power[link, snapshot]
+            <= model.link_p[link, snapshot]
+        )
+
+    model.rfnbo_green_below_total = po.Constraint(
+        electrolysers,
+        snapshots,
+        rule=green_below_total_rule,
+    )
+
+    # ----------------------------------------------------------
+    # Validate configuration
+    # ----------------------------------------------------------
+
+    valid_modes = {"incentive", "rfnbo_only"}
+
+    if mode not in valid_modes:
+        raise ValueError(
+            f"Unknown RFNBO mode {mode!r}. "
+            f"Expected one of {sorted(valid_modes)}."
+        )
+
+    if support < 0:
+        raise ValueError(
+            "support_eur_per_mwh_h2 must be non-negative."
+        )
+
+    if zone_column not in network.links.columns:
+        raise KeyError(
+            f"Electrolyser zone column {zone_column!r} "
+            "does not exist in network.links."
+        )
+
+    missing_zones = network.links.loc[
+        electrolysers,
+        zone_column,
+    ].isna()
+
+    if missing_zones.any():
+        missing_links = list(missing_zones.index[missing_zones])
+
+        raise ValueError(
+            "The following RFNBO electrolysers have no bidding zone: "
+            f"{missing_links[:20]}"
+        )
+
+    electrolyser_zones = {
+        link: str(network.links.at[link, zone_column])
+        for link in electrolysers
+    }
+
+    # ----------------------------------------------------------
+    # Read hourly RFNBO eligibility
+    # ----------------------------------------------------------
+
+    eligibility_file = cfg.get(
+        "eligibility_mask_file",
+        "data/rfnbo/rfnbo_hourly_eligibility.csv",
+    )
+
+    if not os.path.isabs(eligibility_file):
+        eligibility_file = os.path.abspath(eligibility_file)
+
+    if not os.path.exists(eligibility_file):
+        raise FileNotFoundError(
+            f"RFNBO eligibility file not found: {eligibility_file}"
+        )
+
+    eligibility_df = pd.read_csv(
+        eligibility_file,
+        dtype={"bidding_zone": str},
+    )
+
+    required_columns = {
+        "snapshot_position",
+        "bidding_zone",
+        "rfnbo_eligible",
+    }
+
+    missing_columns = required_columns.difference(
+        eligibility_df.columns
+    )
+
+    if missing_columns:
+        raise ValueError(
+            "RFNBO eligibility file is missing columns: "
+            f"{sorted(missing_columns)}"
+        )
+
+    eligibility_df["snapshot_position"] = pd.to_numeric(
+        eligibility_df["snapshot_position"],
+        errors="raise",
+    ).astype(int)
+
+    eligibility_df["rfnbo_eligible"] = pd.to_numeric(
+        eligibility_df["rfnbo_eligible"],
+        errors="raise",
+    ).astype(int)
+
+    invalid_values = ~eligibility_df["rfnbo_eligible"].isin([0, 1])
+
+    if invalid_values.any():
+        raise ValueError(
+            "Column rfnbo_eligible may contain only 0 or 1."
+        )
+
+    duplicate_rows = eligibility_df.duplicated(
+        subset=["snapshot_position", "bidding_zone"],
+        keep=False,
+    )
+
+    if duplicate_rows.any():
+        duplicates = eligibility_df.loc[
+            duplicate_rows,
+            ["snapshot_position", "bidding_zone"],
+        ].head(20)
+
+        raise ValueError(
+            "Duplicate RFNBO eligibility rows found:\n"
+            f"{duplicates}"
+        )
+
+    eligibility_lookup = {
+        (int(row.snapshot_position), str(row.bidding_zone)): int(
+            row.rfnbo_eligible
+        )
+        for row in eligibility_df.itertuples(index=False)
+    }
+
+    # For the current short test, positions correspond to the order
+    # of snapshots passed to this optimization.
+    snapshot_positions = {
+        snapshot: position
+        for position, snapshot in enumerate(snapshots)
+    }
+
+    missing_eligibility = []
+
+    for link in electrolysers:
+        zone = electrolyser_zones[link]
+
+        for snapshot in snapshots:
+            position = snapshot_positions[snapshot]
+
+            if (position, zone) not in eligibility_lookup:
+                missing_eligibility.append(
+                    (link, snapshot, position, zone)
+                )
+
+    if missing_eligibility:
+        raise ValueError(
+            "Missing RFNBO eligibility entries. Examples: "
+            f"{missing_eligibility[:20]}"
+        )
+
+    # ----------------------------------------------------------
+    # Eligibility constraint
+    # ----------------------------------------------------------
+
+    def eligibility_rule(model, link, snapshot):
+        zone = electrolyser_zones[link]
+        position = snapshot_positions[snapshot]
+        eligible = eligibility_lookup[(position, zone)]
+
+        return (
+            model.rfnbo_green_power[link, snapshot]
+            <= eligible * model.link_p[link, snapshot]
+        )
+
+    model.rfnbo_hourly_eligibility = po.Constraint(
+        electrolysers,
+        snapshots,
+        rule=eligibility_rule,
+    )
+
+    # ----------------------------------------------------------
+    # RFNBO-only scenario
+    # ----------------------------------------------------------
+
+    if mode == "rfnbo_only":
+
+        def all_electrolysis_green_rule(model, link, snapshot):
+            return (
+                model.rfnbo_green_power[link, snapshot]
+                == model.link_p[link, snapshot]
+            )
+
+        model.rfnbo_all_electrolysis_green = po.Constraint(
+            electrolysers,
+            snapshots,
+            rule=all_electrolysis_green_rule,
+        )
+
+    # ----------------------------------------------------------
+    # Snapshot objective weights
+    # ----------------------------------------------------------
+
+    snapshot_weightings = network.snapshot_weightings
+
+    if isinstance(snapshot_weightings, pd.DataFrame):
+        if "objective" not in snapshot_weightings.columns:
+            raise KeyError(
+                "network.snapshot_weightings has no objective column."
+            )
+
+        objective_weights = snapshot_weightings["objective"]
+
+    else:
+        objective_weights = snapshot_weightings
+
+    # ----------------------------------------------------------
+    # RFNBO incentive
+    # ----------------------------------------------------------
+    #
+    # green_power is electricity input [MW_el].
+    # Multiplying by link efficiency gives hydrogen output [MW_H2].
+    # Multiplying by snapshot weight gives hydrogen energy [MWh_H2].
+    # ----------------------------------------------------------
+
+    if mode == "incentive" and support > 0:
+
+        support_term = sum(
+            support
+            * float(network.links.at[link, "efficiency"])
+            * float(objective_weights.loc[snapshot])
+            * model.rfnbo_green_power[link, snapshot]
+            for link in electrolysers
+            for snapshot in snapshots
+        )
+
+        model.objective.expr -= support_term
+
+    eligible_count = sum(
+        eligibility_lookup[
+            (
+                snapshot_positions[snapshot],
+                electrolyser_zones[link],
+            )
+        ]
+        for link in electrolysers
+        for snapshot in snapshots
+    )
+
+    logger.info(
+        "RFNBO constraint added: mode=%s, electrolysers=%d, "
+        "snapshots=%d, eligible link-hours=%d, support=%s EUR/MWh_H2",
+        mode,
+        len(electrolysers),
+        len(snapshots),
+        eligible_count,
+        support,
+    )

@@ -37,7 +37,10 @@ if "READTHEDOCS" not in os.environ:
     from etrago.cluster.electrical import postprocessing, preprocessing
     from etrago.cluster.spatial import group_links
     from etrago.tools.constraints import Constraints
-    from etrago.tools.market_zones import create_market_zone_busmap
+    from etrago.tools.market_zones import (
+        assign_rfnbo_bidding_zones,
+        create_market_zone_busmap,
+    )
 
     logger = logging.getLogger(__name__)
 
@@ -1029,6 +1032,70 @@ def build_market_model(self):
             "rural_gas_boiler",
         ],
     )
+
+    # ==============================================================
+    # Assign final bidding zones for RFNBO accounting
+    # ==============================================================
+
+    logger.info(
+        "Assign bidding zones to final pre-market buses and electrolyzers"
+    )
+
+    electrolyzers = assign_rfnbo_bidding_zones(
+        self.pre_market_model,
+        market_zones=market_zones,
+    )
+
+    # ==============================================================
+    # Validate RFNBO bidding-zone assignment
+    # ==============================================================
+
+    if not electrolyzers.empty:
+
+        check_columns = [
+            column
+            for column in [
+                "carrier",
+                "bus0",
+                "bus1",
+                "bidding_zone",
+            ]
+            if column in self.pre_market_model.links.columns
+        ]
+
+        logger.info(
+            "Final electrolyzer bidding-zone assignment:\n%s",
+            self.pre_market_model.links.loc[
+                electrolyzers,
+                check_columns,
+            ].to_string(),
+        )
+
+        zone_counts = (
+            self.pre_market_model.links.loc[
+                electrolyzers,
+                "bidding_zone",
+            ]
+            .value_counts(dropna=False)
+            .sort_index()
+        )
+
+        logger.info(
+            "Electrolyzers per bidding zone:\n%s",
+            zone_counts.to_string(),
+        )
+
+        missing_zones = self.pre_market_model.links.loc[
+            electrolyzers,
+            "bidding_zone",
+        ].isna()
+
+        if missing_zones.any():
+            raise ValueError(
+                "Missing RFNBO bidding-zone assignment for electrolyzers: "
+                f"{missing_zones[missing_zones].index.tolist()}"
+            )
+
 
     # ==============================================================
     # Apply unit commitment

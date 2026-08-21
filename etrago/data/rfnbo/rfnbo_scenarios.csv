@@ -1,0 +1,6 @@
+scenario,mode,support_eur_per_mwh_h2,require_all_h2_rfnbo,description
+baseline,baseline,0,0,Electrolysers operate freely; no RFNBO support.
+rfnbo_incentive_20,incentive,20,0,Only eligible hydrogen receives EUR 20/MWh_H2 support.
+rfnbo_incentive_50,incentive,50,0,Only eligible hydrogen receives EUR 50/MWh_H2 support.
+rfnbo_incentive_100,incentive,100,0,Only eligible hydrogen receives EUR 100/MWh_H2 support.
+rfnbo_only,rfnbo_only,0,1,All electrolyser production must meet the RFNBO mask or the 90% zone route.

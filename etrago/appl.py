@@ -27,7 +27,6 @@ the function run_etrago.
 import datetime
 import os
 import os.path
-import pandas as pd
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -82,7 +81,7 @@ args = {
         "SoftMemLimit": 120,
         "NumericFocus": 3,
         "ScaleFlag": 2,
-        "MIGap": 1.0e-3,
+        "MIPGap": 1.0e-3,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
@@ -91,7 +90,7 @@ args = {
     "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
-    "csv_export": "results_DE5_ac50_8760_pyomo",  # save results as csv: False or /path/tofolder
+    "csv_export": "results_DE5_ac50_168_pyomo",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
         "extendable_components": [
@@ -112,7 +111,17 @@ args = {
         },
     },
     "generator_noise": 789456,  # apply generator noise, False or seed number
-    "extra_functionality": {},  # Choose function name or {}
+    "extra_functionality": {
+        "rfnbo": {
+            "mode": "incentive",
+            "support_eur_per_mwh_h2": 50.0,
+            "electrolyser_carriers": ["power_to_H2"],
+            "zone_column": "bidding_zone",
+            "eligibility_mask_file": (
+                "data/rfnbo/rfnbo_hourly_eligibility.csv"
+            ),
+        }
+    },  # Choose function name or {}
     # Spatial Complexity:
     "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
     "network_clustering_ehv": {

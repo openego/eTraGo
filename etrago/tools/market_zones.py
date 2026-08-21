@@ -211,6 +211,82 @@ def create_market_zone_busmap(net, market_zones):
     return busmap, medoid_idx
 
 
+def assign_rfnbo_bidding_zones(network, market_zones):
+    """
+    Assign bidding zones to electrolyzers in the final clustered
+    pre-market network.
+
+    Electrolyzers inherit the bidding zone represented by their
+    electricity-input bus, normally link.bus0.
+    """
+    if network.links.empty:
+        logger.warning(
+            "Cannot assign RFNBO bidding zones: network.links is empty."
+        )
+        return pd.Index([])
+
+    carrier = (
+        network.links["carrier"]
+        .fillna("")
+        .astype(str)
+        .str.lower()
+    )
+
+    electrolyzers = network.links.index[
+        carrier.str.contains("electroly", regex=False)
+        | carrier.eq("power_to_h2")
+    ]
+
+    if electrolyzers.empty:
+        logger.warning(
+            "No electrolyzer links were found for RFNBO zone assignment."
+        )
+        return electrolyzers
+
+    # The final clustered electricity bus represents the market zone.
+    network.links.loc[electrolyzers, "bidding_zone"] = (
+        network.links.loc[electrolyzers, "bus0"].astype(str)
+    )
+
+    network.links.loc[electrolyzers, "market_zone_scenario"] = (
+        market_zones
+    )
+
+    missing_bus = ~network.links.loc[
+        electrolyzers, "bus0"
+    ].isin(network.buses.index)
+
+    if missing_bus.any():
+        problematic = missing_bus[missing_bus].index.tolist()
+
+        raise ValueError(
+            "The following electrolyzers reference a bus0 that does "
+            "not exist in the final pre-market network: "
+            f"{problematic}"
+        )
+
+    if network.links.loc[
+        electrolyzers, "bidding_zone"
+    ].isna().any():
+        raise ValueError(
+            "Some electrolyzers have no final bidding-zone assignment."
+        )
+
+    logger.info(
+        "Assigned %d electrolyzers to final %s market buses.",
+        len(electrolyzers),
+        market_zones,
+    )
+
+    logger.info(
+        "Electrolyzers per bidding zone:\n%s",
+        network.links.loc[
+            electrolyzers, "bidding_zone"
+        ].value_counts(),
+    )
+
+    return electrolyzers
+
 def assign_market_zone_column_to_network(network, market_zones):
     """
     Use inside standalone assign_market_zones_to_buses().
