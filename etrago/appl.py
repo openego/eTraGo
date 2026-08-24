@@ -57,7 +57,7 @@ args = {
         "formulation": "linopy",
         "market_optimization": {
             "active": True,
-            "market_zones": "status_quo",  # only used if type='market_grid'
+            "market_zones": "status_quo",  # 'status_quo', 'DE2', 'DE3', 'DE4', or 'DE5'
             "rolling_horizon": {  # define parameter of market optimization
                 "planning_horizon": 168,  # number of snapshots in each optimization
                 "overlap": 120,  # number of overlapping hours

@@ -34,6 +34,7 @@ if "READTHEDOCS" not in os.environ:
     from etrago.cluster.spatial import group_links
     from etrago.execute import optimize_with_rolling_horizon
     from etrago.tools.constraints import Constraints
+    from etrago.tools.market_zones import create_market_zone_busmap
 
     logger = logging.getLogger(__name__)
 
@@ -160,14 +161,9 @@ def build_market_model(self, unit_commitment=False):
         self, apply_on="market_model"
     )
 
-    # Define market regions based on settings.
-    # Currently the only option is 'status_quo' which means that the current
-    # regions are used. When other market zone options are introduced, they
-    # can be assinged here.
-    if (
-        self.args["method"]["market_optimization"]["market_zones"]
-        == "status_quo"
-    ):
+    market_zones = self.args["method"]["market_optimization"]["market_zones"]
+
+    if market_zones == "status_quo":
         df = pd.DataFrame(
             {
                 "country": net.buses.country.unique(),
@@ -176,28 +172,37 @@ def build_market_model(self, unit_commitment=False):
             columns=["country", "marketzone"],
         )
 
+        # Germany and Luxembourg form one bidding zone.
         df.loc[(df.country == "DE") | (df.country == "LU"), "marketzone"] = (
             "DE/LU"
         )
 
         df["cluster"] = df.groupby(df.marketzone).grouper.group_info[0]
 
-        for i in net.buses.country.unique():
-            net.buses.loc[net.buses.country == i, "cluster"] = df.loc[
-                df.country == i, "cluster"
+        for country in net.buses.country.unique():
+            net.buses.loc[net.buses.country == country, "cluster"] = df.loc[
+                df.country == country, "cluster"
             ].values[0]
 
         busmap = pd.Series(
-            net.buses.cluster.astype(int).astype(str), net.buses.index
+            net.buses.cluster.astype(int).astype(str),
+            net.buses.index,
         )
         medoid_idx = pd.Series(dtype=str)
 
-    else:
-        logger.warning(f"""
-            Market zone setting {self.args['method']['market_zones']}
-            is not available. Please use one of ['status_quo'].""")
+    elif market_zones in {"DE2", "DE3", "DE4", "DE5"}:
+        busmap, medoid_idx = create_market_zone_busmap(
+            net,
+            market_zones,
+        )
 
-    logger.info("Start market zone specifc clustering")
+    else:
+        raise ValueError(
+            f"Market zone setting {market_zones!r} is not available. "
+            "Use one of: 'status_quo', 'DE2', 'DE3', 'DE4', or 'DE5'."
+        )
+
+    logger.info("Start market-zone-specific clustering")
 
     clustering, busmap = postprocessing(
         self,
