@@ -53,15 +53,16 @@ args = {
     "gridversion": None,  # None for model_draft or version number
     "method": {  # choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
-        "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        "n_iter": 1,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "formulation": "linopy",
         "market_optimization": {
             "active": True,
-            "market_zones": "status_quo",  # 'status_quo', 'DE2', 'DE3', 'DE4', or 'DE5'
+            "market_zones": "DE5",  # 'status_quo', 'DE2', 'DE3', 'DE4', or 'DE5'
             "rolling_horizon": {  # define parameter of market optimization
                 "planning_horizon": 168,  # number of snapshots in each optimization
                 "overlap": 120,  # number of overlapping hours
             },
+            "snapshot_step": 1,  #1 for hourly resolution; e.g. 5 keeps every fifth snapshot
             "redispatch": True,
         },
         "distribution_grids": False,  # False or path to file with edisgo results
@@ -72,14 +73,14 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 168,
+    "end_snapshot": 24,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
         "FeasibilityTol": 1.0e-5,
         "method": 2,
         "crossover": 0,
-        "logFile": "solver_etrago.log",
+        "logFile": "solver_DE5_ac30_s24_marketstep5_test.log",
         "threads": 4,
         "BarHomogeneous": 1,
     },
@@ -89,7 +90,7 @@ args = {
     "scn_extension": None,  # None or array of extension scenarios
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
-    "export_results_path": "results",  # save results as csv: False or /path/tofolder
+    "export_results_path": "results_DE5_ac30_s24_marketstep5_test",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
         "extendable_components": [
@@ -119,7 +120,23 @@ args = {
     },
     "network_clustering": {
         "method": {
-            "focus_region": None,  # None, shape-file or list with string for Kreise
+            "focus_region": [
+                "Flensburg",
+                "Kiel",
+                "Lübeck",
+                "Neumünster",
+                "Dithmarschen",
+                "Herzogtum Lauenburg",
+                "Nordfriesland",
+                "Ostholstein",
+                "Pinneberg",
+                "Plön",
+                "Rendsburg-Eckernförde",
+                "Schleswig-Flensburg",
+                "Segeberg",
+                "Steinburg",
+                "Stormarn",
+            ],     #None,  # None, shape-file or list with string for Kreise
             "per_country": True,  # if True, buses are restricted to one cluster per foreign country
             "algorithm": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
             "remove_stubs": False,  # remove stubs before kmeans clustering
