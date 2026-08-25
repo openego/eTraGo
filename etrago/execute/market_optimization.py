@@ -50,12 +50,59 @@ __author__ = "ulfmueller, ClaraBuettner, CarlosEpia"
 from etrago.tools.utilities import adjust_chp_model, adjust_PtH2_model
 
 
+def reduce_market_snapshots(network, step=5):
+    """Subsample snapshots and aggregate their original weights."""
+    if not isinstance(step, int) or step < 1:
+        raise ValueError("market snapshot_step must be a positive integer")
+
+    original_snapshots = network.snapshots.copy()
+    original_weightings = network.snapshot_weightings.copy()
+    selected_snapshots = original_snapshots[::step]
+
+    aggregated_weightings = pd.DataFrame(
+        index=selected_snapshots,
+        columns=original_weightings.columns,
+        dtype=float,
+    )
+
+    for position, snapshot in enumerate(selected_snapshots):
+        start = position * step
+        stop = min(start + step, len(original_snapshots))
+        aggregated_weightings.loc[snapshot] = (
+            original_weightings.iloc[start:stop].sum()
+        )
+
+    network.set_snapshots(selected_snapshots)
+    network.snapshot_weightings.loc[:, :] = aggregated_weightings.values
+
+    logger.info(
+        "Reduced market snapshots from %s to %s using a %s-hour step",
+        len(original_snapshots),
+        len(selected_snapshots),
+        step,
+    )
+
 def market_optimization(self):
     logger.info("Start building pre market model")
 
     unit_commitment = True
 
     build_market_model(self, unit_commitment)
+
+    market_snapshot_step = self.args["method"]["market_optimization"].get(
+        "snapshot_step", 1
+    )
+
+    if market_snapshot_step > 1:
+        reduce_market_snapshots(
+            self.pre_market_model,
+            step=market_snapshot_step,
+        )
+        reduce_market_snapshots(
+            self.market_model,
+            step=market_snapshot_step,
+        )
+
     self.pre_market_model.determine_network_topology()
 
     logger.info("Start solving pre market model")
