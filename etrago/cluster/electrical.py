@@ -41,12 +41,15 @@ if "READTHEDOCS" not in os.environ:
 
     from etrago.cluster.spatial import (
         busmap_ehv_clustering,
+        clean_network_after_focus_clustering,
         drop_nan_values,
         export_clustering_results,
+        focus_protection_requested,
         focus_weighting,
         group_links,
         kmean_clustering,
         kmedoids_dijkstra_clustering,
+        split_focus_buses_from_clustering,
         strategies_buses,
         strategies_generators,
         strategies_lines,
@@ -1179,15 +1182,42 @@ def run_spatial_clustering(self):
         focus_region = self.args["network_clustering"]["method"][
             "focus_region"
         ]
-        if focus_region:
+        cluster_within_focus = self.args["network_clustering"][
+            "electricity_grid"
+        ]["cluster_within_focus"]
+        protected_busmap = pd.Series(dtype=str)
+        protected_buses = pd.DataFrame()
+
+        if focus_region and focus_protection_requested(
+            cluster_within_focus
+        ):
+            (
+                elec_network,
+                weight,
+                n_clusters,
+                protected_busmap,
+                protected_buses,
+            ) = split_focus_buses_from_clustering(
+                self,
+                elec_network,
+                weight,
+                n_clusters,
+                focus_region=focus_region,
+                cluster_within=cluster_within_focus,
+                connection_component="lines",
+            )
+            logger.info(
+                "AC focus protection active: focus-region buses will "
+                "remain unclustered."
+            )
+
+        elif focus_region:
             weight = focus_weighting(
                 self,
                 elec_network,
                 weight,
                 focus_region=focus_region,
-                cluster_within=self.args["network_clustering"][
-                    "electricity_grid"
-                ]["cluster_within_focus"],
+                cluster_within=cluster_within_focus,
                 per_country=self.args["network_clustering"]["method"][
                     "per_country"
                 ],
@@ -1196,7 +1226,13 @@ def run_spatial_clustering(self):
                 ],
             )
 
-        if self.args["network_clustering"]["method"]["algorithm"] == "kmeans":
+        algorithm = self.args["network_clustering"]["method"]["algorithm"]
+
+        if elec_network.buses.empty:
+            busmap = pd.Series(dtype=str)
+            medoid_idx = pd.Series(dtype=str)
+
+        elif algorithm == "kmeans":
             if not self.args["network_clustering"]["electricity_grid"][
                 "k_elec_busmap"
             ]:
@@ -1210,10 +1246,7 @@ def run_spatial_clustering(self):
                 busmap = pd.Series(dtype=str)
                 medoid_idx = pd.Series(dtype=str)
 
-        elif (
-            self.args["network_clustering"]["method"]["algorithm"]
-            == "kmedoids-dijkstra"
-        ):
+        elif algorithm == "kmedoids-dijkstra":
             if not self.args["network_clustering"]["electricity_grid"][
                 "k_elec_busmap"
             ]:
@@ -1231,12 +1264,41 @@ def run_spatial_clustering(self):
                 busmap = pd.Series(dtype=str)
                 medoid_idx = pd.Series(dtype=str)
 
+        else:
+            raise ValueError(f"Unknown electrical clustering method: {algorithm}")
+
+        if not protected_busmap.empty:
+            busmap = pd.concat(
+                [busmap.astype(str), protected_busmap.astype(str)]
+            )
+            busmap = busmap[~busmap.index.duplicated(keep="last")]
+
+            if algorithm == "kmedoids-dijkstra":
+                for old_bus, new_bus in protected_busmap.items():
+                    try:
+                        medoid_idx.loc[int(str(new_bus))] = str(old_bus)
+                    except (TypeError, ValueError):
+                        logger.warning(
+                            "Protected bus %s has a non-numeric identifier; "
+                            "its original coordinates are already retained "
+                            "through the identity busmap.",
+                            old_bus,
+                        )
+
+            logger.info(
+                "Added %s protected AC buses back to busmap.",
+                len(protected_busmap),
+            )
+
         clustering, busmap = postprocessing(
             self, busmap, busmap_foreign, medoid_idx
         )
         self.update_busmap(busmap)
 
         self.network = clustering.network
+
+        if not protected_busmap.empty:
+            clean_network_after_focus_clustering(self.network)
 
         self.buses_by_country()
 
@@ -1248,12 +1310,11 @@ def run_spatial_clustering(self):
         set_control_strategies(self.network)
 
         logger.info(
-            "Network clustered to {} buses with ".format(
-                self.args["network_clustering"]["electricity_grid"][
-                    "n_clusters"
-                ]
-            )
-            + self.args["network_clustering"]["method"]["algorithm"]
+            "Electrical network clustered to %s buses with %s. "
+            "Protected AC buses: %s.",
+            len(self.network.buses[self.network.buses.carrier == "AC"]),
+            algorithm,
+            len(protected_busmap),
         )
 
         if self.args["export_results_path"]:

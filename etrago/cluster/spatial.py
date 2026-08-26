@@ -822,6 +822,226 @@ def kmedoids_dijkstra_clustering(
     return busmap, medoid_idx
 
 
+def focus_protection_requested(cluster_within):
+    """Return whether buses inside the focus region must stay unclustered.
+
+    ``False`` is the documented switch for protecting the focus region.  A
+    positive numeric value is treated the same way for compatibility with
+    configurations that previously used a numeric focus threshold.  ``True``
+    and ``None`` retain the original weighting-only behaviour.
+    """
+    if cluster_within is False:
+        return True
+
+    if isinstance(cluster_within, (int, float)) and not isinstance(
+        cluster_within, bool
+    ):
+        return cluster_within > 0
+
+    return False
+
+
+def buses_inside_focus_region(etrago, network, focus_region):
+    """Return bus indices located strictly inside the configured focus."""
+    if isinstance(focus_region, list):
+        if "oep.iks.cs.ovgu.de" in str(etrago.engine.url):
+            saio.register_schema("tables", etrago.engine)
+            from saio.tables import edut_00_012 as vg250_krs
+        else:
+            saio.register_schema("boundaries", etrago.engine)
+            from saio.boundaries import vg250_krs
+
+        query = etrago.session.query(vg250_krs)
+        focus_gdf = saio.as_pandas(query, geometry="geometry")
+        missing = set(focus_region) - set(focus_gdf["gen"])
+        if missing:
+            raise ValueError(
+                f"The following focus_region entries are not valid: {missing}"
+            )
+        focus_gdf = focus_gdf[focus_gdf["gen"].isin(focus_region)]
+    else:
+        focus_gdf = gpd.read_file(focus_region)
+
+    buses_df = network.buses[["x", "y"]].copy()
+    buses_df["geometry"] = buses_df.apply(
+        lambda row: Point(row["x"], row["y"]), axis=1
+    )
+    buses_gdf = gpd.GeoDataFrame(
+        buses_df, geometry="geometry", crs=4326
+    ).to_crs(epsg=25832)
+
+    if focus_gdf.crs is None:
+        raise ValueError("CRS of your focus region must be imported.")
+
+    focus_polygon = focus_gdf.to_crs(buses_gdf.crs).geometry.unary_union
+    return buses_gdf.index[buses_gdf.geometry.within(focus_polygon)]
+
+
+def _export_focus_buses(
+    etrago, focus_buses, filename="buses_within_focus.csv"
+):
+    """Export focus buses when a result path is configured."""
+    export_path = etrago.args.get("export_results_path")
+    if not export_path:
+        return
+
+    os.makedirs(export_path, exist_ok=True)
+    focus_buses.to_csv(os.path.join(export_path, filename))
+
+
+def split_focus_buses_from_clustering(
+    etrago,
+    selected_network,
+    weight,
+    n_clusters,
+    focus_region,
+    cluster_within,
+    connection_component="lines",
+    export_filename="buses_within_focus.csv",
+):
+    """Separate protected focus buses from clustering candidates.
+
+    Focus buses are mapped to themselves.  Outside-focus buses which become
+    isolated after removing the focus-region connections are protected as
+    well, because Dijkstra clustering cannot assign disconnected singletons.
+    The returned network contains only buses that should actually be
+    clustered.
+    """
+    if not focus_protection_requested(cluster_within):
+        raise ValueError(
+            "split_focus_buses_from_clustering requires focus protection"
+        )
+
+    focus_ids = buses_inside_focus_region(
+        etrago, selected_network, focus_region
+    )
+    focus_ids = selected_network.buses.index[
+        selected_network.buses.index.isin(focus_ids)
+    ]
+    focus_buses = selected_network.buses.loc[focus_ids].copy()
+    _export_focus_buses(etrago, focus_buses, export_filename)
+
+    cluster_network = selected_network.copy(with_time=False)
+    outside_ids = cluster_network.buses.index[
+        ~cluster_network.buses.index.isin(focus_ids)
+    ]
+
+    connections = getattr(cluster_network, connection_component).copy()
+    connections = connections[
+        connections.bus0.isin(outside_ids)
+        & connections.bus1.isin(outside_ids)
+    ].copy()
+
+    connected_ids = pd.Index(
+        pd.unique(pd.concat([connections.bus0, connections.bus1]))
+    )
+    isolated_ids = outside_ids[~outside_ids.isin(connected_ids)]
+    isolated_buses = cluster_network.buses.loc[isolated_ids].copy()
+
+    cluster_ids = outside_ids[~outside_ids.isin(isolated_ids)]
+    cluster_network.buses = cluster_network.buses.loc[cluster_ids].copy()
+    connections = connections[
+        connections.bus0.isin(cluster_ids)
+        & connections.bus1.isin(cluster_ids)
+    ].copy()
+    setattr(cluster_network, connection_component, connections)
+
+    protected_buses = pd.concat([focus_buses, isolated_buses])
+
+    # If there are not enough remaining buses to perform a meaningful
+    # clustering, retain all of them as identity mappings as well.
+    if int(n_clusters) <= 0 or len(cluster_network.buses) <= int(n_clusters):
+        protected_buses = pd.concat(
+            [protected_buses, cluster_network.buses]
+        )
+        cluster_network.buses = cluster_network.buses.iloc[0:0].copy()
+        setattr(
+            cluster_network,
+            connection_component,
+            connections.iloc[0:0].copy(),
+        )
+        cluster_n_clusters = 0
+    else:
+        cluster_n_clusters = int(n_clusters)
+
+    protected_buses = protected_buses[
+        ~protected_buses.index.duplicated(keep="first")
+    ]
+    protected_buses.attrs["focus_count"] = len(focus_buses)
+    protected_buses.attrs["isolated_count"] = len(isolated_buses)
+    protected_busmap = pd.Series(
+        protected_buses.index.astype(str),
+        index=protected_buses.index.astype(str),
+        name="cluster",
+        dtype=str,
+    )
+    protected_busmap.index.name = "bus_id"
+
+    cluster_weight = weight.reindex(cluster_network.buses.index).fillna(1)
+
+    logger.info(
+        "Focus-region bus protection active: protected %s focus buses, "
+        "protected %s isolated outside-focus buses, clustering %s "
+        "connected outside-focus buses into %s clusters.",
+        len(focus_buses),
+        len(isolated_buses),
+        len(cluster_network.buses),
+        cluster_n_clusters,
+    )
+
+    return (
+        cluster_network,
+        cluster_weight,
+        cluster_n_clusters,
+        protected_busmap,
+        protected_buses,
+    )
+
+
+def clean_network_after_focus_clustering(network):
+    """Apply conservative consistency fixes after focus-aware clustering."""
+    if network.lines.empty:
+        logger.info("Focus clustering cleanup finished.")
+        return
+
+    missing_endpoint = ~(
+        network.lines.bus0.isin(network.buses.index)
+        & network.lines.bus1.isin(network.buses.index)
+    )
+    self_loops = network.lines.bus0 == network.lines.bus1
+    remove_lines = network.lines.index[missing_endpoint | self_loops]
+    if len(remove_lines):
+        logger.warning(
+            "Focus cleanup: removing %s lines with invalid endpoints or "
+            "self-loops.",
+            len(remove_lines),
+        )
+        network.mremove("Line", remove_lines)
+
+    for column in ["x", "r"]:
+        values = pd.to_numeric(network.lines[column], errors="coerce")
+        valid = np.isfinite(values) & (values > 0)
+        invalid = ~valid
+        if invalid.any():
+            if not valid.any():
+                raise ValueError(
+                    f"No positive finite line {column} values remain after "
+                    "focus clustering."
+                )
+            fallback = float(values.loc[valid].median())
+            logger.warning(
+                "Focus cleanup: fixing %s invalid line %s values with "
+                "median fallback %s.",
+                int(invalid.sum()),
+                column,
+                fallback,
+            )
+            network.lines.loc[invalid, column] = fallback
+
+    network.determine_network_topology()
+    logger.info("Focus clustering cleanup finished.")
+
+
 def focus_weighting(
     etrago,
     network,
@@ -934,10 +1154,7 @@ def focus_weighting(
     # Dijkstra's algorithm will be used for path lengths of lines
     # considering buses at border of focus region to consider its size
     if "AC" in network.buses.carrier.unique():
-        os.makedirs(etrago.args["export_results_path"], exist_ok=True)
-        inside.to_csv(
-            etrago.args["export_results_path"] + "/buses_within_focus.csv"
-        )
+        _export_focus_buses(etrago, inside)
         lines_cross = network.lines[
             (network.lines.bus0.isin(inside.index))
             ^ (network.lines.bus1.isin(inside.index))

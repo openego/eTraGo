@@ -62,7 +62,7 @@ args = {
                 "planning_horizon": 168,  # number of snapshots in each optimization
                 "overlap": 120,  # number of overlapping hours
             },
-            "snapshot_step": 1,  #1 for hourly resolution; e.g. 5 keeps every fifth snapshot
+            "snapshot_step": 5,  #1 for hourly resolution; e.g. 5 keeps every fifth snapshot
             "redispatch": True,
         },
         "distribution_grids": False,  # False or path to file with edisgo results
@@ -151,7 +151,7 @@ args = {
         "electricity_grid": {
             "active": True,  # choose if clustering is activated
             "cluster_within_focus": False,  # False for very low clustering within focus region
-            "n_clusters": 30,  # total number of resulting AC nodes
+            "n_clusters": 50,  # total number of resulting AC nodes
         },
         "gas_grids": {
             "active": True,  # choose if clustering is activated

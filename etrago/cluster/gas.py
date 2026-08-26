@@ -39,9 +39,11 @@ if "READTHEDOCS" not in os.environ:
     from etrago.cluster.spatial import (
         drop_nan_values,
         export_clustering_results,
+        focus_protection_requested,
         focus_weighting,
         group_links,
         kmedoids_dijkstra_clustering,
+        split_focus_buses_from_clustering,
         strategies_buses,
         strategies_generators,
         strategies_one_ports,
@@ -303,17 +305,31 @@ def get_h2_clusters(etrago, busmap_ch4):
         A Pandas Series mapping each bus in the combined CH4 and H2 network
         to its corresponding cluster ID.
     """
-    # Mapping of H2 buses to new CH4 cluster IDs
-    busmap_h2 = pd.Series(
-        busmap_ch4.loc[etrago.ch4_h2_mapping.index].values,
-        index=etrago.ch4_h2_mapping.values,
-    )
+    busmap_ch4 = busmap_ch4.copy()
+    busmap_ch4.index = busmap_ch4.index.astype(str)
 
-    # Create unique H2 cluster IDs
+    # Create unique H2 cluster IDs while retaining protected singletons.
     n_gas = etrago.args["network_clustering"]["gas_grids"]["n_clusters_ch4"]
-    busmap_h2 = (busmap_h2.astype(int) + n_gas).astype(str)
+    h2_mapping = {}
+    for ch4_bus, h2_bus in etrago.ch4_h2_mapping.items():
+        ch4_bus = str(ch4_bus)
+        h2_bus = str(h2_bus)
+        if h2_bus in busmap_ch4.index:
+            continue
 
-    busmap_h2 = busmap_h2.squeeze()
+        ch4_cluster = str(busmap_ch4.loc[ch4_bus])
+        if ch4_cluster == ch4_bus:
+            # The CH4 bus is protected, so its paired H2 bus is protected too.
+            h2_mapping[h2_bus] = h2_bus
+            continue
+
+        try:
+            h2_mapping[h2_bus] = str(int(ch4_cluster) + n_gas)
+        except (TypeError, ValueError):
+            # Keep custom protected labels unique across the two gas carriers.
+            h2_mapping[h2_bus] = f"H2_grid_{ch4_cluster}"
+
+    busmap_h2 = pd.Series(h2_mapping, name="cluster", dtype=str)
 
     busmap = pd.concat([busmap_ch4, busmap_h2])
 
@@ -428,6 +444,7 @@ def gas_postprocessing(
     medoid_idx=None,
     apply_on="grid_model",
     aggregate_generators_carriers=None,
+    protected_busmap=None,
 ):
     """
     Performs the postprocessing for the gas grid clustering based on the
@@ -469,7 +486,10 @@ def gas_postprocessing(
             else:
                 busmap.name = "cluster"
                 busmap_ind = pd.Series(
-                    medoid_idx[busmap.values.astype(int)].values,
+                    [
+                        safe_medoid_lookup(value, medoid_idx)
+                        for value in busmap.values
+                    ],
                     index=busmap.index,
                     dtype=pd.StringDtype(),
                 )
@@ -483,14 +503,22 @@ def gas_postprocessing(
         network = etrago.pre_market_model
 
     if ("H2_grid" in network.buses.carrier.unique()) & (scn in ["eGon2035"]):
-        busmap = get_h2_clusters(etrago, busmap)
+        h2_ids = network.buses.index[
+            network.buses.carrier == "H2_grid"
+        ].astype(str)
+        mapped_ids = busmap.index.astype(str)
+        if not h2_ids.isin(mapped_ids).all():
+            busmap = get_h2_clusters(etrago, busmap)
 
     # Add all other buses to busmap
     missing_idx = list(
         network.buses[(~network.buses.index.isin(busmap.index))].index
     )
     next_bus_id = highestInteger(network.buses.index) + 1
-    new_gas_buses = [str(int(x) + next_bus_id) for x in busmap]
+    new_gas_buses = [
+        safe_new_gas_bus_id(old_bus, new_bus, next_bus_id)
+        for old_bus, new_bus in busmap.items()
+    ]
 
     busmap_idx = list(busmap.index) + missing_idx
     busmap_values = new_gas_buses + missing_idx
@@ -527,6 +555,13 @@ def gas_postprocessing(
             raise ValueError(msg)
         for key, value in busmap_sector_coupling.items():
             busmap.loc[key] = value
+
+    # Sector-coupling strategies may overwrite H2 mappings. Reapply strict
+    # singleton mappings at the last possible point before aggregation.
+    if protected_busmap is not None and not protected_busmap.empty:
+        protected_ids = protected_busmap.index.astype(str)
+        busmap.index = busmap.index.astype(str)
+        busmap.loc[protected_ids] = protected_ids
 
     busmap = busmap.astype(str)
     busmap.index = busmap.index.astype(str)
@@ -638,6 +673,28 @@ def highestInteger(potentially_numbers):
         except ValueError:
             pass
     return highest
+
+
+def safe_new_gas_bus_id(original_bus, mapped_bus, next_bus_id):
+    """Renumber ordinary clusters without changing protected identities."""
+    original_bus = str(original_bus)
+    mapped_bus = str(mapped_bus)
+    if mapped_bus == original_bus:
+        return original_bus
+
+    try:
+        return str(int(mapped_bus) + next_bus_id)
+    except (TypeError, ValueError):
+        return mapped_bus
+
+
+def safe_medoid_lookup(mapped_bus, medoid_idx):
+    """Resolve numeric medoids and retain custom singleton labels safely."""
+    mapped_bus = str(mapped_bus)
+    try:
+        return str(medoid_idx.loc[int(mapped_bus)])
+    except (KeyError, TypeError, ValueError):
+        return mapped_bus
 
 
 def simultaneous_sector_coupling(
@@ -1076,6 +1133,75 @@ def join_busmap_medoids(
     return busmap, medoid_idx
 
 
+def _cluster_gas_candidates(
+    etrago, network, weight, n_clusters, method
+):
+    """Cluster the remaining gas buses after protected buses are removed."""
+    if network.buses.empty:
+        empty_busmap = pd.Series(dtype=str)
+        empty_medoids = (
+            None if method == "kmeans" else pd.Series(dtype=object)
+        )
+        return empty_busmap, empty_medoids
+
+    if method == "kmeans":
+        return kmean_clustering_gas(
+            etrago, network, weight, n_clusters
+        )
+
+    if method == "kmedoids-dijkstra":
+        return kmedoids_dijkstra_clustering(
+            etrago,
+            network.buses,
+            network.links,
+            weight,
+            n_clusters,
+        )
+
+    raise ValueError(
+        'Please select "kmeans" or "kmedoids-dijkstra" as spatial '
+        "clustering method for the gas network"
+    )
+
+
+def _join_kmeans_gas_busmaps(busmap_ch4, busmap_h2):
+    """Join CH4/H2 k-means labels without requiring medoid metadata."""
+    busmap_ch4 = busmap_ch4.astype(str)
+    if busmap_h2.empty:
+        return busmap_ch4
+
+    offset = (
+        highestInteger(busmap_ch4.values) + 1
+        if not busmap_ch4.empty
+        else 0
+    )
+    busmap_h2 = (busmap_h2.astype(int) + offset).astype(str)
+    return pd.concat([busmap_ch4, busmap_h2])
+
+
+def _assign_singleton_gas_labels(busmap, protected_busmap):
+    """Keep protected gas buses as collision-free identity mappings."""
+    if protected_busmap.empty:
+        return protected_busmap.astype(str)
+
+    singleton_busmap = pd.Series(
+        protected_busmap.index.astype(str),
+        index=protected_busmap.index.astype(str),
+        name="cluster",
+        dtype=str,
+    )
+    singleton_busmap.index.name = "bus_id"
+
+    candidate_labels = set(busmap.astype(str).values)
+    collisions = candidate_labels.intersection(singleton_busmap.values)
+    if collisions:
+        raise RuntimeError(
+            "Gas focus protection cannot assign singleton labels because "
+            f"these labels are already used by ordinary clusters: {collisions}"
+        )
+    return singleton_busmap
+
+
 def run_spatial_clustering_gas(self):
     """
     Performs spatial clustering on the gas network using either K-means or
@@ -1106,7 +1232,10 @@ def run_spatial_clustering_gas(self):
             ch4_network, weight_ch4, n_clusters_ch4 = preprocessing(
                 self, "CH4"
             )
-            if "H2_grid" in self.network.links.carrier.unique():
+            has_separate_h2_grid = (
+                "H2_grid" in self.network.links.carrier.unique()
+            )
+            if has_separate_h2_grid:
                 h2_network, weight_h2, n_clusters_h2 = preprocessing(
                     self, "H2_grid"
                 )
@@ -1114,16 +1243,68 @@ def run_spatial_clustering_gas(self):
             focus_region = self.args["network_clustering"]["method"][
                 "focus_region"
             ]
-            if focus_region:
+            cluster_within_focus = settings["cluster_within_focus"]
+            protected_busmap_ch4 = pd.Series(dtype=str)
+            protected_busmap_h2 = pd.Series(dtype=str)
+            protected_ch4_buses = pd.DataFrame()
+            protected_h2_buses = pd.DataFrame()
+
+            if focus_region and focus_protection_requested(
+                cluster_within_focus
+            ):
+                (
+                    ch4_network,
+                    weight_ch4,
+                    n_clusters_ch4,
+                    protected_busmap_ch4,
+                    protected_ch4_buses,
+                ) = split_focus_buses_from_clustering(
+                    self,
+                    ch4_network,
+                    weight_ch4,
+                    n_clusters_ch4,
+                    focus_region=focus_region,
+                    cluster_within=cluster_within_focus,
+                    connection_component="links",
+                    export_filename="buses_within_focus_CH4.csv",
+                )
+                logger.info(
+                    "CH4 focus protection active: %s buses inside focus "
+                    "region will remain unclustered.",
+                    protected_ch4_buses.attrs.get("focus_count", 0),
+                )
+
+                if has_separate_h2_grid:
+                    (
+                        h2_network,
+                        weight_h2,
+                        n_clusters_h2,
+                        protected_busmap_h2,
+                        protected_h2_buses,
+                    ) = split_focus_buses_from_clustering(
+                        self,
+                        h2_network,
+                        weight_h2,
+                        n_clusters_h2,
+                        focus_region=focus_region,
+                        cluster_within=cluster_within_focus,
+                        connection_component="links",
+                        export_filename="buses_within_focus_H2_grid.csv",
+                    )
+                    logger.info(
+                        "H2 focus protection active: %s buses inside focus "
+                        "region will remain unclustered.",
+                        protected_h2_buses.attrs.get("focus_count", 0),
+                    )
+
+            elif focus_region:
 
                 weight_ch4 = focus_weighting(
                     self,
                     ch4_network,
                     weight_ch4,
                     focus_region,
-                    cluster_within=self.args["network_clustering"][
-                        "gas_grids"
-                    ]["cluster_within_focus"],
+                    cluster_within=cluster_within_focus,
                     per_country=self.args["network_clustering"]["method"][
                         "per_country"
                     ],
@@ -1132,16 +1313,14 @@ def run_spatial_clustering_gas(self):
                     ],
                 )
 
-                if "H2_grid" in self.network.links.carrier.unique():
+                if has_separate_h2_grid:
 
                     weight_h2 = focus_weighting(
                         self,
                         h2_network,
                         weight_h2,
                         focus_region,
-                        cluster_within=self.args["network_clustering"][
-                            "gas_grids"
-                        ]["cluster_within_focus"],
+                        cluster_within=cluster_within_focus,
                         per_country=self.args["network_clustering"]["method"][
                             "per_country"
                         ],
@@ -1150,25 +1329,15 @@ def run_spatial_clustering_gas(self):
                         ],
                     )
 
-            if method == "kmeans":
-                if settings["k_ch4_busmap"]:
+            if settings["k_ch4_busmap"]:
+                if method == "kmeans":
                     busmap = pd.read_csv(
                         settings["k_ch4_busmap"],
                         index_col="bus_id",
                         dtype=pd.StringDtype(),
                     ).squeeze()
                     medoid_idx = None
-                else:
-                    busmap_ch4, medoid_idx_ch4 = kmean_clustering_gas(
-                        self, ch4_network, weight_ch4, n_clusters_ch4
-                    )
-                    if "H2_grid" in self.network.links.carrier.unique():
-                        busmap_h2, medoid_idx_h2 = kmean_clustering_gas(
-                            self, h2_network, weight_h2, n_clusters_h2
-                        )
-
-            elif method == "kmedoids-dijkstra":
-                if settings["k_ch4_busmap"]:
+                elif method == "kmedoids-dijkstra":
                     busmap = pd.read_csv(
                         settings["k_ch4_busmap"],
                         index_col="bus_id",
@@ -1180,43 +1349,119 @@ def run_spatial_clustering_gas(self):
                         dtype=pd.StringDtype(),
                     )
                     busmap = busmap["cluster"]
-
                 else:
-                    busmap_ch4, medoid_idx_ch4 = kmedoids_dijkstra_clustering(
-                        self,
-                        ch4_network.buses,
-                        ch4_network.links,
-                        weight_ch4,
-                        n_clusters_ch4,
+                    raise ValueError(
+                        'Please select "kmeans" or "kmedoids-dijkstra" as '
+                        "spatial clustering method for the gas network"
                     )
-                    if "H2_grid" in self.network.links.carrier.unique():
-                        (
+            else:
+                busmap_ch4, medoid_idx_ch4 = _cluster_gas_candidates(
+                    self,
+                    ch4_network,
+                    weight_ch4,
+                    n_clusters_ch4,
+                    method,
+                )
+                if has_separate_h2_grid:
+                    busmap_h2, medoid_idx_h2 = _cluster_gas_candidates(
+                        self,
+                        h2_network,
+                        weight_h2,
+                        n_clusters_h2,
+                        method,
+                    )
+
+                if has_separate_h2_grid:
+                    if method == "kmedoids-dijkstra":
+                        busmap, medoid_idx = join_busmap_medoids(
+                            busmap_ch4,
                             busmap_h2,
+                            medoid_idx_ch4,
                             medoid_idx_h2,
-                        ) = kmedoids_dijkstra_clustering(
-                            self,
-                            h2_network.buses,
-                            h2_network.links,
-                            weight_h2,
-                            n_clusters_h2,
                         )
+                    else:
+                        busmap = _join_kmeans_gas_busmaps(
+                            busmap_ch4, busmap_h2
+                        )
+                        medoid_idx = None
+                else:
+                    busmap = busmap_ch4
+                    medoid_idx = medoid_idx_ch4
 
-            else:
-                msg = (
-                    'Please select "kmeans" or "kmedoids-dijkstra" as '
-                    "spatial clustering method for the gas network"
+            protected_busmap = pd.concat(
+                [protected_busmap_ch4, protected_busmap_h2]
+            )
+            protected_busmap = protected_busmap[
+                ~protected_busmap.index.duplicated(keep="last")
+            ]
+
+            if not protected_busmap.empty:
+                protected_busmap = _assign_singleton_gas_labels(
+                    busmap, protected_busmap
                 )
-                raise ValueError(msg)
-
-            if "H2_grid" in self.network.links.carrier.unique():
-                busmap, medoid_idx = join_busmap_medoids(
-                    busmap_ch4, busmap_h2, medoid_idx_ch4, medoid_idx_h2
+                busmap = pd.concat(
+                    [busmap.astype(str), protected_busmap.astype(str)]
                 )
-            else:
-                busmap = busmap_ch4
-                medoid_idx = medoid_idx_ch4
+                busmap = busmap[~busmap.index.duplicated(keep="last")]
 
-            self.network, busmap = gas_postprocessing(self, busmap, medoid_idx)
+                if method == "kmedoids-dijkstra":
+                    if medoid_idx is None:
+                        medoid_idx = pd.Series(dtype=object)
+                    for old_bus, new_bus in protected_busmap.items():
+                        try:
+                            medoid_idx.loc[int(str(new_bus))] = str(old_bus)
+                        except (TypeError, ValueError):
+                            logger.warning(
+                                "Protected gas bus %s has a non-numeric "
+                                "identifier; singleton mapping is retained.",
+                                old_bus,
+                            )
+
+                logger.info(
+                    "Final singleton protection for %s gas buses before "
+                    "aggregation.",
+                    len(protected_busmap),
+                )
+
+            self.network, busmap = gas_postprocessing(
+                self,
+                busmap,
+                medoid_idx,
+                protected_busmap=protected_busmap,
+            )
+
+            if not protected_busmap.empty:
+                final_protected = busmap.reindex(protected_busmap.index)
+                missing_protected = final_protected[
+                    final_protected.isna()
+                ].index
+                if len(missing_protected):
+                    raise RuntimeError(
+                        "Gas focus protection failed: protected buses are "
+                        f"missing from final busmap: {list(missing_protected)}"
+                    )
+                if final_protected.nunique() != len(protected_busmap):
+                    raise RuntimeError(
+                        "Gas focus protection failed: protected buses were "
+                        "merged during postprocessing."
+                    )
+                identity_count = int(
+                    (
+                        final_protected.index.astype(str)
+                        == final_protected.astype(str).values
+                    ).sum()
+                )
+                if identity_count != len(protected_busmap):
+                    raise RuntimeError(
+                        "Gas focus protection failed: protected singleton "
+                        "identity mappings were overwritten."
+                    )
+                logger.info(
+                    "Strict gas focus check passed: %s protected buses retain "
+                    "%s identity mappings and unique final destinations.",
+                    len(protected_busmap),
+                    identity_count,
+                )
 
             self.update_busmap(busmap)
 
