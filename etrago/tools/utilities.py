@@ -687,7 +687,10 @@ def load_shedding(
         marginal_cost = kwargs.get("marginal_cost", marginal_cost_def)
         p_nom = kwargs.get("p_nom", p_nom_def)
 
-        network.add("Carrier", "load")
+        if "load" not in network.carriers.index:
+            network.add("Carrier", "load")
+        else:
+            logger.debug("Carrier 'load' already exists; reusing it.")
         start = (
             network.generators.index.to_series()
             .str.extract("(\d+)")
@@ -3411,3 +3414,144 @@ def levelize_abroad_inland_parameters(self):
             "✅ All required parameters for inland and abroad "
             f"{component_type} are levelized."
         )
+
+
+def restore_load_shedding_after_clustering(
+    etrago,
+    negative_load_shedding=("Li_ion",),
+):
+    """Restore and validate load shedding after spatial clustering.
+
+    Spatial clustering or subsequent network preparation can remove the
+    load-shedding generators while retaining Li-ion buses. This function
+    removes any surviving shedding generators, recreates them consistently,
+    and verifies coverage of all Li-ion buses.
+
+    Parameters
+    ----------
+    etrago : etrago.network.Etrago
+        Active eTraGo object.
+    negative_load_shedding : tuple or list of str
+        Bus carriers on which negative load shedding is required.
+
+    Returns
+    -------
+    dict
+        Counts from the post-clustering validation.
+    """
+    if not etrago.args.get("load_shedding", False):
+        raise RuntimeError(
+            "args['load_shedding'] must be True before restoring "
+            "post-clustering shedding generators."
+        )
+
+    network = etrago.network
+
+    shedding_carriers = {
+        "load shedding",
+        "negative load shedding",
+    }
+
+    # Remove surviving shedding generators to avoid duplicates.
+    generator_carrier = (
+        network.generators["carrier"]
+        .fillna("")
+        .astype(str)
+    )
+
+    existing_shedding = network.generators.index[
+        generator_carrier.isin(shedding_carriers)
+    ].tolist()
+
+    for generator_name in existing_shedding:
+        network.remove("Generator", generator_name)
+
+    # Reuse the existing eTraGo implementation.
+    load_shedding(
+        etrago,
+        negative_load_shedding=list(negative_load_shedding),
+    )
+
+    # Validate using normalized string IDs.
+    buses = network.buses
+    generators = network.generators
+
+    required_bus_carriers = set(
+        str(carrier) for carrier in negative_load_shedding
+    )
+
+    protected_bus_mask = (
+        buses["carrier"]
+        .fillna("")
+        .astype(str)
+        .isin(required_bus_carriers)
+    )
+
+    protected_buses = set(
+        buses.index[protected_bus_mask].astype(str)
+    )
+
+    if not protected_buses:
+        raise RuntimeError(
+            "No buses matching negative_load_shedding carriers "
+            f"{sorted(required_bus_carriers)} remain after clustering."
+        )
+
+    generator_bus = (
+        generators["bus"]
+        .fillna("")
+        .astype(str)
+    )
+
+    generator_carrier = (
+        generators["carrier"]
+        .fillna("")
+        .astype(str)
+    )
+
+    summary = {
+        "protected_buses": len(protected_buses),
+        "removed_existing_generators": len(existing_shedding),
+    }
+
+    for shedding_carrier in [
+        "load shedding",
+        "negative load shedding",
+    ]:
+        carrier_mask = generator_carrier.eq(shedding_carrier)
+
+        covered_buses = set(
+            generator_bus[carrier_mask]
+        )
+
+        covered_protected_buses = (
+            protected_buses & covered_buses
+        )
+        missing_buses = protected_buses - covered_buses
+
+        summary[f"{shedding_carrier} generators"] = int(
+            carrier_mask.sum()
+        )
+        summary[f"{shedding_carrier} protected coverage"] = len(
+            covered_protected_buses
+        )
+
+        if missing_buses:
+            preview = sorted(missing_buses)[:20]
+
+            raise RuntimeError(
+                f"{shedding_carrier} is missing on "
+                f"{len(missing_buses)} protected buses. "
+                f"First missing IDs: {preview}"
+            )
+
+    logger.info(
+        "Post-clustering load shedding restored: "
+        "%s protected buses, %s positive and %s negative "
+        "shedding generators.",
+        summary["protected_buses"],
+        summary["load shedding generators"],
+        summary["negative load shedding generators"],
+    )
+
+    return summary

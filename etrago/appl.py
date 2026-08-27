@@ -26,9 +26,15 @@ the function run_etrago.
 """
 
 import datetime
+import json
 import os
 import os.path
 import resource
+from pathlib import Path
+
+from etrago.tools.utilities import (
+    restore_load_shedding_after_clustering,
+)
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -53,7 +59,7 @@ args = {
     "gridversion": None,  # None for model_draft or version number
     "method": {  # choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
-        "n_iter": 1,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "formulation": "linopy",
         "market_optimization": {
             "active": True,
@@ -73,7 +79,7 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 24,
+    "end_snapshot": 8760,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -151,7 +157,7 @@ args = {
         "electricity_grid": {
             "active": True,  # choose if clustering is activated
             "cluster_within_focus": False,  # False for very low clustering within focus region
-            "n_clusters": 50,  # total number of resulting AC nodes
+            "n_clusters": 100,  # total number of resulting AC nodes
         },
         "gas_grids": {
             "active": True,  # choose if clustering is activated
@@ -186,6 +192,33 @@ args = {
     "comments": None,
 }
 
+
+# Allow batch scripts to override the hard-coded configuration
+config_from_env = os.environ.get("ETRAGO_CONFIG")
+
+if config_from_env:
+    config_path = Path(config_from_env).resolve()
+
+    with config_path.open(encoding="utf-8") as handle:
+        args = json.load(handle)
+
+    print("\nConfiguration loaded by appl.py:")
+    print("  file:", config_path)
+    print(
+        "  market_zones:",
+        args["method"]["market_optimization"]["market_zones"],
+    )
+    print(
+        "  AC clusters:",
+        args["network_clustering"]["electricity_grid"]["n_clusters"],
+    )
+    print(
+        "  snapshots:",
+        args["start_snapshot"],
+        "-",
+        args["end_snapshot"],
+    )
+    print("  export_results_path:", args["export_results_path"])
 
 def run_etrago(args, json_path):
     """Function to conduct optimization considering the following arguments.
@@ -647,6 +680,11 @@ def run_etrago(args, json_path):
 
     # skip snapshots
     etrago.skip_snapshots()
+
+    restore_load_shedding_after_clustering(
+        etrago,
+        negative_load_shedding=("Li_ion",),
+    )
 
     # start linear optimal powerflow calculations
     etrago.optimize()

@@ -38,8 +38,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-
-CONFIG="args.json"
+CONFIG="$SCRIPT_DIR/args.json"
 
 ZONES=(
     "status_quo"
@@ -50,7 +49,7 @@ ZONES=(
 )
 
 AC_CLUSTERS="100"
-SNAPSHOTS="10"
+SNAPSHOTS="8760"
 
 # Preserve the original configuration
 CONFIG_BACKUP="$(mktemp)"
@@ -102,19 +101,49 @@ zone = os.environ["ZONE"]
 run_dir = str(Path(os.environ["RUN_DIR"]).resolve())
 run_name = os.environ["RUN_NAME"]
 
-# Bidding-zone configuration
-args["method"]["market_optimization"]["market_zones"] = zone
+FOCUS_REGION = [
+    "Flensburg",
+    "Kiel",
+    "Lübeck",
+    "Neumünster",
+    "Dithmarschen",
+    "Herzogtum Lauenburg",
+    "Nordfriesland",
+    "Ostholstein",
+    "Pinneberg",
+    "Plön",
+    "Rendsburg-Eckernförde",
+    "Schleswig-Flensburg",
+    "Segeberg",
+    "Steinburg",
+    "Stormarn",
+]
 
-# AC clustering
-args["network_clustering"]["electricity_grid"]["n_clusters"] = int(
-    os.environ["AC_CLUSTERS"]
-)
+market = args["method"]["market_optimization"]
+clustering = args["network_clustering"]
+cluster_method = clustering["method"]
+electricity = clustering["electricity_grid"]
 
-# Snapshot range
+# Bidding-zone and temporal configuration
+market["market_zones"] = zone
+market["snapshot_step"] = 1
+
 args["start_snapshot"] = 1
 args["end_snapshot"] = int(os.environ["SNAPSHOTS"])
+args["skip_snapshots"] = 5
 
-# Separate result folder
+# Focus-region configuration
+cluster_method["focus_region"] = FOCUS_REGION
+electricity["cluster_within_focus"] = False
+electricity["n_clusters"] = int(os.environ["AC_CLUSTERS"])
+
+if "gas_grids" in clustering:
+    clustering["gas_grids"]["cluster_within_focus"] = False
+
+# Required for ordinary and negative load shedding
+args["load_shedding"] = True
+
+# Separate output directory
 args["export_results_path"] = run_dir
 
 # Separate solver log
@@ -126,23 +155,60 @@ if "logFile" in solver_options:
 else:
     solver_options["LogFile"] = solver_log
 
+# Validate the effective configuration
+focus_region = cluster_method.get("focus_region")
+cluster_within_focus = electricity.get("cluster_within_focus")
+
+if len(focus_region or []) != 15:
+    raise SystemExit(
+        f"ERROR: expected 15 focus districts, found {len(focus_region or [])}."
+    )
+
+if cluster_within_focus is not False:
+    raise SystemExit(
+        "ERROR: cluster_within_focus must be False."
+    )
+
+if args.get("load_shedding") is not True:
+    raise SystemExit(
+        "ERROR: load_shedding must be True."
+    )
+
+if Path(args["export_results_path"]).resolve() != Path(run_dir).resolve():
+    raise SystemExit(
+        "ERROR: export_results_path does not match RUN_DIR."
+    )
+# Write the effective configuration
 with config_path.open("w", encoding="utf-8") as handle:
     json.dump(args, handle, indent=4, ensure_ascii=False)
     handle.write("\n")
 
 print("Effective settings:")
-print("  market_zones:", zone)
-print("  AC clusters:", args["network_clustering"]["electricity_grid"]["n_clusters"])
+print("  market_zones:", market["market_zones"])
+print("  AC clusters:", electricity["n_clusters"])
 print("  snapshots:", args["start_snapshot"], "-", args["end_snapshot"])
-print("  snapshot_step:",
-      args["method"]["market_optimization"]["snapshot_step"])
-print("  results:", run_dir)
+print("  snapshot_step:", market["snapshot_step"])
+print("  skip_snapshots:", args["skip_snapshots"])
+print("  focus districts:", len(focus_region))
+print("  cluster_within_focus:", cluster_within_focus)
+print("  load_shedding:", args["load_shedding"])
+print("  results:", args["export_results_path"])
 PY
+
+
+    CONFIG_EDIT_EXIT_CODE=$?
+
+    if [ "$CONFIG_EDIT_EXIT_CODE" -ne 0 ]; then
+        echo "ERROR: failed to prepare the effective args.json."
+        echo "The eTraGo run will not be started."
+        exit "$CONFIG_EDIT_EXIT_CODE"
+    fi
 
     cp "$CONFIG" "$RUN_DIR/args_input.json"
 
     echo "Running ${ZONE}..."
 
+    ETRAGO_CONFIG="$CONFIG" \
     python -u appl.py 2>&1 | tee "${RUN_DIR}/${RUN_NAME}.log"
 
     EXIT_CODE=${PIPESTATUS[0]}
@@ -152,6 +218,27 @@ PY
         echo "Stopping loop."
         exit "$EXIT_CODE"
     fi
+
+    REQUIRED_STAGES=(
+        "original_network_topology"
+        "pre_market_optimization"
+        "market_optimization"
+        "grid_optimization"
+    )
+
+    for STAGE in "${REQUIRED_STAGES[@]}"; do
+        REQUIRED_FILE="${RUN_DIR}/${STAGE}/buses.csv"
+
+        if [ ! -f "$REQUIRED_FILE" ]; then
+            echo "ERROR: expected export is missing:"
+            echo "  $REQUIRED_FILE"
+            echo "Stopping batch."
+            exit 1
+        fi
+    done
+
+    echo "All required network exports verified."
+
 
     echo "Finished ${ZONE}"
     echo "Results: ${RUN_DIR}"
