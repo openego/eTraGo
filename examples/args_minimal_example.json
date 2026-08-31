@@ -30,7 +30,7 @@
     "scn_name": "eGon2035",
     "scn_extension": null,
     "lpfile": false,
-    "csv_export": false,
+    "export_results_path": false,
     "extendable": {
         "extendable_components": [
             "as_in_db"

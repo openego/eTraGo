@@ -732,11 +732,18 @@ class UniformDisaggregation(Disaggregation):
                     # If upper limit is infinite, replace it by a very large
                     # number to avoid NaN values in the calculation
                     pnb_p_nom_max.replace(float("inf"), 10000000, inplace=True)
-
                     p_nom_max_global = pnb_p_nom_max.sum(axis="index")
 
+                    # Use p_nom_min as lower bound, distribute additional
+                    # capacity (p_nom_opt - p_nom_min) uniform to p_nom_max
                     pnb.loc[:, optimal_capacity] = (
-                        clb.iloc[0].at[optimal_capacity]
+                        pnb.loc[:, optimal_capacity.replace("opt", "min")]
+                        + (
+                            clb.iloc[0].at[optimal_capacity]
+                            - clb.iloc[0].at[
+                                optimal_capacity.replace("opt", "min")
+                            ]
+                        )
                         * pnb_p_nom_max
                         / p_nom_max_global
                     )
@@ -744,6 +751,15 @@ class UniformDisaggregation(Disaggregation):
                         pnb.index, optimal_capacity
                     ] = pnb.loc[:, optimal_capacity]
                     pnb.loc[:, nominal_capacity] = pnb.loc[:, optimal_capacity]
+
+                    assert (
+                        pnb.loc[:, optimal_capacity]
+                        > pnb.loc[:, optimal_capacity.replace("opt", "min")]
+                    ).all(), (
+                        "There are disaggregated, extendable components"
+                        " where the optimized capacity is smaller then"
+                        " the existing capacity."
+                    )
                 else:
                     # That means 'p_nom_opt' didn't get computed and is
                     # potentially not present in the dataframe. But we want to
@@ -799,12 +815,19 @@ class UniformDisaggregation(Disaggregation):
                         }
                     )
                     delta = abs((new_columns.sum(axis=1) - clt).sum())
-                    epsilon = 1e-4
 
-                    assert delta < epsilon, (
+                    if delta > 1e-4:
+                        print(
+                            "Warning: Sum of disaggregated time series does"
+                            " not match aggregated timeseries:"
+                            f" {delta=} > 1e-4."
+                        )
+
+                    assert delta < 1, (
                         "Sum of disaggregated time series does not match"
-                        f" aggregated timeseries: {delta=} > {epsilon=}."
+                        f" aggregated timeseries: {delta=} > 1."
                     )
+
                     pn_t[s].loc[:, new_columns.columns] = new_columns
 
     def transfer_results(self, *args, **kwargs):

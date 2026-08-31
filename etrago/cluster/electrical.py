@@ -1085,15 +1085,34 @@ def weighting_for_scenario(network, save=None):
     gen["weight"] = gen["p_nom"] * gen["cf"]
     weight.loc[gen.bus.unique()] += gen.groupby("bus").weight.sum()
 
-    # Add weighting of storage units attached to transmission grid bus
+    # Add weighting of static storage units attached to transmission grid
     weight.loc[
         network.storage_units.bus[
             network.storage_units.bus.isin(weight.index)
+            & ~network.storage_units.p_nom_extendable
         ].unique()
     ] += (
-        network.storage_units[network.storage_units.bus.isin(weight.index)]
+        network.storage_units[
+            network.storage_units.bus.isin(weight.index)
+            & ~network.storage_units.p_nom_extendable
+        ]
         .groupby("bus")
         .p_nom.sum()
+    )
+
+    # Add weighting of extendable storage units attached to transmission grid
+    weight.loc[
+        network.storage_units.bus[
+            network.storage_units.bus.isin(weight.index)
+            & network.storage_units.p_nom_extendable
+        ].unique()
+    ] += (
+        network.storage_units[
+            network.storage_units.bus.isin(weight.index)
+            & network.storage_units.p_nom_extendable
+        ]
+        .groupby("bus")
+        .p_nom_min.sum()
     )
 
     # Add weighting of loads attached to transmission grid

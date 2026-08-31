@@ -41,7 +41,7 @@ setup(
         )
     ),
     long_description_content_type="text/x-rst",
-    version="0.10.1",
+    version="0.11.0",
     url="https://github.com/openego/eTraGo",
     license="GNU Affero General Public License Version 3 (AGPL-3.0)",
     packages=find_packages(),
@@ -54,7 +54,7 @@ setup(
         "loguru",
         "matplotlib >= 3.0.3, <3.9",
         "oedialect",
-        "pandas < 2.2",
+        "pandas < 2.0",
         "pyomo < 6.6",
         "pypsa == 0.26.2",
         "rtree",
