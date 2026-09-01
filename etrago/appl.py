@@ -50,7 +50,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon2035",  # database session: oep or local database
+    "db": "oep",  # database session: oep or local database
     "gridversion": None,  # None for model_draft or version number
     "method": {  # choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
@@ -133,7 +133,7 @@ args = {
             "cpu_cores": 4,  # number of cores used during clustering, "max" for all cores available.
         },
         "electricity_grid": {
-            "active": True,  # choose if clustering is activated
+            "active": False,  # choose if clustering is activated
             "cluster_within_focus": False,  # False for very low clustering within focus region
             "n_clusters": 30,  # total number of resulting AC nodes
             "k_elec_busmap": False,  # False or path/to/busmap.csv
@@ -664,33 +664,38 @@ if __name__ == "__main__":
     
     import sys
 
-    # old_stdout = sys.stdout
-    # log_file = open('console.log',"w")
-    # sys.stdout = log_file
+    old_stdout = sys.stdout
+    log_file = open('console.log',"w")
+    sys.stdout = log_file
 
     print(datetime.datetime.now())
     
-    spatial_resolution = [50]#, 300, 10000]
+    spatial_resolution = [3] # [50, 300, 1000, 5000, 8000, 10000]
     
     for i in range (0, len(spatial_resolution)):
             
         args['network_clustering']['electricity_grid']['n_clusters'] = spatial_resolution[i]
         
-        args['csv_export'] = 'Zooming-Tests/lokale_tests/AC-'+str(args['network_clustering']['electricity_grid']['n_clusters'])
+        args['csv_export'] = 'Zooming-Tests/Server-Tests/no-AC-clustering'
+        #args['csv_export'] = 'Zooming-Tests/Server-Tests/AC-'+str(args['network_clustering']['electricity_grid']['n_clusters'])
         
-        # old_stdout = sys.stdout
-        # path_log = args['csv_export']
-        # os.makedirs(path_log, exist_ok=True)
-        # log_file = open(args['csv_export']+'/console.log',"w")
-        # sys.stdout = log_file
-        
-        print(datetime.datetime.now())
-                    
-        etrago = run_etrago(args, json_path=None)
+        old_stdout = sys.stdout
+        path_log = args['csv_export']
+        os.makedirs(path_log, exist_ok=True)
+        log_file = open(args['csv_export']+'/console.log',"w")
+        sys.stdout = log_file
         
         print(datetime.datetime.now())
+
+        try:            
+            etrago = run_etrago(args, json_path=None)
+        except Exception as e:
+            print(f"❌ Error running AC {spatial_resolution[i]}: {e}")
         
-        # sys.stdout = old_stdout
-        # log_file.close()
+        print(datetime.datetime.now())
         
-    etrago.session.close()
+        sys.stdout = old_stdout
+        log_file.close()
+        
+        if hasattr(etrago, "session"):
+            etrago.session.close()
