@@ -888,6 +888,413 @@ def _export_focus_buses(
     os.makedirs(export_path, exist_ok=True)
     focus_buses.to_csv(os.path.join(export_path, filename))
 
+def _allocate_component_clusters(components, weight, n_clusters):
+    """Allocate an exact cluster budget across connected components."""
+    n_clusters = int(n_clusters)
+    n_components = len(components)
+    n_buses = sum(len(component) for component in components)
+
+    if n_clusters < n_components:
+        raise ValueError(
+            f"Cannot create {n_clusters} clusters for {n_components} "
+            "disconnected components. Increase the regional cluster budget."
+        )
+
+    if n_clusters > n_buses:
+        raise ValueError(
+            f"Cannot create {n_clusters} clusters from only {n_buses} buses."
+        )
+
+    allocation = [1] * n_components
+    masses = []
+
+    for component in components:
+        component_weight = pd.to_numeric(
+            weight.reindex(component), errors="coerce"
+        ).fillna(1)
+
+        mass = float(component_weight.clip(lower=1).sum())
+
+        masses.append(
+            mass if np.isfinite(mass) and mass > 0 else len(component)
+        )
+
+    remaining = n_clusters - n_components
+
+    while remaining:
+        candidates = [
+            index
+            for index, component in enumerate(components)
+            if allocation[index] < len(component)
+        ]
+
+        if not candidates:
+            raise RuntimeError(
+                "No component has capacity for the cluster budget."
+            )
+
+        selected = max(
+            candidates,
+            key=lambda index: (
+                masses[index] / (allocation[index] + 1),
+                -index,
+            ),
+        )
+
+        allocation[selected] += 1
+        remaining -= 1
+
+    return allocation
+
+
+def _cluster_partition_kmedoids(
+    etrago,
+    buses,
+    connections,
+    weight,
+    n_clusters,
+    label_offset,
+    partition_name,
+):
+    """Cluster one region with an exact cluster budget."""
+    if buses.empty:
+        raise ValueError(
+            f"The {partition_name} partition contains no buses."
+        )
+
+    # Include every bus, including buses without an internal line.
+    graph = nx.Graph()
+    graph.add_nodes_from(buses.index)
+
+    # Only retain lines whose two endpoints belong to this partition.
+    internal_connections = connections[
+        connections.bus0.isin(buses.index)
+        & connections.bus1.isin(buses.index)
+    ].copy()
+
+    graph.add_edges_from(
+        internal_connections[["bus0", "bus1"]].itertuples(
+            index=False,
+            name=None,
+        )
+    )
+
+    # Treat disconnected components separately.
+    components = [
+        pd.Index(component)
+        for component in nx.connected_components(graph)
+    ]
+
+    # Ensure deterministic component ordering.
+    components.sort(
+        key=lambda component: min(map(str, component))
+    )
+
+    allocation = _allocate_component_clusters(
+        components,
+        weight,
+        n_clusters,
+    )
+
+    busmaps = []
+    medoids = []
+    next_label = int(label_offset)
+
+    for component, component_clusters in zip(
+        components,
+        allocation,
+    ):
+        component_buses = buses.loc[component].copy()
+
+        component_connections = internal_connections[
+            internal_connections.bus0.isin(component)
+            & internal_connections.bus1.isin(component)
+        ].copy()
+
+        # If every bus becomes a cluster, use identity-like mappings.
+        # This also handles isolated single buses.
+        if component_clusters == len(component_buses):
+            labels = list(
+                range(
+                    next_label,
+                    next_label + len(component_buses),
+                )
+            )
+
+            component_busmap = pd.Series(
+                [str(label) for label in labels],
+                index=component_buses.index.astype(str),
+                name="cluster",
+                dtype=str,
+            )
+
+            component_medoid = pd.Series(
+                component_buses.index.astype(str),
+                index=labels,
+                dtype=object,
+            )
+
+        else:
+            component_weight = pd.to_numeric(
+                weight.reindex(component_buses.index),
+                errors="coerce",
+            ).fillna(1).clip(lower=1)
+
+            (
+                component_busmap,
+                component_medoid,
+            ) = kmedoids_dijkstra_clustering(
+                etrago,
+                component_buses,
+                component_connections,
+                component_weight,
+                component_clusters,
+            )
+
+            # Replace the local labels 0...n with globally unique labels.
+            local_labels = sorted(
+                component_busmap.astype(int).unique().tolist()
+            )
+
+            label_map = {
+                local_label: next_label + position
+                for position, local_label in enumerate(local_labels)
+            }
+
+            component_busmap = (
+                component_busmap.astype(int)
+                .map(label_map)
+                .astype(str)
+            )
+
+            component_busmap.name = "cluster"
+
+            component_medoid.index = [
+                label_map[int(label)]
+                for label in component_medoid.index
+            ]
+
+        busmaps.append(component_busmap)
+        medoids.append(component_medoid)
+
+        next_label += component_clusters
+
+    busmap = pd.concat(busmaps)
+    busmap.index = busmap.index.astype(str)
+    busmap.index.name = "bus_id"
+
+    medoid_idx = pd.concat(medoids)
+
+    # Ensure that every source bus occurs exactly once.
+    if (
+        busmap.index.duplicated().any()
+        or len(busmap) != len(buses)
+    ):
+        raise RuntimeError(
+            f"The {partition_name} busmap is incomplete "
+            "or contains duplicates."
+        )
+
+    # Ensure that the requested number was produced.
+    if busmap.nunique() != int(n_clusters):
+        raise RuntimeError(
+            f"The {partition_name} partition produced "
+            f"{busmap.nunique()} clusters instead of "
+            f"{n_clusters}."
+        )
+
+    return busmap, medoid_idx
+
+def _first_free_numeric_cluster_label(etrago):
+    """Return a label above every existing numeric bus identifier."""
+    numeric_ids = pd.to_numeric(
+        pd.Index(etrago.network.buses.index),
+        errors="coerce",
+    )
+
+    numeric_ids = np.asarray(numeric_ids, dtype=float)
+    numeric_ids = numeric_ids[np.isfinite(numeric_ids)]
+
+    if not len(numeric_ids):
+        return 0
+
+    return max(
+        0,
+        int(numeric_ids.max()) + 1,
+    )
+
+
+def exact_focus_kmedoids_clustering(
+    etrago,
+    selected_network,
+    weight,
+    n_clusters,
+    focus_region,
+    n_clusters_focus,
+    connection_component="lines",
+    export_filename="buses_within_focus.csv",
+):
+    """Cluster the focus and outside-focus regions separately.
+
+    Parameters
+    ----------
+    n_clusters
+        German cluster budget after eTraGo has reserved the foreign
+        clusters.
+    n_clusters_focus
+        Exact number of clusters inside the focus region.
+    """
+    if isinstance(n_clusters_focus, bool):
+        raise ValueError(
+            "n_clusters_focus must be an integer, not a boolean."
+        )
+
+    try:
+        converted_focus_clusters = int(n_clusters_focus)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "n_clusters_focus must be an integer."
+        ) from exc
+
+    if converted_focus_clusters != n_clusters_focus:
+        raise ValueError(
+            "n_clusters_focus must be an integer."
+        )
+
+    n_clusters = int(n_clusters)
+    n_clusters_focus = converted_focus_clusters
+    n_clusters_outside = n_clusters - n_clusters_focus
+
+    # Determine which German buses are inside Schleswig-Holstein.
+    focus_ids = buses_inside_focus_region(
+        etrago,
+        selected_network,
+        focus_region,
+    )
+
+    focus_ids = selected_network.buses.index[
+        selected_network.buses.index.isin(focus_ids)
+    ]
+
+    outside_ids = selected_network.buses.index[
+        ~selected_network.buses.index.isin(focus_ids)
+    ]
+
+    if n_clusters_focus < 1:
+        raise ValueError(
+            "n_clusters_focus must be at least 1."
+        )
+
+    if n_clusters_outside < 1:
+        raise ValueError(
+            "n_clusters_focus must be smaller than the German "
+            "cluster budget remaining after foreign-country "
+            "clusters are reserved."
+        )
+
+    if n_clusters_focus > len(focus_ids):
+        raise ValueError(
+            f"n_clusters_focus={n_clusters_focus} exceeds the "
+            f"{len(focus_ids)} focus buses."
+        )
+
+    if n_clusters_outside > len(outside_ids):
+        raise ValueError(
+            f"The outside-focus budget {n_clusters_outside} "
+            f"exceeds the {len(outside_ids)} outside-focus buses."
+        )
+
+    focus_buses = selected_network.buses.loc[focus_ids].copy()
+    outside_buses = selected_network.buses.loc[outside_ids].copy()
+
+    connections = getattr(
+        selected_network,
+        connection_component,
+    )
+
+    # Create labels that cannot collide with existing foreign bus IDs.
+    label_offset = _first_free_numeric_cluster_label(etrago)
+
+    # Keep the original focus-bus export.
+    _export_focus_buses(
+        etrago,
+        focus_buses,
+        export_filename,
+    )
+
+    logger.info(
+        "Exact AC focus clustering active: clustering %s focus "
+        "buses into %s clusters and %s outside-focus buses into "
+        "%s clusters (German budget %s; first new label %s).",
+        len(focus_buses),
+        n_clusters_focus,
+        len(outside_buses),
+        n_clusters_outside,
+        n_clusters,
+        label_offset,
+    )
+
+    # Cluster Schleswig-Holstein.
+    focus_busmap, focus_medoids = (
+        _cluster_partition_kmedoids(
+            etrago,
+            focus_buses,
+            connections,
+            weight,
+            n_clusters_focus,
+            label_offset=label_offset,
+            partition_name="focus",
+        )
+    )
+
+    # Cluster the rest of Germany.
+    outside_busmap, outside_medoids = (
+        _cluster_partition_kmedoids(
+            etrago,
+            outside_buses,
+            connections,
+            weight,
+            n_clusters_outside,
+            label_offset=label_offset + n_clusters_focus,
+            partition_name="outside-focus",
+        )
+    )
+
+    # Export the focus-region busmap for verification.
+    export_path = etrago.args.get("export_results_path")
+
+    if export_path:
+        os.makedirs(export_path, exist_ok=True)
+
+        focus_busmap.to_csv(
+            os.path.join(
+                export_path,
+                "busmap_within_focus.csv",
+            )
+        )
+
+    busmap = pd.concat(
+        [
+            focus_busmap,
+            outside_busmap,
+        ]
+    )
+
+    medoid_idx = pd.concat(
+        [
+            focus_medoids,
+            outside_medoids,
+        ]
+    )
+
+    logger.info(
+        "Exact focus clustering produced %s focus targets and "
+        "%s outside-focus targets.",
+        focus_busmap.nunique(),
+        outside_busmap.nunique(),
+    )
+
+    return busmap, medoid_idx
 
 def split_focus_buses_from_clustering(
     etrago,

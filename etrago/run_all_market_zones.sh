@@ -48,8 +48,9 @@ ZONES=(
     "DE5"
 )
 
-AC_CLUSTERS="100"
-SNAPSHOTS="8760"
+AC_CLUSTERS="150"
+FOCUS_CLUSTERS="100"
+SNAPSHOTS="10"
 
 # Preserve the original configuration
 CONFIG_BACKUP="$(mktemp)"
@@ -70,7 +71,7 @@ for ZONE in "${ZONES[@]}"; do
     echo "Starting run for ${ZONE}"
     echo "=========================================="
 
-    RUN_NAME="${ZONE}_ac${AC_CLUSTERS}_s${SNAPSHOTS}_$(date +%Y%m%d_%H%M%S)"
+    RUN_NAME="${ZONE}_ac${AC_CLUSTERS}_focus${FOCUS_CLUSTERS}_s${SNAPSHOTS}_$(date +%Y%m%d_%H%M%S)"
     RUN_DIR="results_${RUN_NAME}"
 
     if [ -e "$RUN_DIR" ]; then
@@ -85,6 +86,7 @@ for ZONE in "${ZONES[@]}"; do
     RUN_DIR="$RUN_DIR" \
     RUN_NAME="$RUN_NAME" \
     AC_CLUSTERS="$AC_CLUSTERS" \
+    FOCUS_CLUSTERS="$FOCUS_CLUSTERS" \
     SNAPSHOTS="$SNAPSHOTS" \
     CONFIG="$CONFIG" \
     python - <<'PY'
@@ -126,7 +128,7 @@ electricity = clustering["electricity_grid"]
 
 # Bidding-zone and temporal configuration
 market["market_zones"] = zone
-market["snapshot_step"] = 1
+market["snapshot_step"] = 5
 
 args["start_snapshot"] = 1
 args["end_snapshot"] = int(os.environ["SNAPSHOTS"])
@@ -134,9 +136,11 @@ args["skip_snapshots"] = 5
 
 # Focus-region configuration
 cluster_method["focus_region"] = FOCUS_REGION
-electricity["cluster_within_focus"] = False
-electricity["n_clusters"] = int(os.environ["AC_CLUSTERS"])
+focus_clusters = int(os.environ["FOCUS_CLUSTERS"])
 
+electricity["cluster_within_focus"] = True
+electricity["n_clusters_focus"] = focus_clusters
+electricity["n_clusters"] = int(os.environ["AC_CLUSTERS"])
 if "gas_grids" in clustering:
     clustering["gas_grids"]["cluster_within_focus"] = False
 
@@ -158,15 +162,28 @@ else:
 # Validate the effective configuration
 focus_region = cluster_method.get("focus_region")
 cluster_within_focus = electricity.get("cluster_within_focus")
+n_clusters_focus = electricity.get("n_clusters_focus")
 
 if len(focus_region or []) != 15:
     raise SystemExit(
         f"ERROR: expected 15 focus districts, found {len(focus_region or [])}."
     )
 
-if cluster_within_focus is not False:
+if cluster_within_focus is not True:
     raise SystemExit(
-        "ERROR: cluster_within_focus must be False."
+        "ERROR: cluster_within_focus must be True."
+    )
+
+if n_clusters_focus != focus_clusters:
+    raise SystemExit(
+        "ERROR: n_clusters_focus does not match "
+        f"FOCUS_CLUSTERS={focus_clusters}."
+    )
+
+if not 1 <= focus_clusters < electricity["n_clusters"]:
+    raise SystemExit(
+        "ERROR: FOCUS_CLUSTERS must be between 1 and "
+        "AC_CLUSTERS - 1."
     )
 
 if args.get("load_shedding") is not True:
@@ -185,7 +202,8 @@ with config_path.open("w", encoding="utf-8") as handle:
 
 print("Effective settings:")
 print("  market_zones:", market["market_zones"])
-print("  AC clusters:", electricity["n_clusters"])
+print("  total AC clusters:", electricity["n_clusters"])
+print("  focus AC clusters:", n_clusters_focus)
 print("  snapshots:", args["start_snapshot"], "-", args["end_snapshot"])
 print("  snapshot_step:", market["snapshot_step"])
 print("  skip_snapshots:", args["skip_snapshots"])

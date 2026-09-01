@@ -29,6 +29,7 @@ from pypsa.clustering.spatial import (
     aggregatebuses,
     aggregateoneport,
     get_clustering_from_busmap,
+
 )
 from six import iteritems
 import numpy as np
@@ -43,6 +44,7 @@ if "READTHEDOCS" not in os.environ:
         busmap_ehv_clustering,
         clean_network_after_focus_clustering,
         drop_nan_values,
+        exact_focus_kmedoids_clustering,
         export_clustering_results,
         focus_protection_requested,
         focus_weighting,
@@ -1179,16 +1181,54 @@ def run_spatial_clustering(self):
 
         elec_network, weight, n_clusters, busmap_foreign = preprocessing(self)
 
-        focus_region = self.args["network_clustering"]["method"][
-            "focus_region"
+        clustering_settings = self.args["network_clustering"]
+        electricity_settings = clustering_settings["electricity_grid"]
+
+        focus_region = clustering_settings["method"]["focus_region"]
+
+        cluster_within_focus = electricity_settings[
+            "cluster_within_focus"
         ]
-        cluster_within_focus = self.args["network_clustering"][
-            "electricity_grid"
-        ]["cluster_within_focus"]
+
+        n_clusters_focus = electricity_settings.get(
+            "n_clusters_focus"
+        )
+
+        algorithm = clustering_settings["method"]["algorithm"]
+
+        exact_focus_clustering_active = (
+            bool(focus_region)
+            and n_clusters_focus is not None
+        )
+
         protected_busmap = pd.Series(dtype=str)
         protected_buses = pd.DataFrame()
 
-        if focus_region and focus_protection_requested(
+        if exact_focus_clustering_active:
+            if cluster_within_focus is not True:
+                raise ValueError(
+                    "Exact focus clustering requires "
+                    "cluster_within_focus=True and an integer "
+                    "n_clusters_focus."
+                )
+
+            if algorithm != "kmedoids-dijkstra":
+                raise ValueError(
+                    "Exact focus clustering currently supports only "
+                    "algorithm='kmedoids-dijkstra'."
+                )
+
+            busmap, medoid_idx = exact_focus_kmedoids_clustering(
+                self,
+                elec_network,
+                weight,
+                n_clusters,
+                focus_region=focus_region,
+                n_clusters_focus=n_clusters_focus,
+                connection_component="lines",
+            )
+
+        elif focus_region and focus_protection_requested(
             cluster_within_focus
         ):
             (
@@ -1226,9 +1266,13 @@ def run_spatial_clustering(self):
                 ],
             )
 
-        algorithm = self.args["network_clustering"]["method"]["algorithm"]
 
-        if elec_network.buses.empty:
+
+        if exact_focus_clustering_active:
+            # busmap and medoid_idx were already created above.
+            pass
+
+        elif elec_network.buses.empty:
             busmap = pd.Series(dtype=str)
             medoid_idx = pd.Series(dtype=str)
 
@@ -1297,7 +1341,10 @@ def run_spatial_clustering(self):
 
         self.network = clustering.network
 
-        if not protected_busmap.empty:
+        if (
+            not protected_busmap.empty
+            or exact_focus_clustering_active
+        ):
             clean_network_after_focus_clustering(self.network)
 
         self.buses_by_country()

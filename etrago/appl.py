@@ -60,7 +60,7 @@ args = {
     "method": {  # choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
         "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        "formulation": "linopy",
+        "formulation": "pyomo",
         "market_optimization": {
             "active": True,
             "market_zones": "DE5",  # 'status_quo', 'DE2', 'DE3', 'DE4', or 'DE5'
@@ -79,16 +79,20 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 8760,
+    "end_snapshot": 10,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
         "FeasibilityTol": 1.0e-5,
         "method": 2,
-        "crossover": 0,
-        "logFile": "solver_DE5_ac30_s24_marketstep5_test.log",
+        #"crossover": 0,
+        "logFile": "solver_log.log",
         "threads": 4,
         "BarHomogeneous": 1,
+        "MIPGap": 1.0e-3,
+        "ScaleFlag": 2,
+        "SoftMemLimit": 120,
+        "NumericFocus": 3,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # scenario, e.g. eGon2035, eGon2035_lowflex or status2019
@@ -156,8 +160,9 @@ args = {
         },
         "electricity_grid": {
             "active": True,  # choose if clustering is activated
-            "cluster_within_focus": False,  # False for very low clustering within focus region
-            "n_clusters": 100,  # total number of resulting AC nodes
+            "cluster_within_focus": True,  # Enable clustering inside focus region
+            "n_clusters_focus": 25,  # Exact number of AC clusters inside focus region.
+            "n_clusters": 100,   # Total final AC-cluster target, including foreign clusters.
         },
         "gas_grids": {
             "active": True,  # choose if clustering is activated
