@@ -686,6 +686,8 @@ if __name__ == "__main__":
         sys.stdout = log_file
         
         print(datetime.datetime.now())
+        
+        #etrago = run_etrago(args, json_path=None)
 
         try:            
             etrago = run_etrago(args, json_path=None)

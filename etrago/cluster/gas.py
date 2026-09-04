@@ -595,6 +595,15 @@ def gas_postprocessing(
                     c.name,
                     attr,
                 )
+                
+    # add missing pnl-attributes
+    for c in network_gasgrid_c.iterate_components(other_components):
+        attrs = network_gasgrid_c.component_attrs[c.name]
+        series_attrs = attrs.index[attrs.type.str.contains("series")]
+        for attr in series_attrs:
+            if attr not in c.pnl:
+                c.pnl[attr] = pd.DataFrame(index=network_gasgrid_c.snapshots)
+    
     io.import_components_from_dataframe(
         network_gasgrid_c, network.carriers, "Carrier"
     )
@@ -1043,6 +1052,7 @@ def get_clustering_from_busmap(
                 io.import_series_from_dataframe(
                     network_gasgrid_c, filtered_df, "Link", attr
                 )
+                
         ### only keep timeseries of new links
         # for attr in list(network_gasgrid_c.links_t.keys()):
         #     network_gasgrid_c.links_t[attr] = network_gasgrid_c.links_t[attr].reindex(
@@ -1050,25 +1060,25 @@ def get_clustering_from_busmap(
         #     fill_value=0.0
         #     )
             
-        for attr in list(network_gasgrid_c.links_t.keys()): 
-            # network_gasgrid_c.links_t[attr] = network_gasgrid_c.links_t[attr].reindex(
-            # columns=new_links.index,
-            # fill_value=0.0
-            # )
-            df = network_gasgrid_c.links_t[attr]
-            if df.empty:
-                # Leeren DataFrame komplett weglassen
-                del network_gasgrid_c.links_t[attr]
-                continue
-            # Nur Links behalten, die tatsächlich eine Zeitreihe hatten
-            existing_cols = df.columns.intersection(new_links.index)
-            if existing_cols.empty:
-                del network_gasgrid_c.links_t[attr]
-            else:
-                network_gasgrid_c.links_t[attr] = df.reindex(
-                    columns=existing_cols
-                    # kein fill_value=0.0 !
-                )
+        # for attr in list(network_gasgrid_c.links_t.keys()): 
+        #     # network_gasgrid_c.links_t[attr] = network_gasgrid_c.links_t[attr].reindex(
+        #     # columns=new_links.index,
+        #     # fill_value=0.0
+        #     # )
+        #     df = network_gasgrid_c.links_t[attr]
+        #     if df.empty:
+        #         # Leeren DataFrame komplett weglassen
+        #         del network_gasgrid_c.links_t[attr]
+        #         continue
+        #     # Nur Links behalten, die tatsächlich eine Zeitreihe hatten
+        #     existing_cols = df.columns.intersection(new_links.index)
+        #     if existing_cols.empty:
+        #         del network_gasgrid_c.links_t[attr]
+        #     else:
+        #         network_gasgrid_c.links_t[attr] = df.reindex(
+        #             columns=existing_cols
+        #             # kein fill_value=0.0 !
+        #         )
 
     return network_gasgrid_c
 

@@ -2425,7 +2425,11 @@ def update_busmap(self, new_busmap):
     None.
     """
     if "busmap" not in self.busmap.keys():
-        self.busmap["busmap"] = new_busmap
+        self.busmap["busmap"] = (
+        new_busmap.to_dict()
+        if isinstance(new_busmap, pd.Series)
+        else dict(new_busmap)
+    )
         self.busmap["orig_network"] = pypsa.Network()
         pypsa.io.import_components_from_dataframe(
             self.busmap["orig_network"], self.network.buses, "Bus"
