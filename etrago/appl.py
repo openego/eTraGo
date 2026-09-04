@@ -133,7 +133,7 @@ args = {
             "cpu_cores": 4,  # number of cores used during clustering, "max" for all cores available.
         },
         "electricity_grid": {
-            "active": False,  # choose if clustering is activated
+            "active": True,  # choose if clustering is activated
             "cluster_within_focus": False,  # False for very low clustering within focus region
             "n_clusters": 60,  # total number of resulting AC nodes
         },
