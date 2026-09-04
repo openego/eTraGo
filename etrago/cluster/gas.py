@@ -38,6 +38,7 @@ import pypsa.io as io
 if "READTHEDOCS" not in os.environ:
     from etrago.cluster.spatial import (
         drop_nan_values,
+        export_clustering_results,
         focus_weighting,
         group_links,
         kmedoids_dijkstra_clustering,
@@ -453,6 +454,9 @@ def gas_postprocessing(
     settings = etrago.args["network_clustering"]["gas_grids"]
     scn = etrago.args["scn_name"]
 
+    # quick fix while bus map loading is not working
+    settings["k_ch4_busmap"] = False
+
     if apply_on == "grid_model":
         if settings["k_ch4_busmap"] is False:
             if (
@@ -461,11 +465,6 @@ def gas_postprocessing(
             ):
                 busmap.index.name = "bus_id"
                 busmap.name = "cluster"
-                busmap.to_csv(
-                    "kmeans_gasgrid_busmap_"
-                    + str(settings["n_clusters_ch4"])
-                    + "_result.csv"
-                )
 
             else:
                 busmap.name = "cluster"
@@ -478,11 +477,7 @@ def gas_postprocessing(
 
                 export = pd.concat([busmap, busmap_ind], axis=1)
                 export.index.name = "bus_id"
-                export.to_csv(
-                    "kmedoids-dijkstra_gasgrid_busmap_"
-                    + str(settings["n_clusters_ch4"])
-                    + "_result.csv"
-                )
+
         network = etrago.network
     else:
         network = etrago.pre_market_model
@@ -1137,6 +1132,8 @@ def run_spatial_clustering_gas(self):
         "H2_grid" in self.network.buses.carrier.values
     ):
         settings = self.args["network_clustering"]["gas_grids"]
+        # quick fix while bus map loading is not working
+        settings["k_ch4_busmap"] = False
 
         if settings["active"]:
             method = self.args["network_clustering"]["method"]["algorithm"]
@@ -1302,3 +1299,6 @@ def run_spatial_clustering_gas(self):
                         method,
                     )
                 )
+
+        if self.args["export_results_path"]:
+            export_clustering_results(self)

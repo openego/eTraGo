@@ -90,7 +90,7 @@ args = {
     "scn_extension": None,  # None or array of extension scenarios
     # Export Options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
-    "csv_export": "results",  # save results as csv: False or /path/tofolder
+    "export_results_path": "results",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
         "extendable_components": [
@@ -135,15 +135,13 @@ args = {
         "electricity_grid": {
             "active": False,  # choose if clustering is activated
             "cluster_within_focus": False,  # False for very low clustering within focus region
-            "n_clusters": 30,  # total number of resulting AC nodes
-            "k_elec_busmap": False,  # False or path/to/busmap.csv
+            "n_clusters": 60,  # total number of resulting AC nodes
         },
         "gas_grids": {
             "active": True,  # choose if clustering is activated
             "cluster_within_focus": False,  #  False for very low clustering within focus region
             "n_clusters_ch4": 15,  # total number of resulting CH4 nodes
             "n_clusters_h2": 15,  # total number of resulting H2 nodes
-            "k_ch4_busmap": False,  # False or path/to/ch4_busmap.csv
         },
     },
     "spatial_disaggregation": None,  # None or 'uniform'
@@ -291,9 +289,9 @@ def run_etrago(args, json_path):
     lpfile : bool or str
         State if and where you want to save pyomo's lp file. Options:
         False or '/path/tofile.lp'. Default: False.
-    csv_export : bool or str
-        State if and where you want to save results as csv files. Options:
-        False or '/path/tofolder'. Default: False.
+    export_results_path : bool or str
+        State if and where you want to save results as csv and .nc files.
+        Options: False or '/path/tofolder'. Default: False.
 
     extendable : dict
         Choose components you want to optimize and set upper bounds for grid
@@ -636,6 +634,10 @@ def run_etrago(args, json_path):
     # define calculation case for power flow
     import_dc_links_results(etrago, egon_path)
     
+    # manual fixes due to transformers bad electrical parameters
+    etrago.network.transformers.x = 0.00005
+    etrago.network.transformers.r = 0.0001
+    
     if args["csv_export"]:
         path = args["csv_export"] + "/03-mit-dc-results"
         etrago.export_to_csv(path)
@@ -670,14 +672,14 @@ if __name__ == "__main__":
 
     print(datetime.datetime.now())
     
-    spatial_resolution = [3] # [50, 300, 1000, 5000, 8000, 10000]
+    spatial_resolution = [50, 300, 1000, 5000, 8000, 10000]
     
     for i in range (0, len(spatial_resolution)):
             
         args['network_clustering']['electricity_grid']['n_clusters'] = spatial_resolution[i]
         
-        args['csv_export'] = 'Zooming-Tests/Server-Tests/no-AC-clustering'
-        #args['csv_export'] = 'Zooming-Tests/Server-Tests/AC-'+str(args['network_clustering']['electricity_grid']['n_clusters'])
+        #args['csv_export'] = 'Zooming-Tests/Server-Tests/no-AC-clustering'
+        args['csv_export'] = 'Zooming-Tests/Server-Tests/AC-'+str(args['network_clustering']['electricity_grid']['n_clusters'])
         
         old_stdout = sys.stdout
         path_log = args['csv_export']

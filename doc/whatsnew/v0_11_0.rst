@@ -1,0 +1,15 @@
+Release 0.11.0 (August 13, 2026)
++++++++++++++++++++++
+
+Added features
+--------------
+
+* Added an optional simplified distribution grid representation in eTraGo, enabling more realistic dispatch flexibility while supporting standalone workflows through precomputed CSV inputs.
+* Introduced region-focused clustering, allowing users to prioritize the spatial resolution of a selected region while reducing the number of clustered buses in less relevant areas.
+* Updated arguments and default parameters to improve readability and consistency in light of the changes above.
+* Corresponding updates to documentation.
+* Improved result export for better readability and reduced storage requirements.
+* Some improvements within spatial clustering and spatial aggregation.
+* Improved temporal disaggregation.
+* Moved definition of unit commitment parameters to dataframe.
+
