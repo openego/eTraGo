@@ -20,6 +20,7 @@
 # File description for read-the-docs
 """spatial.py defines the methods to run spatial clustering on networks."""
 
+import json
 import logging
 import os
 
@@ -821,6 +822,99 @@ def kmedoids_dijkstra_clustering(
     return busmap, medoid_idx
 
 
+def get_focus_region_buses(etrago, network, focus_region, per_country=True):
+    """
+    Identify AC buses inside a focus region and their direct boundary neighbours.
+
+    Called on the **original** (pre-preprocessing) network so that
+    transformer-connected boundary buses are captured correctly.
+
+    Parameters
+    ----------
+    etrago : Etrago
+        An instance of the Etrago class (used for DB access when
+        focus_region is a list of region names).
+    network : pypsa.Network
+        Original network before preprocessing.  Must contain
+        ``network.buses``, ``network.lines``, and ``network.transformers``.
+    focus_region : list[str] or str
+        Either a list of ``gen`` values from the ``vg250_krs`` table, or a
+        path to a GeoPandas-readable file whose geometry defines the region.
+    per_country : bool, optional
+        When True only cross-connections whose ``country`` column equals
+        ``"DE"`` are considered.  Default is True.
+
+    Returns
+    -------
+    inside_buses : pandas.Index
+        AC buses whose location lies inside the focus polygon.
+    boundary_buses : pandas.Index
+        AC buses outside the polygon that are directly connected to at
+        least one inside bus via a line **or** a transformer.
+    """
+    if isinstance(focus_region, list):
+        if "oep.iks.cs.ovgu.de" in str(etrago.engine.url):
+            saio.register_schema("tables", etrago.engine)
+            from saio.tables import edut_00_012 as vg250_krs
+        else:
+            saio.register_schema("boundaries", etrago.engine)
+            from saio.boundaries import vg250_krs
+        query = etrago.session.query(vg250_krs)
+        krs = saio.as_pandas(query, geometry="geometry")
+        missing = set(focus_region) - set(krs["gen"])
+        if missing:
+            raise ValueError(
+                f"The following focus_region entries are not valid: {missing}"
+            )
+        focus_gdf = krs[krs["gen"].isin(focus_region)]
+    else:
+        focus_gdf = gpd.read_file(focus_region)
+
+    buses_df = network.buses[["x", "y"]].copy()
+    buses_df["geometry"] = buses_df.apply(
+        lambda row: Point(row["x"], row["y"]), axis=1
+    )
+    buses_gdf = gpd.GeoDataFrame(buses_df, geometry="geometry", crs=4326)
+    buses_gdf = buses_gdf.to_crs(epsg=25832)
+
+    if focus_gdf.crs is None:
+        raise ValueError("CRS of your focus region must be defined.")
+    focus_gdf = focus_gdf.to_crs(buses_gdf.crs)
+    focus_polygon = focus_gdf.geometry.unary_union
+
+    mask = buses_gdf.geometry.within(focus_polygon)
+    inside_buses = buses_gdf[mask].index
+
+    # Buses connected to inside via lines
+    lines_cross = network.lines[
+        network.lines.bus0.isin(inside_buses)
+        ^ network.lines.bus1.isin(inside_buses)
+    ]
+    if per_country and "country" in network.lines.columns:
+        lines_cross = lines_cross[lines_cross.country == "DE"]
+    boundary_from_lines = set(lines_cross.bus0) | set(lines_cross.bus1)
+
+    # Buses connected to inside via transformers (original network has them)
+    boundary_from_trafos = set()
+    if not network.transformers.empty:
+        trafos_cross = network.transformers[
+            network.transformers.bus0.isin(inside_buses)
+            ^ network.transformers.bus1.isin(inside_buses)
+        ]
+        if per_country and "country" in network.transformers.columns:
+            trafos_cross = trafos_cross[trafos_cross.country == "DE"]
+        boundary_from_trafos = set(trafos_cross.bus0) | set(trafos_cross.bus1)
+
+    boundary_set = (boundary_from_lines | boundary_from_trafos) - set(
+        inside_buses
+    )
+    boundary_buses = network.buses.index.intersection(
+        pd.Index(list(boundary_set))
+    )
+
+    return inside_buses, boundary_buses
+
+
 def focus_weighting(
     etrago,
     network,
@@ -945,7 +1039,6 @@ def focus_weighting(
                 - set(inside.index)
             )
         ]
-        paths = list(product(outside.index, border_buses.index))
     elif "CH4" in network.buses.carrier.unique():
         ch4_links = network.links[network.links.carrier == "CH4"]
         links_cross = ch4_links[
@@ -960,7 +1053,6 @@ def focus_weighting(
                 - set(inside.index)
             )
         ]
-        paths = list(product(outside.index, border_buses.index))
     elif "H2" in network.buses.carrier.unique():
         h2_links = network.links[network.links.carrier == "H2"]
         links_cross = h2_links[
@@ -975,7 +1067,6 @@ def focus_weighting(
                 - set(inside.index)
             )
         ]
-        paths = list(product(outside.index, border_buses.index))
 
     # graph creation
     if "AC" in network.buses.carrier.unique():
@@ -995,34 +1086,24 @@ def focus_weighting(
         ]
     graph = graph_from_edges(edges)
 
-    # processor count
-    if cpu_cores == "max":
-        cpu_cores = mp.cpu_count()
-    else:
-        cpu_cores = int(cpu_cores)
-
-    # calculation of shortest path using multiprocessing
-    p = mp.Pool(cpu_cores)
-    chunksize = ceil(len(paths) / cpu_cores)
-    container = p.starmap(shortest_path, gen(paths, chunksize, graph))
-    dist = pd.concat(container).astype({"path_length": "float64"})
-
-    dist = dist.loc[
-        dist.groupby(level="source")["path_length"].idxmin()
-    ].droplevel("target")
+    dist_dict = dict(
+        nx.multi_source_dijkstra_path_length(
+            graph, set(border_buses.index), weight="weight"
+        )
+    )
+    dist = pd.Series(dist_dict, name="path_length").reindex(
+        outside.index, fill_value=np.inf
+    )
 
     # set distances to 0 for buses within focus region
-    dist = pd.concat(
-        [dist, pd.DataFrame({"path_length": 0}, index=inside.index)]
-    )
-    dist = dist["path_length"]
+    inside_dist = pd.Series(0.0, index=inside.index, name="path_length")
+    dist = pd.concat([dist, inside_dist])
     dist = dist[~dist.index.duplicated(keep="first")]
 
     # to m
     dist = dist * 1000
     # do not allow 0
     dist[dist == 0] = 1
-
     # 1/dist
     if func == "1-dist":
         factor = 1 / dist
@@ -1092,3 +1173,15 @@ def drop_nan_values(network):
             (c.attrs.status == "Output") & (c.attrs.varying)
         ].index:
             c.pnl[pnl] = pd.DataFrame(index=network.snapshots)
+
+
+def export_clustering_results(etrago):
+
+    path = etrago.args["export_results_path"]
+
+    with open(os.path.join(path, "busmap.json"), "w") as d:
+        json.dump(etrago.busmap["busmap"], d, indent=4)
+
+    etrago.busmap["orig_network"].export_to_csv_folder(
+        path + "/original_network_topology"
+    )
