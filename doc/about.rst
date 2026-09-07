@@ -12,7 +12,7 @@ Research Projects and Publications
 
 *eTraGo* was initially developed within the research projects
 `open_eGo <https://openegoproject.wordpress.com>`_ and `eGon <https://ego-n.org/>`_.
-It is constantly further developed in different reserach projects, 
+It is constantly further developed in different research projects, 
 e.g. `PoWerD <https://www.h2-powerd.de/>`_ and `reGon <https://rego-n.org/>`_.
 
 Publications:
