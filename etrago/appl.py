@@ -607,7 +607,7 @@ def run_etrago(args, json_path):
     -------
     etrago : etrago object
         eTraGo containing all network information and a PyPSA network
-        <https://www.pypsa.org/doc/components.html#network>`_
+        <https://docs.pypsa.org/latest/api/networks/network/>`_
 
     """
     etrago = Etrago(args, json_path=json_path)
