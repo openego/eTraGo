@@ -286,7 +286,7 @@ selection:
   # Route-exclusive configurations should only be used as explicit debugging
   # or validation tests.
   #
-  biogas_route_case: "hybrid_raw_swfl"
+  biogas_route_case: "hybrid_raw_swfl_transport"
 
 # ---------------------------------------------------------------------------
 
@@ -305,7 +305,7 @@ batch:
 # Null means: preserve the corresponding value already defined in appl.py.
 run:
   start_snapshot: 1
-  end_snapshot: 10
+  end_snapshot: 72
   ac_clusters: 50
   result_name_template: "{scenario}_{hours}h_{ac_clusters}ac"
 
@@ -642,6 +642,7 @@ biogas_route_cases:
     add_gas_grid_generation: false
     add_swfl_direct_supply: false
     add_swfl_raw_biogas_supply: false
+    add_biomethane_transport_supply: false
 
 
   storage_to_grid:
@@ -653,6 +654,7 @@ biogas_route_cases:
     add_gas_grid_generation: true
     add_swfl_direct_supply: false
     add_swfl_raw_biogas_supply: false
+    add_biomethane_transport_supply: false
 
 
   storage_to_swfl:
@@ -665,6 +667,7 @@ biogas_route_cases:
     add_gas_grid_generation: false
     add_swfl_direct_supply: true
     add_swfl_raw_biogas_supply: false
+    add_biomethane_transport_supply: false
 
 
   hybrid:
@@ -677,9 +680,10 @@ biogas_route_cases:
     add_gas_grid_generation: true
     add_swfl_direct_supply: true
     add_swfl_raw_biogas_supply: false
+    add_biomethane_transport_supply: false
 
 
-  hybrid_raw_swfl:
+  hybrid_raw_swfl_transport:
     description: >
       Main project route. Enable onsite electricity and heat,
       upgraded biomethane injection into the public CH4 grid,
@@ -696,6 +700,9 @@ biogas_route_cases:
 
     # Raw biogas is delivered directly to SWFL.
     add_swfl_raw_biogas_supply: true
+    
+    # upgraded biomethane -> HGV transport-energy demand.
+    add_biomethane_transport_supply: true
 
 # -----------------------------------------------------------------------------
 # TECHNICAL ASSUMPTIONS
@@ -904,6 +911,86 @@ technical:
     #
     #   75.00 EUR/MWh_Hs
     #
+    
+    transport_biomethane:
+
+      # Technical block exists independently from the route switch.
+      # The selected route decides whether it is activated.
+      active: true
+
+      # Existing eGon/eTraGo transport-demand carrier.
+      h2_transport_load_carrier: "H2_hgv_load"
+
+      # Only HGV demand in MV districts relevant to Biogas.SH.
+      #
+      # Diagnostic:
+      # H2 bus 79435 -> DING0 MV district 34966
+      # Biogas Ellund -> DING0 MV district 34966
+      eligible_mv_grid_ids:
+        - "34966"
+
+      # Use the existing central upgraded-biomethane storage.
+      source_biomethane_bus: "biogas_sh_storage_ch4_bus"
+
+      transport_bus_prefix: "biogas_sh_hgv_transport_energy_"
+
+      transport_bus_carrier: "biogas_sh_hgv_transport_energy"
+
+      h2_link_prefix: "biogas_sh_h2_to_hgv_transport_"
+      h2_link_carrier: "biogas_sh_h2_to_hgv_transport"
+
+      biomethane_link_prefix: "biogas_sh_biomethane_to_hgv_transport_"
+      biomethane_link_carrier: "biogas_sh_biomethane_to_hgv_transport"
+
+      # First modelling stage:
+      # competition in delivered fuel-energy terms.
+      h2_to_transport_efficiency: 1.0
+      biomethane_to_transport_efficiency: 1.0
+
+      # Each route alone can meet the full HGV demand.
+      h2_link_p_nom_factor: 1.0
+      biomethane_link_p_nom_factor: 1.0
+
+      # Additional downstream cost only.
+      #
+      # Do NOT repeat the 92.9 / effective biomethane production cost here.
+      # That cost already sits upstream on CH4_biogas production.
+      delivery_cost_eur_per_mwh_hs: 0.0
+
+      # --------------------------------------------------------------
+      # THG quota
+      # --------------------------------------------------------------
+      #
+      # Treurat reference:
+      # advanced biomethane quota price = 280 EUR/tCO2.
+      #
+      # For the first physical/economic validation run keep this off,
+      # because the documents do not give us a sufficiently explicit
+      # certified tCO2-saving/MWh value for conversion to EUR/MWh.
+      thg_quota_active: false
+
+      thg_quota_price_eur_per_tco2: 280.0
+
+      # Fill later when a certified RED/Nabisy lifecycle value is selected.
+      ghg_saving_tco2_per_mwh_hs: null
+
+      # Optional direct override for future sensitivity runs.
+      thg_credit_override_eur_per_mwh_hs: null
+
+      # --------------------------------------------------------------
+      # Reporting/reference values from Treurat
+      # --------------------------------------------------------------
+      economic_reference:
+        nawaro_biomethane_minimum_value_eur_per_mwh_hs: 85.0
+        manure_biomethane_minimum_value_eur_per_mwh_hs: 135.0
+        nawaro_market_value_2026_eur_per_mwh_hs: 75.0
+
+        optimized_nawaro_fraction: 0.70
+        optimized_manure_fraction: 0.30
+
+        # 0.70*85 + 0.30*135 = 100 EUR/MWh_Hs
+        weighted_minimum_value_eur_per_mwh_hs: 100.0
+    
     direct_raw_biogas_to_swfl:
 
       # Dedicated SWFL raw-biogas bus.
@@ -1122,4 +1209,4 @@ scenario_matrix:
     # biomethane -> public grid +
     # raw biogas -> SWFL
     biogas_route_case:
-      - "hybrid_raw_swfl"
+      - "hybrid_raw_swfl_transport"

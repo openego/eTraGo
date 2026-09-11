@@ -287,8 +287,18 @@ def _validate_selection(
 
     storage = _require_mapping(biogas, "storage", "technical.biogas_sh")
     storage_required = bool(
-        route_case.get("add_gas_grid_generation", False)
-        or route_case.get("add_swfl_direct_supply", False)
+        route_case.get(
+            "add_gas_grid_generation",
+            False,
+        )
+        or route_case.get(
+            "add_swfl_direct_supply",
+            False,
+        )
+        or route_case.get(
+            "add_biomethane_transport_supply",
+            False,
+        )
     )
     if storage_required and not bool(storage.get("active", False)):
         raise ScenarioConfigError(
@@ -1596,6 +1606,446 @@ def apply_network_price_scenario(
     )
 
 
+def _apply_biomethane_transport_config(
+    args,
+    resolved,
+):
+    """
+    Resolve the Biogas.SH biomethane -> HGV transport route.
+
+    The transport route is downstream of central biomethane
+    production and storage.
+
+    Therefore:
+
+        - biomethane production cost remains upstream,
+        - upgrading efficiency is not repeated here,
+        - CO2-sale credit is not repeated here,
+        - the shared raw-biogas resource is not counted again here.
+
+    The transport Link contains only route-specific downstream
+    costs / THG-quota credits.
+    """
+
+    biogas = _mutable_mapping(
+        args,
+        "biogas_sh",
+        "args",
+    )
+
+
+    routes = resolved[
+        "biogas_routes"
+    ]
+
+
+    technical_biogas = resolved[
+        "technical"
+    ][
+        "biogas_sh"
+    ]
+
+
+    active = bool(
+        routes.get(
+            "add_biomethane_transport_supply",
+            False,
+        )
+    )
+
+
+    biogas[
+        "add_biomethane_transport_supply"
+    ] = active
+
+
+    technical_transport = (
+        technical_biogas.get(
+            "transport_biomethane",
+            {},
+        )
+        or {}
+    )
+
+
+    if (
+        active
+        and not isinstance(
+            technical_transport,
+            Mapping,
+        )
+    ):
+
+        raise ScenarioConfigError(
+            "technical.biogas_sh.transport_biomethane "
+            "must be a mapping."
+        )
+
+
+    transport_args = biogas.get(
+        "transport_biomethane"
+    )
+
+
+    if transport_args is None:
+
+        transport_args = {}
+
+        biogas[
+            "transport_biomethane"
+        ] = transport_args
+
+
+    elif not isinstance(
+        transport_args,
+        MutableMapping,
+    ):
+
+        raise ScenarioConfigError(
+            "'transport_biomethane' in args.biogas_sh "
+            "must be a mapping."
+        )
+
+
+    transport_args[
+        "active"
+    ] = active
+
+
+    # ==============================================================
+    # Transport-demand identification
+    # ==============================================================
+
+    transport_args[
+        "h2_transport_load_carrier"
+    ] = str(
+        technical_transport.get(
+            "h2_transport_load_carrier",
+            "H2_hgv_load",
+        )
+    )
+
+
+    eligible_mv_grid_ids = [
+        str(value)
+        for value
+        in technical_transport.get(
+            "eligible_mv_grid_ids",
+            [],
+        )
+    ]
+
+
+    if (
+        active
+        and not eligible_mv_grid_ids
+    ):
+
+        raise ScenarioConfigError(
+            "Biomethane transport is active, but "
+            "technical.biogas_sh.transport_biomethane."
+            "eligible_mv_grid_ids is empty."
+        )
+
+
+    transport_args[
+        "eligible_mv_grid_ids"
+    ] = eligible_mv_grid_ids
+
+
+    # ==============================================================
+    # Component names
+    # ==============================================================
+
+    transport_args[
+        "source_biomethane_bus"
+    ] = str(
+        technical_transport.get(
+            "source_biomethane_bus",
+            "biogas_sh_storage_ch4_bus",
+        )
+    )
+
+
+    transport_args[
+        "transport_bus_prefix"
+    ] = str(
+        technical_transport.get(
+            "transport_bus_prefix",
+            "biogas_sh_hgv_transport_energy_",
+        )
+    )
+
+
+    transport_args[
+        "transport_bus_carrier"
+    ] = str(
+        technical_transport.get(
+            "transport_bus_carrier",
+            "biogas_sh_hgv_transport_energy",
+        )
+    )
+
+
+    transport_args[
+        "h2_link_prefix"
+    ] = str(
+        technical_transport.get(
+            "h2_link_prefix",
+            "biogas_sh_h2_to_hgv_transport_",
+        )
+    )
+
+
+    transport_args[
+        "h2_link_carrier"
+    ] = str(
+        technical_transport.get(
+            "h2_link_carrier",
+            "biogas_sh_h2_to_hgv_transport",
+        )
+    )
+
+
+    transport_args[
+        "biomethane_link_prefix"
+    ] = str(
+        technical_transport.get(
+            "biomethane_link_prefix",
+            "biogas_sh_biomethane_to_hgv_transport_",
+        )
+    )
+
+
+    transport_args[
+        "biomethane_link_carrier"
+    ] = str(
+        technical_transport.get(
+            "biomethane_link_carrier",
+            "biogas_sh_biomethane_to_hgv_transport",
+        )
+    )
+
+
+    # ==============================================================
+    # Conversion efficiencies
+    # ==============================================================
+
+    eta_h2 = float(
+        technical_transport.get(
+            "h2_to_transport_efficiency",
+            1.0,
+        )
+    )
+
+
+    eta_biomethane = float(
+        technical_transport.get(
+            "biomethane_to_transport_efficiency",
+            1.0,
+        )
+    )
+
+
+    if eta_h2 <= 0.0:
+
+        raise ScenarioConfigError(
+            "h2_to_transport_efficiency must be > 0."
+        )
+
+
+    if eta_biomethane <= 0.0:
+
+        raise ScenarioConfigError(
+            "biomethane_to_transport_efficiency must be > 0."
+        )
+
+
+    transport_args[
+        "h2_to_transport_efficiency"
+    ] = eta_h2
+
+
+    transport_args[
+        "biomethane_to_transport_efficiency"
+    ] = eta_biomethane
+
+
+    # ==============================================================
+    # Route capacities
+    # ==============================================================
+
+    h2_factor = float(
+        technical_transport.get(
+            "h2_link_p_nom_factor",
+            1.0,
+        )
+    )
+
+
+    biomethane_factor = float(
+        technical_transport.get(
+            "biomethane_link_p_nom_factor",
+            1.0,
+        )
+    )
+
+
+    if h2_factor <= 0.0:
+
+        raise ScenarioConfigError(
+            "h2_link_p_nom_factor must be > 0."
+        )
+
+
+    if biomethane_factor <= 0.0:
+
+        raise ScenarioConfigError(
+            "biomethane_link_p_nom_factor must be > 0."
+        )
+
+
+    transport_args[
+        "h2_link_p_nom_factor"
+    ] = h2_factor
+
+
+    transport_args[
+        "biomethane_link_p_nom_factor"
+    ] = biomethane_factor
+
+
+    # ==============================================================
+    # Route-specific economics
+    # ==============================================================
+
+    delivery_cost = float(
+        technical_transport.get(
+            "delivery_cost_eur_per_mwh_hs",
+            0.0,
+        )
+    )
+
+
+    if delivery_cost < 0.0:
+
+        raise ScenarioConfigError(
+            "delivery_cost_eur_per_mwh_hs "
+            "must be non-negative."
+        )
+
+
+    quota_active = bool(
+        technical_transport.get(
+            "thg_quota_active",
+            False,
+        )
+    )
+
+
+    quota_price = float(
+        technical_transport.get(
+            "thg_quota_price_eur_per_tco2",
+            280.0,
+        )
+    )
+
+
+    saving_value = technical_transport.get(
+        "ghg_saving_tco2_per_mwh_hs"
+    )
+
+
+    override = technical_transport.get(
+        "thg_credit_override_eur_per_mwh_hs"
+    )
+
+
+    if quota_price < 0.0:
+
+        raise ScenarioConfigError(
+            "thg_quota_price_eur_per_tco2 "
+            "must be non-negative."
+        )
+
+
+    if override is not None:
+
+        thg_credit = float(
+            override
+        )
+
+
+        if thg_credit < 0.0:
+
+            raise ScenarioConfigError(
+                "thg_credit_override_eur_per_mwh_hs "
+                "must be non-negative."
+            )
+
+
+    elif quota_active:
+
+        if saving_value is None:
+
+            raise ScenarioConfigError(
+                "THG quota is active, but neither "
+                "ghg_saving_tco2_per_mwh_hs nor a "
+                "THG-credit override is configured."
+            )
+
+
+        ghg_saving = float(
+            saving_value
+        )
+
+
+        if ghg_saving < 0.0:
+
+            raise ScenarioConfigError(
+                "ghg_saving_tco2_per_mwh_hs "
+                "must be non-negative."
+            )
+
+
+        thg_credit = (
+            quota_price
+            * ghg_saving
+        )
+
+
+    else:
+
+        thg_credit = 0.0
+
+
+    transport_args[
+        "delivery_cost_eur_per_mwh_hs"
+    ] = delivery_cost
+
+
+    transport_args[
+        "thg_quota_active"
+    ] = quota_active
+
+
+    transport_args[
+        "thg_quota_price_eur_per_tco2"
+    ] = quota_price
+
+
+    transport_args[
+        "thg_credit_eur_per_mwh_hs"
+    ] = thg_credit
+
+
+    transport_args[
+        "biomethane_link_marginal_cost_eur_per_mwh_hs"
+    ] = (
+        delivery_cost
+        - thg_credit
+    )
+
 def apply_config_to_args(
     args: MutableMapping[str, Any],
     resolved: MutableMapping[str, Any],
@@ -1774,6 +2224,11 @@ def apply_config_to_args(
             "add_swfl_raw_biogas_supply",
             False,
         )
+    )
+    
+    _apply_biomethane_transport_config(
+        args,
+        resolved,
     )
 
 

@@ -69,6 +69,7 @@ if "READTHEDOCS" not in os.environ:
 
     from etrago.tools.biogas_sh import (
         apply_biogas_sh_assets,
+        apply_biogas_sh_transport_route,
         validate_biogas_sh_storage_topology,
     )
 
@@ -124,7 +125,7 @@ DEBUG_LOG_PATH = DATA_PATHS.DEBUG_LOG_PATH
 
 args = {
     # Setup and Configuration:
-    "db": "oep",  # database session: oep or local database
+    "db": "local_egon2035",  # database session: oep or local database
     "gridversion": None,  # None for model_draft or version number
 
     "method": {  # choose method and settings for optimization
@@ -810,6 +811,8 @@ args = {
         # Legacy field kept for compatibility. If add_gas_grid_generation is absent,
         # this is interpreted as gas-grid generation.
         # "add_gas_generation": True,
+        
+        "add_biomethane_transport_supply": False,
 
         # Public gas grid injection route.
         "gas_connection_target": "gas_grid",
@@ -910,6 +913,66 @@ args = {
                 "swfl_real_k12",
                 "swfl_real_k13",
             ],
+        },
+            
+        "transport_biomethane": {
+
+            "active": True,
+
+            "h2_transport_load_carrier":
+                "H2_hgv_load",
+
+            "eligible_mv_grid_ids": [
+                "34966",
+            ],
+
+            "source_store":
+                "biogas_sh_ch4_store",
+
+            "transport_bus_prefix":
+                "biogas_sh_hgv_transport_energy_",
+
+            "transport_bus_carrier":
+                "biogas_sh_hgv_transport_energy",
+
+            "h2_link_prefix":
+                "biogas_sh_h2_to_hgv_transport_",
+
+            "h2_link_carrier":
+                "biogas_sh_h2_to_hgv_transport",
+
+            "biomethane_link_prefix":
+                "biogas_sh_biomethane_to_hgv_transport_",
+
+            "biomethane_link_carrier":
+                "biogas_sh_biomethane_to_hgv_transport",
+
+            "h2_to_transport_efficiency":
+                1.0,
+
+            "biomethane_to_transport_efficiency":
+                1.0,
+
+            "h2_link_p_nom_factor":
+                1.0,
+
+            "biomethane_link_p_nom_factor":
+                1.0,
+
+            "delivery_cost_eur_per_mwh_hs":
+                0.0,
+
+            "thg_quota_active":
+                False,
+
+            "thg_quota_price_eur_per_tco2":
+                280.0,
+
+            "ghg_saving_tco2_per_mwh_hs":
+                None,
+
+            "thg_credit_override_eur_per_mwh_hs":
+                None,
         },
 
         "gas_storage": {
@@ -1746,6 +1809,11 @@ def run_etrago(args, json_path):
 
 
     etrago.spatial_clustering_gas()
+
+
+    apply_biogas_sh_transport_route(
+        etrago
+    )
 
 
     # snapshot clustering

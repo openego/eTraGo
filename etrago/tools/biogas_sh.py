@@ -2722,6 +2722,1656 @@ def _add_raw_biogas_swfl_supply(
 
     return generator_name
 
+def _map_network_bus_to_mv_grid_id(
+    network,
+    bus_id: str,
+    settings,
+) -> str:
+    """
+    Map one existing network bus to a DING0 MV-grid district.
+
+    Point-in-polygon is preferred.
+    Nearest polygon in EPSG:3035 is used only as fallback.
+    """
+
+    import geopandas as gpd
+
+
+    bus_id = str(
+        bus_id
+    )
+
+
+    if bus_id not in network.buses.index:
+
+        raise ValueError(
+            f"Bus {bus_id!r} does not exist."
+        )
+
+
+    districts = _read_mv_grid_districts(
+        settings
+    ).copy()
+
+
+    id_column = str(
+        settings.get(
+            "mv_grid_id_column",
+            "name",
+        )
+    )
+
+
+    if id_column not in districts.columns:
+
+        raise ValueError(
+            f"MV-grid ID column {id_column!r} "
+            "does not exist."
+        )
+
+
+    x = float(
+        network.buses.at[
+            bus_id,
+            "x",
+        ]
+    )
+
+
+    y = float(
+        network.buses.at[
+            bus_id,
+            "y",
+        ]
+    )
+
+
+    point = gpd.GeoDataFrame(
+        {
+            "bus": [
+                bus_id
+            ],
+        },
+        geometry=gpd.points_from_xy(
+            [
+                x
+            ],
+            [
+                y
+            ],
+        ),
+        crs="EPSG:4326",
+    )
+
+
+    if districts.crs is None:
+
+        districts = (
+            districts.set_crs(
+                "EPSG:4326"
+            )
+        )
+
+
+    point_local = (
+        point.to_crs(
+            districts.crs
+        )
+    )
+
+
+    joined = gpd.sjoin(
+        point_local,
+        districts[
+            [
+                id_column,
+                "geometry",
+            ]
+        ],
+        how="left",
+        predicate="within",
+    )
+
+
+    if (
+        not joined.empty
+        and pd.notna(
+            joined.iloc[
+                0
+            ][
+                id_column
+            ]
+        )
+    ):
+
+        return str(
+            joined.iloc[
+                0
+            ][
+                id_column
+            ]
+        )
+
+
+    point_metric = (
+        point.to_crs(
+            3035
+        )
+    )
+
+
+    districts_metric = (
+        districts[
+            [
+                id_column,
+                "geometry",
+            ]
+        ]
+        .to_crs(
+            3035
+        )
+    )
+
+
+    nearest = gpd.sjoin_nearest(
+        point_metric,
+        districts_metric,
+        how="left",
+        distance_col="_distance_m",
+    )
+
+
+    if (
+        nearest.empty
+        or pd.isna(
+            nearest.iloc[
+                0
+            ][
+                id_column
+            ]
+        )
+    ):
+
+        raise ValueError(
+            "Could not map network bus "
+            f"{bus_id!r} to an MV district."
+        )
+
+
+    return str(
+        nearest.iloc[
+            0
+        ][
+            id_column
+        ]
+    )
+
+            
+def _load_power_series(
+    network,
+    load_id: str,
+) -> pd.Series:
+    """
+    Return a PyPSA Load demand series in MW.
+
+    Dynamic p_set is preferred.
+    Static p_set is the fallback.
+    """
+
+    load_id = str(
+        load_id
+    )
+
+
+    result = pd.Series(
+        0.0,
+        index=network.snapshots,
+        dtype=float,
+    )
+
+
+    dynamic = getattr(
+        network.loads_t,
+        "p_set",
+        None,
+    )
+
+
+    if (
+        dynamic is not None
+        and isinstance(
+            dynamic,
+            pd.DataFrame,
+        )
+        and load_id in dynamic.columns
+    ):
+
+        return (
+            pd.to_numeric(
+                dynamic[
+                    load_id
+                ],
+                errors="coerce",
+            )
+            .reindex(
+                network.snapshots
+            )
+            .fillna(
+                0.0
+            )
+            .astype(float)
+        )
+
+
+    if (
+        "p_set"
+        in network.loads.columns
+        and load_id
+        in network.loads.index
+    ):
+
+        value = pd.to_numeric(
+            pd.Series(
+                [
+                    network.loads.at[
+                        load_id,
+                        "p_set",
+                    ]
+                ]
+            ),
+            errors="coerce",
+        ).iloc[
+            0
+        ]
+
+
+        if pd.notna(
+            value
+        ):
+
+            result.loc[
+                :
+            ] = float(
+                value
+            )
+
+
+    return result
+
+
+def apply_biogas_sh_transport_route(
+    self,
+):
+    """
+    Add the Biogas.SH upgraded-biomethane -> HGV transport route.
+
+    This function is intended to run AFTER gas/H2 spatial clustering.
+
+    Physical modelling concept
+    --------------------------
+
+        existing H2 bus
+              |
+              | H2 -> transport Link
+              v
+        dedicated HGV transport-energy bus
+              ^
+              |
+              | biomethane -> transport Link
+              |
+        Biogas.SH central biomethane bus
+
+
+    Only Loads with carrier ``H2_hgv_load`` are moved from the
+    original H2 bus to the dedicated transport-energy bus.
+
+    Other H2-system components remain untouched, including:
+
+        - H2_for_industry
+        - H2 storage
+        - power_to_H2
+        - H2_to_power
+        - CH4_to_H2
+        - H2_to_CH4
+        - H2 pipelines
+
+    Therefore biomethane can compete with hydrogen specifically for
+    HGV transport demand without becoming a generic substitute for
+    physical H2 elsewhere in the network.
+
+
+    Biomethane accounting
+    ---------------------
+
+    The biomethane transport route starts from the central Biogas.SH
+    biomethane bus.
+
+    Biomethane production cost is already assigned upstream to the
+    Biogas.SH CH4_biogas generators. Likewise:
+
+        - upgrading efficiency is already represented upstream,
+        - the raw-biogas resource constraint is already applied upstream,
+        - the biogenic CO2-sale credit is already applied upstream.
+
+    Therefore the biomethane -> transport Link contains ONLY
+    transport-specific downstream economics, such as:
+
+        delivery cost - THG quota credit
+
+
+    Important clustering detail
+    ---------------------------
+
+    Do NOT identify the biomethane source through the original
+    ``biogas_sh_ch4_store`` component name.
+
+    PyPSA gas clustering aggregates one-port components, including
+    Stores, so the pre-clustering Store ID is not guaranteed to survive.
+
+    The protected bus
+
+        biogas_sh_storage_ch4_bus
+
+    is the stable post-clustering connection point and is therefore used
+    directly.
+    """
+
+    # ==================================================================
+    # 1. Resolve configuration
+    # ==================================================================
+
+    settings = (
+        self.args.get(
+            "biogas_sh",
+            {},
+        )
+        or {}
+    )
+
+
+    route_active = _as_bool(
+        settings.get(
+            "add_biomethane_transport_supply",
+            False,
+        ),
+        False,
+    )
+
+
+    if not route_active:
+
+        return []
+
+
+    cfg = (
+        settings.get(
+            "transport_biomethane",
+            {},
+        )
+        or {}
+    )
+
+
+    if not isinstance(
+        cfg,
+        dict,
+    ):
+
+        raise ValueError(
+            "biogas_sh.transport_biomethane "
+            "must be a mapping."
+        )
+
+
+    if not _as_bool(
+        cfg.get(
+            "active",
+            False,
+        ),
+        False,
+    ):
+
+        raise ValueError(
+            "Biomethane transport route is selected, "
+            "but biogas_sh.transport_biomethane.active "
+            "is false."
+        )
+
+
+    network = self.network
+
+
+    # ==================================================================
+    # 2. Resolve stable post-clustering biomethane source bus
+    # ==================================================================
+    #
+    # Primary method:
+    #
+    #     use the explicitly protected central Biogas.SH CH4 bus.
+    #
+    # Do NOT require the original Store name because Stores are one-port
+    # components and may be renamed / aggregated during gas clustering.
+    # ==================================================================
+
+    source_biomethane_bus = str(
+        cfg.get(
+            "source_biomethane_bus",
+            "biogas_sh_storage_ch4_bus",
+        )
+    )
+
+
+    if (
+        source_biomethane_bus
+        not in network.buses.index
+    ):
+
+        # --------------------------------------------------------------
+        # Backward-compatible fallback for old configurations which
+        # still define source_store.
+        #
+        # Use only if that Store happens to survive clustering.
+        # --------------------------------------------------------------
+
+        legacy_source_store = str(
+            cfg.get(
+                "source_store",
+                "biogas_sh_ch4_store",
+            )
+        )
+
+
+        if (
+            legacy_source_store
+            in network.stores.index
+        ):
+
+            source_biomethane_bus = str(
+                network.stores.at[
+                    legacy_source_store,
+                    "bus",
+                ]
+            )
+
+            logger.warning(
+                "Biogas.SH transport route used legacy Store "
+                "%s to resolve biomethane source bus %s. "
+                "Prefer source_biomethane_bus in configuration.",
+                legacy_source_store,
+                source_biomethane_bus,
+            )
+
+
+        else:
+
+            raise ValueError(
+                "Biomethane transport route requires the "
+                "protected central Biogas.SH biomethane bus, "
+                "but it does not exist after gas clustering.\n"
+                f"Configured source bus: "
+                f"{source_biomethane_bus!r}\n"
+                f"Legacy Store fallback: "
+                f"{legacy_source_store!r}"
+            )
+
+
+    if (
+        source_biomethane_bus
+        not in network.buses.index
+    ):
+
+        raise ValueError(
+            "Resolved biomethane source bus "
+            f"{source_biomethane_bus!r} does not exist "
+            "in the post-clustering network."
+        )
+
+
+    source_bus_carrier = str(
+        network.buses.at[
+            source_biomethane_bus,
+            "carrier",
+        ]
+    )
+
+
+    # ==================================================================
+    # 3. Identify HGV transport demand
+    # ==================================================================
+
+    hgv_carrier = str(
+        cfg.get(
+            "h2_transport_load_carrier",
+            "H2_hgv_load",
+        )
+    )
+
+
+    if "carrier" not in network.loads.columns:
+
+        raise ValueError(
+            "Network Loads do not contain a carrier column."
+        )
+
+
+    hgv_loads = (
+        network.loads[
+            network.loads[
+                "carrier"
+            ]
+            .fillna("")
+            .astype(str)
+            .eq(
+                hgv_carrier
+            )
+        ]
+        .copy()
+    )
+
+
+    if hgv_loads.empty:
+
+        available_h2_like_loads = (
+            network.loads.loc[
+                network.loads[
+                    "carrier"
+                ]
+                .fillna("")
+                .astype(str)
+                .str.contains(
+                    "H2|hydrogen",
+                    case=False,
+                    regex=True,
+                    na=False,
+                ),
+                "carrier",
+            ]
+            .value_counts()
+            .to_dict()
+        )
+
+
+        raise ValueError(
+            "No HGV transport loads found with carrier "
+            f"{hgv_carrier!r}. "
+            "Available H2-like load carriers are: "
+            f"{available_h2_like_loads}"
+        )
+
+
+    # ==================================================================
+    # 4. Resolve eligible Biogas.SH MV-grid districts
+    # ==================================================================
+
+    eligible_districts = {
+        str(
+            value
+        )
+        for value
+        in cfg.get(
+            "eligible_mv_grid_ids",
+            [],
+        )
+        if str(
+            value
+        ).strip()
+    }
+
+
+    if not eligible_districts:
+
+        raise ValueError(
+            "Biomethane transport route is active, but "
+            "transport_biomethane.eligible_mv_grid_ids "
+            "is empty."
+        )
+
+
+    # ==================================================================
+    # 5. Find HGV loads located in eligible Biogas.SH MV districts
+    # ==================================================================
+
+    selected_by_bus = {}
+
+
+    for load_id, row in (
+        hgv_loads.iterrows()
+    ):
+
+        h2_bus = str(
+            row[
+                "bus"
+            ]
+        )
+
+
+        if (
+            h2_bus
+            not in network.buses.index
+        ):
+
+            logger.warning(
+                "Skipping HGV load %s because its bus %s "
+                "does not exist after clustering.",
+                load_id,
+                h2_bus,
+            )
+
+            continue
+
+
+        mv_grid_id = (
+            _map_network_bus_to_mv_grid_id(
+                network,
+                h2_bus,
+                settings,
+            )
+        )
+
+
+        if (
+            str(
+                mv_grid_id
+            )
+            not in eligible_districts
+        ):
+
+            continue
+
+
+        selected_by_bus.setdefault(
+            h2_bus,
+            {
+                "mv_grid_id":
+                    str(
+                        mv_grid_id
+                    ),
+
+                "loads":
+                    [],
+            },
+        )
+
+
+        selected_by_bus[
+            h2_bus
+        ][
+            "loads"
+        ].append(
+            str(
+                load_id
+            )
+        )
+
+
+    if not selected_by_bus:
+
+        candidate_details = []
+
+
+        for load_id, row in (
+            hgv_loads.iterrows()
+        ):
+
+            bus_id = str(
+                row[
+                    "bus"
+                ]
+            )
+
+
+            if (
+                bus_id
+                not in network.buses.index
+            ):
+
+                candidate_details.append(
+                    {
+                        "load":
+                            str(
+                                load_id
+                            ),
+
+                        "bus":
+                            bus_id,
+
+                        "mv_grid_id":
+                            None,
+                    }
+                )
+
+                continue
+
+
+            try:
+
+                district_id = (
+                    _map_network_bus_to_mv_grid_id(
+                        network,
+                        bus_id,
+                        settings,
+                    )
+                )
+
+            except Exception:
+
+                district_id = None
+
+
+            candidate_details.append(
+                {
+                    "load":
+                        str(
+                            load_id
+                        ),
+
+                    "bus":
+                        bus_id,
+
+                    "mv_grid_id":
+                        district_id,
+                }
+            )
+
+
+        raise ValueError(
+            "No H2 HGV transport load lies inside the "
+            "configured Biogas.SH MV-grid districts.\n"
+            f"Eligible districts: "
+            f"{sorted(eligible_districts)}\n"
+            f"Detected HGV loads: "
+            f"{candidate_details}"
+        )
+
+
+    # ==================================================================
+    # 6. Resolve stable component names and carriers
+    # ==================================================================
+
+    transport_bus_prefix = str(
+        cfg.get(
+            "transport_bus_prefix",
+            "biogas_sh_hgv_transport_energy_",
+        )
+    )
+
+
+    transport_bus_carrier = str(
+        cfg.get(
+            "transport_bus_carrier",
+            "biogas_sh_hgv_transport_energy",
+        )
+    )
+
+
+    h2_link_prefix = str(
+        cfg.get(
+            "h2_link_prefix",
+            "biogas_sh_h2_to_hgv_transport_",
+        )
+    )
+
+
+    h2_link_carrier = str(
+        cfg.get(
+            "h2_link_carrier",
+            "biogas_sh_h2_to_hgv_transport",
+        )
+    )
+
+
+    biomethane_link_prefix = str(
+        cfg.get(
+            "biomethane_link_prefix",
+            "biogas_sh_biomethane_to_hgv_transport_",
+        )
+    )
+
+
+    biomethane_link_carrier = str(
+        cfg.get(
+            "biomethane_link_carrier",
+            "biogas_sh_biomethane_to_hgv_transport",
+        )
+    )
+
+
+    _ensure_carrier(
+        network,
+        transport_bus_carrier,
+    )
+
+
+    _ensure_carrier(
+        network,
+        h2_link_carrier,
+    )
+
+
+    _ensure_carrier(
+        network,
+        biomethane_link_carrier,
+    )
+
+
+    # ==================================================================
+    # 7. Efficiencies
+    # ==================================================================
+
+    eta_h2 = float(
+        cfg.get(
+            "h2_to_transport_efficiency",
+            1.0,
+        )
+    )
+
+
+    eta_biomethane = float(
+        cfg.get(
+            "biomethane_to_transport_efficiency",
+            1.0,
+        )
+    )
+
+
+    if eta_h2 <= 0.0:
+
+        raise ValueError(
+            "transport_biomethane."
+            "h2_to_transport_efficiency "
+            "must be greater than zero."
+        )
+
+
+    if eta_biomethane <= 0.0:
+
+        raise ValueError(
+            "transport_biomethane."
+            "biomethane_to_transport_efficiency "
+            "must be greater than zero."
+        )
+
+
+    # ==================================================================
+    # 8. Link-capacity factors
+    # ==================================================================
+
+    h2_capacity_factor = float(
+        cfg.get(
+            "h2_link_p_nom_factor",
+            1.0,
+        )
+    )
+
+
+    biomethane_capacity_factor = float(
+        cfg.get(
+            "biomethane_link_p_nom_factor",
+            1.0,
+        )
+    )
+
+
+    if h2_capacity_factor <= 0.0:
+
+        raise ValueError(
+            "transport_biomethane."
+            "h2_link_p_nom_factor "
+            "must be greater than zero."
+        )
+
+
+    if biomethane_capacity_factor <= 0.0:
+
+        raise ValueError(
+            "transport_biomethane."
+            "biomethane_link_p_nom_factor "
+            "must be greater than zero."
+        )
+
+
+    # ==================================================================
+    # 9. Transport-route economics
+    # ==================================================================
+    #
+    # Biomethane production cost is already upstream.
+    #
+    # This Link therefore contains ONLY:
+    #
+    #     delivery cost - THG credit
+    #
+    # ==================================================================
+
+    biomethane_link_marginal_cost = float(
+        cfg.get(
+            "biomethane_link_marginal_cost_eur_per_mwh_hs",
+            0.0,
+        )
+    )
+
+
+    delivery_cost = float(
+        cfg.get(
+            "delivery_cost_eur_per_mwh_hs",
+            0.0,
+        )
+    )
+
+
+    thg_credit = float(
+        cfg.get(
+            "thg_credit_eur_per_mwh_hs",
+            0.0,
+        )
+    )
+
+
+    # ==================================================================
+    # 10. Create one dedicated transport-energy bus per eligible H2 bus
+    # ==================================================================
+
+    created = []
+
+
+    for (
+        h2_bus,
+        entry,
+    ) in selected_by_bus.items():
+
+        load_ids = list(
+            entry[
+                "loads"
+            ]
+        )
+
+
+        # --------------------------------------------------------------
+        # Validate original bus
+        # --------------------------------------------------------------
+
+        if (
+            h2_bus
+            not in network.buses.index
+        ):
+
+            raise ValueError(
+                f"Selected H2 bus {h2_bus!r} "
+                "does not exist."
+            )
+
+
+        bus_carrier = str(
+            network.buses.at[
+                h2_bus,
+                "carrier",
+            ]
+        )
+
+
+        if (
+            "h2"
+            not in bus_carrier.lower()
+            and "hydrogen"
+            not in bus_carrier.lower()
+        ):
+
+            raise ValueError(
+                f"HGV transport load bus "
+                f"{h2_bus!r} has carrier "
+                f"{bus_carrier!r}, not an H2 carrier."
+            )
+
+
+        # --------------------------------------------------------------
+        # Aggregate original HGV demand profile
+        # --------------------------------------------------------------
+
+        aggregate_load = pd.Series(
+            0.0,
+            index=network.snapshots,
+            dtype=float,
+        )
+
+
+        for load_id in load_ids:
+
+            if (
+                load_id
+                not in network.loads.index
+            ):
+
+                raise ValueError(
+                    f"HGV Load {load_id!r} "
+                    "disappeared before transport-route creation."
+                )
+
+
+            aggregate_load = (
+                aggregate_load
+                + _load_power_series(
+                    network,
+                    load_id,
+                )
+            )
+
+
+        aggregate_load = (
+            pd.to_numeric(
+                aggregate_load,
+                errors="coerce",
+            )
+            .fillna(
+                0.0
+            )
+            .astype(float)
+        )
+
+
+        peak_transport_mw = float(
+            aggregate_load.max()
+        )
+
+
+        mean_transport_mw = float(
+            aggregate_load.mean()
+        )
+
+
+        if peak_transport_mw <= 0.0:
+
+            raise ValueError(
+                "HGV transport demand connected to H2 bus "
+                f"{h2_bus!r} has no positive demand."
+            )
+
+
+        # --------------------------------------------------------------
+        # Dedicated transport-energy bus
+        # --------------------------------------------------------------
+
+        transport_bus = (
+            f"{transport_bus_prefix}"
+            f"{h2_bus}"
+        )
+
+
+        x = float(
+            network.buses.at[
+                h2_bus,
+                "x",
+            ]
+        )
+
+
+        y = float(
+            network.buses.at[
+                h2_bus,
+                "y",
+            ]
+        )
+
+
+        if (
+            transport_bus
+            not in network.buses.index
+        ):
+
+            network.add(
+                "Bus",
+                transport_bus,
+                carrier=transport_bus_carrier,
+                x=x,
+                y=y,
+            )
+
+
+        else:
+
+            existing_carrier = str(
+                network.buses.at[
+                    transport_bus,
+                    "carrier",
+                ]
+            )
+
+
+            if (
+                existing_carrier
+                != transport_bus_carrier
+            ):
+
+                raise ValueError(
+                    f"Transport bus {transport_bus!r} "
+                    "already exists with carrier "
+                    f"{existing_carrier!r}; expected "
+                    f"{transport_bus_carrier!r}."
+                )
+
+
+        # --------------------------------------------------------------
+        # Move ONLY the HGV Loads.
+        #
+        # Industrial H2 demand and all physical H2 infrastructure
+        # remain connected to the original H2 bus.
+        # --------------------------------------------------------------
+
+        for load_id in load_ids:
+
+            original_bus = str(
+                network.loads.at[
+                    load_id,
+                    "bus",
+                ]
+            )
+
+
+            if (
+                original_bus
+                != h2_bus
+            ):
+
+                raise ValueError(
+                    f"HGV Load {load_id!r} was expected "
+                    f"on H2 bus {h2_bus!r}, but is on "
+                    f"{original_bus!r}."
+                )
+
+
+            network.loads.at[
+                load_id,
+                "bus",
+            ] = transport_bus
+
+
+        # --------------------------------------------------------------
+        # H2 -> transport-energy Link
+        #
+        # p_nom is defined on the input side, hence:
+        #
+        #     p_nom = required output / efficiency
+        #
+        # --------------------------------------------------------------
+
+        h2_link_name = (
+            f"{h2_link_prefix}"
+            f"{h2_bus}"
+        )
+
+
+        _remove_component_if_exists(
+            network,
+            "Link",
+            h2_link_name,
+        )
+
+
+        h2_p_nom = (
+            peak_transport_mw
+            / eta_h2
+            * h2_capacity_factor
+        )
+
+
+        network.add(
+            "Link",
+            h2_link_name,
+
+            bus0=h2_bus,
+            bus1=transport_bus,
+
+            carrier=h2_link_carrier,
+
+            p_nom=h2_p_nom,
+            p_nom_extendable=False,
+
+            efficiency=eta_h2,
+
+            p_min_pu=0.0,
+            p_max_pu=1.0,
+
+            marginal_cost=0.0,
+            capital_cost=0.0,
+        )
+
+
+        # --------------------------------------------------------------
+        # Biomethane -> transport-energy Link
+        #
+        # Do NOT repeat:
+        #
+        #     - biomethane production cost
+        #     - upgrading loss
+        #     - raw-biogas use
+        #     - CO2-sale credit
+        #
+        # Those are represented upstream.
+        # --------------------------------------------------------------
+
+        biomethane_link_name = (
+            f"{biomethane_link_prefix}"
+            f"{h2_bus}"
+        )
+
+
+        _remove_component_if_exists(
+            network,
+            "Link",
+            biomethane_link_name,
+        )
+
+
+        biomethane_p_nom = (
+            peak_transport_mw
+            / eta_biomethane
+            * biomethane_capacity_factor
+        )
+
+
+        network.add(
+            "Link",
+            biomethane_link_name,
+
+            bus0=source_biomethane_bus,
+            bus1=transport_bus,
+
+            carrier=biomethane_link_carrier,
+
+            p_nom=biomethane_p_nom,
+            p_nom_extendable=False,
+
+            efficiency=eta_biomethane,
+
+            p_min_pu=0.0,
+            p_max_pu=1.0,
+
+            marginal_cost=(
+                biomethane_link_marginal_cost
+            ),
+
+            capital_cost=0.0,
+        )
+
+
+        # --------------------------------------------------------------
+        # Safety check 1:
+        # only the intended HGV Loads may exist on the transport bus.
+        # --------------------------------------------------------------
+
+        loads_on_transport_bus = (
+            network.loads[
+                network.loads[
+                    "bus"
+                ]
+                .astype(str)
+                .eq(
+                    transport_bus
+                )
+            ]
+        )
+
+
+        invalid_loads = (
+            loads_on_transport_bus[
+                ~loads_on_transport_bus[
+                    "carrier"
+                ]
+                .astype(str)
+                .eq(
+                    hgv_carrier
+                )
+            ]
+        )
+
+
+        if not invalid_loads.empty:
+
+            raise RuntimeError(
+                "Non-HGV Loads are unexpectedly attached "
+                f"to transport bus {transport_bus!r}: "
+                f"{invalid_loads.index.tolist()}"
+            )
+
+
+        # --------------------------------------------------------------
+        # Safety check 2:
+        # H2 industrial demand must remain on original H2 bus.
+        # --------------------------------------------------------------
+
+        industry_loads_moved = (
+            network.loads[
+                network.loads[
+                    "bus"
+                ]
+                .astype(str)
+                .eq(
+                    transport_bus
+                )
+                &
+                network.loads[
+                    "carrier"
+                ]
+                .astype(str)
+                .eq(
+                    "H2_for_industry"
+                )
+            ]
+        )
+
+
+        if not industry_loads_moved.empty:
+
+            raise RuntimeError(
+                "Industrial H2 demand was accidentally moved "
+                "to the Biogas.SH transport-energy bus: "
+                f"{industry_loads_moved.index.tolist()}"
+            )
+
+
+        # --------------------------------------------------------------
+        # Save diagnostic information
+        # --------------------------------------------------------------
+
+        created.append(
+            {
+                "h2_bus":
+                    h2_bus,
+
+                "h2_bus_carrier":
+                    bus_carrier,
+
+                "mv_grid_id":
+                    entry[
+                        "mv_grid_id"
+                    ],
+
+                "transport_bus":
+                    transport_bus,
+
+                "transport_bus_carrier":
+                    transport_bus_carrier,
+
+                "hgv_loads":
+                    load_ids,
+
+                "mean_transport_mw":
+                    mean_transport_mw,
+
+                "peak_transport_mw":
+                    peak_transport_mw,
+
+                "h2_link":
+                    h2_link_name,
+
+                "h2_link_p_nom_mw":
+                    h2_p_nom,
+
+                "biomethane_link":
+                    biomethane_link_name,
+
+                "biomethane_link_p_nom_mw":
+                    biomethane_p_nom,
+
+                "source_biomethane_bus":
+                    source_biomethane_bus,
+            }
+        )
+
+
+    # ==================================================================
+    # 11. Final route validation
+    # ==================================================================
+
+    if not created:
+
+        raise RuntimeError(
+            "Biomethane transport route was active, "
+            "but no transport-energy route was created."
+        )
+
+
+    for item in created:
+
+        if (
+            item[
+                "h2_link"
+            ]
+            not in network.links.index
+        ):
+
+            raise RuntimeError(
+                "Expected H2 transport Link was not created: "
+                f"{item['h2_link']}"
+            )
+
+
+        if (
+            item[
+                "biomethane_link"
+            ]
+            not in network.links.index
+        ):
+
+            raise RuntimeError(
+                "Expected biomethane transport Link "
+                "was not created: "
+                f"{item['biomethane_link']}"
+            )
+
+
+        if (
+            item[
+                "transport_bus"
+            ]
+            not in network.buses.index
+        ):
+
+            raise RuntimeError(
+                "Expected transport-energy bus "
+                "was not created: "
+                f"{item['transport_bus']}"
+            )
+
+
+    # ==================================================================
+    # 12. Console diagnostics
+    # ==================================================================
+
+    print()
+    print("=" * 76)
+    print("BIOGAS.SH BIOMETHANE -> HGV TRANSPORT")
+    print("=" * 76)
+
+
+    print(
+        "Biomethane source bus:       ",
+        source_biomethane_bus,
+    )
+
+
+    print(
+        "Biomethane source carrier:   ",
+        source_bus_carrier,
+    )
+
+
+    print(
+        "H2 transport load carrier:   ",
+        hgv_carrier,
+    )
+
+
+    print(
+        "Eligible MV districts:       ",
+        sorted(
+            eligible_districts
+        ),
+    )
+
+
+    print(
+        "Eligible H2/HGV buses:        ",
+        [
+            item[
+                "h2_bus"
+            ]
+            for item
+            in created
+        ],
+    )
+
+
+    print(
+        "Transport-energy buses:       ",
+        [
+            item[
+                "transport_bus"
+            ]
+            for item
+            in created
+        ],
+    )
+
+
+    print(
+        "H2 -> transport efficiency:  ",
+        f"{eta_h2:.6f}",
+    )
+
+
+    print(
+        "BM -> transport efficiency:  ",
+        f"{eta_biomethane:.6f}",
+    )
+
+
+    print(
+        "Delivery cost:                ",
+        (
+            f"{delivery_cost:.4f} "
+            "EUR/MWh_Hs"
+        ),
+    )
+
+
+    print(
+        "THG credit:                   ",
+        (
+            f"{thg_credit:.4f} "
+            "EUR/MWh_Hs"
+        ),
+    )
+
+
+    print(
+        "BM transport marginal adder: ",
+        (
+            f"{biomethane_link_marginal_cost:.4f} "
+            "EUR/MWh_Hs"
+        ),
+    )
+
+
+    print("-" * 76)
+
+
+    for item in created:
+
+        print(
+            "H2 bus:",
+            item[
+                "h2_bus"
+            ],
+        )
+
+        print(
+            "  MV district:             ",
+            item[
+                "mv_grid_id"
+            ],
+        )
+
+        print(
+            "  HGV load(s):             ",
+            item[
+                "hgv_loads"
+            ],
+        )
+
+        print(
+            "  transport bus:           ",
+            item[
+                "transport_bus"
+            ],
+        )
+
+        print(
+            "  mean transport demand:   ",
+            (
+                f"{item['mean_transport_mw']:.6f} "
+                "MW"
+            ),
+        )
+
+        print(
+            "  peak transport demand:   ",
+            (
+                f"{item['peak_transport_mw']:.6f} "
+                "MW"
+            ),
+        )
+
+        print(
+            "  H2 supply link:          ",
+            item[
+                "h2_link"
+            ],
+        )
+
+        print(
+            "  H2 link capacity:        ",
+            (
+                f"{item['h2_link_p_nom_mw']:.6f} "
+                "MW_H2"
+            ),
+        )
+
+        print(
+            "  biomethane supply link:  ",
+            item[
+                "biomethane_link"
+            ],
+        )
+
+        print(
+            "  biomethane link capacity:",
+            (
+                f"{item['biomethane_link_p_nom_mw']:.6f} "
+                "MW_Hs"
+            ),
+        )
+
+        print("-" * 76)
+
+
+    print(
+        "PASS: HGV transport demand is isolated from "
+        "industrial H2 demand."
+    )
+
+    print(
+        "PASS: biomethane enters transport from the "
+        "protected central Biogas.SH CH4 bus."
+    )
+
+    print(
+        "PASS: biomethane transport is not counted "
+        "again in the raw-biogas resource constraint."
+    )
+
+    print("=" * 76)
+
+
+    return created
 
 def apply_biogas_sh_assets(
     self,
