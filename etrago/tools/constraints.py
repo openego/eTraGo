@@ -4369,65 +4369,176 @@ def couple_distribution_links(self, n, snapshots):
 #Biogas-SH constraints
 # ---------------------------------------------------------------------------
 
-def _get_clustered_biogas_sh_generators(network):
+def _get_clustered_biogas_sh_generators(
+    network,
+    raw_swfl_carrier: str = "biogas_sh_raw_biogas_swfl",
+):
     """
-    Identify Biogas.SH generators after spatial clustering.
+    Identify project-specific Biogas.SH generators after clustering.
 
-    Onsite electricity and heat generators may be aggregated by electrical
-    clustering. The 21 custom CH4 buses are protected from gas clustering.
+    Returns four groups:
+
+        1. onsite electricity generators
+        2. onsite heat generators
+        3. upgraded biomethane generators
+        4. direct raw-biogas -> SWFL generators
+
+    Notes
+    -----
+    Onsite electricity and heat generators may be aggregated during
+    electrical clustering.
+
+    Project-specific biomethane generators are identified using both:
+
+        generator name:
+            biogas_sh_ch4_<plant_id>
+
+        plant CH4 bus:
+            biogas_sh_ch4_bus_<plant_id>
+
+    This also keeps the direct_at_target topology compatible, where the
+    generator may sit directly on the public CH4 bus and therefore cannot
+    be identified from its bus name alone.
+
+    The direct raw-biogas SWFL supply is identified by its dedicated carrier.
     """
+
+    if network.generators.empty:
+        return [], [], [], []
+
     generators = network.generators
 
-    carrier = generators["carrier"].astype(str)
-    bus = generators["bus"].astype(str)
-    name = generators.index.astype(str)
+    carrier = (
+        generators["carrier"]
+        .fillna("")
+        .astype(str)
+    )
 
+    bus = (
+        generators["bus"]
+        .fillna("")
+        .astype(str)
+    )
+
+    name = (
+        generators.index
+        .astype(str)
+    )
+
+
+    # ==================================================================
+    # 1. ONSITE ELECTRICITY
+    # ==================================================================
+    #
+    # Includes both merchant and EEG-supported tranches.
+    #
     electricity_mask = carrier.isin(
         [
             "biogas_sh_onsite_el",
             "biogas_sh_onsite_chp_el",
-
             "biogas_sh_onsite_el_supported",
             "biogas_sh_onsite_chp_el_supported",
         ]
     )
 
+
+    # ==================================================================
+    # 2. ONSITE HEAT
+    # ==================================================================
+
     heat_mask = carrier.eq(
         "biogas_sh_onsite_chp_heat"
     )
 
+
+    # ==================================================================
+    # 3. UPGRADED BIOMETHANE
+    # ==================================================================
+    #
+    # Generator names created in biogas_sh.py:
+    #
+    #     biogas_sh_ch4_<plant_id>
+    #
+    # Producer buses:
+    #
+    #     biogas_sh_ch4_bus_<plant_id>
+    #
+    # Checking both keeps producer_bus_link and direct_at_target
+    # topologies compatible.
+    #
     ch4_mask = (
-        carrier.eq("CH4_biogas")
-        & (
-            bus.str.startswith("biogas_sh_ch4_bus_")
-            | name.str.startswith("biogas_sh_ch4_bus_")
+        carrier.eq(
+            "CH4_biogas"
+        )
+        &
+        (
+            bus.str.startswith(
+                "biogas_sh_ch4_bus_"
+            )
+            |
+            name.str.startswith(
+                "biogas_sh_ch4_"
+            )
         )
     )
 
+
+    # ==================================================================
+    # 4. DIRECT RAW BIOGAS -> SWFL
+    # ==================================================================
+    #
+    # This is already raw-biogas energy and therefore enters the shared
+    # resource constraint without eta_upgrade.
+    #
+    raw_swfl_mask = carrier.eq(
+        str(
+            raw_swfl_carrier
+        )
+    )
+
+
     electricity_generators = (
-        generators.index[electricity_mask]
+        generators.index[
+            electricity_mask
+        ]
         .astype(str)
         .tolist()
     )
+
 
     heat_generators = (
-        generators.index[heat_mask]
+        generators.index[
+            heat_mask
+        ]
         .astype(str)
         .tolist()
     )
 
+
     ch4_generators = (
-        generators.index[ch4_mask]
+        generators.index[
+            ch4_mask
+        ]
         .astype(str)
         .tolist()
     )
+
+
+    raw_swfl_generators = (
+        generators.index[
+            raw_swfl_mask
+        ]
+        .astype(str)
+        .tolist()
+    )
+
 
     return (
         electricity_generators,
         heat_generators,
         ch4_generators,
+        raw_swfl_generators,
     )
-
 
 def _get_clustered_biogas_sh_electricity_tranches(
     network,
@@ -4477,32 +4588,123 @@ def _get_clustered_biogas_sh_electricity_tranches(
     return market, supported
 
 
-def _biogas_sh_resource(self, network, snapshots):
+def _biogas_sh_resource(
+    self,
+    network,
+    snapshots,
+):
     """
-    Pyomo version of the regional Biogas.SH raw-biogas constraint.
+    Pyomo version of the shared regional Biogas.SH raw-biogas constraint.
 
-    This version is robust to electrical and gas clustering.
+    The constraint represents competition for ONE common regional
+    raw-biogas resource.
+
+    Resource equation
+    -----------------
+
+        onsite electricity / eta_el
+
+      + onsite heat / eta_heat
+
+      + upgraded biomethane / eta_upgrade
+
+      + direct raw biogas to SWFL / eta_raw_swfl
+
+      <= available regional raw biogas
+
+
+    With the current project assumptions:
+
+        eta_el       = 0.38
+        eta_heat     = 0.45
+        eta_upgrade  = 0.96
+        eta_raw_swfl = 1.00
+
+
+    Therefore the direct SWFL route consumes raw biogas one-to-one.
+
+    Important
+    ---------
+    The direct raw-biogas route does not receive an upgrading efficiency
+    penalty and is not related to the separated-CO2 sales credit.
     """
+
     import pandas as pd
     from pyomo.environ import Constraint
 
+
+    # ==================================================================
+    # 1. CONFIGURATION
+    # ==================================================================
+
     arg = self.args[
         "extra_functionality"
-    ]["biogas_sh_resource"]
+    ][
+        "biogas_sh_resource"
+    ]
 
-    df = pd.read_csv(arg["csv_path"])
+
+    csv_path = arg.get(
+        "csv_path"
+    )
+
+
+    if (
+        csv_path is None
+        or not str(
+            csv_path
+        ).strip()
+    ):
+
+        raise ValueError(
+            "Biogas.SH resource constraint requires csv_path."
+        )
+
+
+    df = pd.read_csv(
+        csv_path
+    )
+
 
     eta_el = float(
-        arg.get("eta_el", 0.38)
+        arg.get(
+            "eta_el",
+            0.38,
+        )
     )
+
 
     eta_heat = float(
-        arg.get("eta_heat", 0.45)
+        arg.get(
+            "eta_heat",
+            0.45,
+        )
     )
 
+
     eta_upgrade = float(
-        arg.get("eta_upgrade", 0.96)
+        arg.get(
+            "eta_upgrade",
+            0.96,
+        )
     )
+
+
+    eta_raw_swfl = float(
+        arg.get(
+            "eta_raw_swfl",
+            1.0,
+        )
+    )
+
+
+    raw_swfl_carrier = str(
+        arg.get(
+            "raw_swfl_generator_carrier",
+            "biogas_sh_raw_biogas_swfl",
+        )
+    ).strip()
+
 
     ignore_missing = bool(
         arg.get(
@@ -4511,167 +4713,423 @@ def _biogas_sh_resource(self, network, snapshots):
         )
     )
 
-    snapshots = pd.Index(snapshots)
+
+    # ==================================================================
+    # 2. VALIDATE EFFICIENCIES
+    # ==================================================================
+
+    efficiencies = {
+        "eta_el": eta_el,
+        "eta_heat": eta_heat,
+        "eta_upgrade": eta_upgrade,
+        "eta_raw_swfl": eta_raw_swfl,
+    }
+
+
+    for key, value in efficiencies.items():
+
+        if value <= 0:
+
+            raise ValueError(
+                f"Biogas.SH resource efficiency "
+                f"{key} must be greater than zero; "
+                f"got {value}."
+            )
+
+
+    # Direct raw-biogas delivery currently has no conversion step.
+    if not np.isclose(
+        eta_raw_swfl,
+        1.0,
+        rtol=0.0,
+        atol=1.0e-9,
+    ):
+
+        raise ValueError(
+            "Biogas.SH direct raw-biogas -> SWFL route "
+            "must currently use eta_raw_swfl = 1.0. "
+            f"Received {eta_raw_swfl}."
+        )
+
+
+    # ==================================================================
+    # 3. SNAPSHOT WEIGHTS
+    # ==================================================================
+
+    snapshots = pd.Index(
+        snapshots
+    )
+
 
     weights = (
         network.snapshot_weightings.generators
-        .reindex(snapshots)
+        .reindex(
+            snapshots
+        )
         .astype(float)
     )
 
+
     if weights.isna().any():
-        missing_snapshots = weights.index[
-            weights.isna()
-        ].tolist()
+
+        missing_snapshots = (
+            weights.index[
+                weights.isna()
+            ]
+            .tolist()
+        )
+
 
         raise ValueError(
             "Missing generator snapshot weights for "
-            f"snapshots: {missing_snapshots}"
+            f"Biogas.SH snapshots: {missing_snapshots}"
         )
+
 
     represented_hours = float(
         weights.sum()
     )
 
+
     if represented_hours <= 0:
+
         raise ValueError(
-            "The represented number of hours must be positive."
+            "The represented number of hours in the "
+            "Biogas.SH resource constraint must be positive."
         )
+
+
+    # ==================================================================
+    # 4. REGIONAL RAW-BIOGAS POTENTIAL
+    # ==================================================================
+
+    required_column = (
+        "raw_biogas_mwh_hs_a"
+    )
+
+
+    if required_column not in df.columns:
+
+        raise ValueError(
+            "Biogas.SH CSV is missing required column "
+            f"{required_column!r}."
+        )
+
 
     annual_raw_biogas_mwh = float(
         pd.to_numeric(
-            df["raw_biogas_mwh_hs_a"],
+            df[
+                required_column
+            ],
             errors="coerce",
         )
-        .fillna(0.0)
-        .clip(lower=0.0)
+        .fillna(
+            0.0
+        )
+        .clip(
+            lower=0.0
+        )
         .sum()
     )
 
+
+    if annual_raw_biogas_mwh <= 0:
+
+        raise ValueError(
+            "Annual regional Biogas.SH raw-biogas "
+            "potential must be positive."
+        )
+
+
+    # Scale annual resource to the represented optimization period.
     raw_limit_mwh = (
         annual_raw_biogas_mwh
         * represented_hours
         / 8760.0
     )
 
+
+    # ==================================================================
+    # 5. IDENTIFY BIOGAS.SH GENERATORS
+    # ==================================================================
+
     (
         electricity_generators,
         heat_generators,
         ch4_generators,
+        raw_swfl_generators,
     ) = _get_clustered_biogas_sh_generators(
-        network
+        network=network,
+        raw_swfl_carrier=raw_swfl_carrier,
     )
+
 
     all_generators = (
         electricity_generators
         + heat_generators
         + ch4_generators
+        + raw_swfl_generators
     )
+
 
     if not all_generators:
+
         message = (
-            "No clustered Biogas.SH generators were found. "
-            "Expected carriers "
-            "'biogas_sh_onsite_el', "
-            "'biogas_sh_onsite_chp_el', "
-            "'biogas_sh_onsite_chp_heat', or custom "
-            "CH4_biogas generators at buses beginning with "
-            "'biogas_sh_ch4_bus_'."
+            "No Biogas.SH generators were found for the "
+            "regional raw-biogas resource constraint."
         )
 
+
         if ignore_missing:
+
             print(
                 "WARNING: " + message
             )
+
             return
 
-        raise ValueError(message)
 
-    if not ch4_generators:
-        message = (
-            "No custom Biogas.SH CH4 generators were found "
-            "after clustering."
+        raise ValueError(
+            message
         )
 
+
+    # ==================================================================
+    # 6. CHECK EXPECTED ROUTES
+    # ==================================================================
+
+    biogas_cfg = (
+        self.args.get(
+            "biogas_sh",
+            {},
+        )
+        or {}
+    )
+
+
+    expect_local = bool(
+        biogas_cfg.get(
+            "add_local_generation",
+            False,
+        )
+    )
+
+
+    expect_biomethane = bool(
+        biogas_cfg.get(
+            "add_gas_grid_generation",
+            False,
+        )
+        or biogas_cfg.get(
+            "add_swfl_direct_supply",
+            False,
+        )
+    )
+
+
+    expect_raw_swfl = bool(
+        biogas_cfg.get(
+            "add_swfl_raw_biogas_supply",
+            False,
+        )
+    )
+
+
+    missing_expected = []
+
+
+    if (
+        expect_local
+        and not (
+            electricity_generators
+            or heat_generators
+        )
+    ):
+
+        missing_expected.append(
+            "onsite electricity/heat generators"
+        )
+
+
+    if (
+        expect_biomethane
+        and not ch4_generators
+    ):
+
+        missing_expected.append(
+            "Biogas.SH biomethane generators"
+        )
+
+
+    if (
+        expect_raw_swfl
+        and not raw_swfl_generators
+    ):
+
+        missing_expected.append(
+            "direct raw-biogas -> SWFL generator"
+        )
+
+
+    if missing_expected:
+
+        message = (
+            "Expected Biogas.SH components are missing: "
+            + ", ".join(
+                missing_expected
+            )
+        )
+
+
         if ignore_missing:
+
             print(
                 "WARNING: " + message
             )
-        else:
-            raise ValueError(message)
 
-    print(
-        "\nBiogas.SH regional resource constraint"
-    )
-    print(
-        f"  represented hours:          "
-        f"{represented_hours:.3f}"
-    )
-    print(
-        f"  annual raw resource:        "
-        f"{annual_raw_biogas_mwh:.3f} MWh_Hs/a"
-    )
-    print(
-        f"  period raw resource limit:  "
-        f"{raw_limit_mwh:.3f} MWh_Hs"
-    )
-    print(
-        f"  onsite electricity gens:    "
-        f"{len(electricity_generators)}"
-    )
-    print(
-        f"  onsite heat generators:     "
-        f"{len(heat_generators)}"
-    )
-    print(
-        f"  custom CH4 generators:      "
-        f"{len(ch4_generators)}"
-    )
+        else:
+
+            raise ValueError(
+                message
+            )
+
+
+    # ==================================================================
+    # 7. BUILD RAW-BIOGAS RESOURCE EXPRESSION
+    # ==================================================================
 
     model = network.model
 
     expression = 0
 
+
+    # ------------------------------------------------------------------
+    # Onsite electricity
+    # ------------------------------------------------------------------
+
     for generator in electricity_generators:
+
         expression += sum(
+
             model.generator_p[
                 generator,
                 snapshot,
             ]
-            * float(weights.loc[snapshot])
+
+            * float(
+                weights.loc[
+                    snapshot
+                ]
+            )
+
             / eta_el
+
             for snapshot in snapshots
         )
+
+
+    # ------------------------------------------------------------------
+    # Onsite heat
+    # ------------------------------------------------------------------
 
     for generator in heat_generators:
+
         expression += sum(
+
             model.generator_p[
                 generator,
                 snapshot,
             ]
-            * float(weights.loc[snapshot])
+
+            * float(
+                weights.loc[
+                    snapshot
+                ]
+            )
+
             / eta_heat
+
             for snapshot in snapshots
         )
 
+
+    # ------------------------------------------------------------------
+    # Upgraded biomethane
+    # ------------------------------------------------------------------
+    #
+    # Generator output is MWh_Hs biomethane.
+    #
+    # Required raw biogas:
+    #
+    #     biomethane / eta_upgrade
+    #
     for generator in ch4_generators:
+
         expression += sum(
+
             model.generator_p[
                 generator,
                 snapshot,
             ]
-            * float(weights.loc[snapshot])
+
+            * float(
+                weights.loc[
+                    snapshot
+                ]
+            )
+
             / eta_upgrade
+
             for snapshot in snapshots
         )
+
+
+    # ------------------------------------------------------------------
+    # Direct raw biogas -> SWFL
+    # ------------------------------------------------------------------
+    #
+    # This Generator already represents raw-biogas energy.
+    #
+    # There is NO upgrading step:
+    #
+    #     raw use = output / 1.0
+    #
+    for generator in raw_swfl_generators:
+
+        expression += sum(
+
+            model.generator_p[
+                generator,
+                snapshot,
+            ]
+
+            * float(
+                weights.loc[
+                    snapshot
+                ]
+            )
+
+            / eta_raw_swfl
+
+            for snapshot in snapshots
+        )
+
+
+    # ==================================================================
+    # 8. ADD CONSTRAINT
+    # ==================================================================
 
     constraint_name = (
         "biogas_sh_resource_regional"
     )
 
-    # Defensive cleanup in case the function is called twice
-    # on the same Pyomo model.
-    if hasattr(model, constraint_name):
+
+    # Defensive cleanup in case the function is called twice.
+    if hasattr(
+        model,
+        constraint_name,
+    ):
+
         model.del_component(
             getattr(
                 model,
@@ -4679,13 +5137,82 @@ def _biogas_sh_resource(self, network, snapshots):
             )
         )
 
+
     setattr(
         model,
         constraint_name,
         Constraint(
-            expr=expression <= raw_limit_mwh
+            expr=(
+                expression
+                <= raw_limit_mwh
+            )
         ),
     )
+
+
+    # ==================================================================
+    # 9. DIAGNOSTICS
+    # ==================================================================
+
+    print(
+        "\nBiogas.SH regional raw-biogas resource constraint"
+    )
+
+    print(
+        f"  represented hours:          "
+        f"{represented_hours:.3f}"
+    )
+
+    print(
+        f"  annual raw resource:        "
+        f"{annual_raw_biogas_mwh:.3f} MWh_Hs/a"
+    )
+
+    print(
+        f"  period raw resource limit:  "
+        f"{raw_limit_mwh:.3f} MWh_Hs"
+    )
+
+    print(
+        f"  eta onsite electricity:     "
+        f"{eta_el:.4f}"
+    )
+
+    print(
+        f"  eta onsite heat:            "
+        f"{eta_heat:.4f}"
+    )
+
+    print(
+        f"  eta upgrading:              "
+        f"{eta_upgrade:.4f}"
+    )
+
+    print(
+        f"  eta raw SWFL:               "
+        f"{eta_raw_swfl:.4f}"
+    )
+
+    print(
+        f"  onsite electricity gens:    "
+        f"{len(electricity_generators)}"
+    )
+
+    print(
+        f"  onsite heat generators:     "
+        f"{len(heat_generators)}"
+    )
+
+    print(
+        f"  biomethane generators:      "
+        f"{len(ch4_generators)}"
+    )
+
+    print(
+        f"  raw-biogas SWFL generators: "
+        f"{len(raw_swfl_generators)}"
+    )
+
 
 def _biogas_sh_support(
     self,
@@ -5191,35 +5718,76 @@ def _biogas_sh_support_linopy(
         )
 
 
+
 def _biogas_sh_resource_linopy(
     self,
     network,
     snapshots,
 ):
     """
-    Linopy version of the regional Biogas.SH raw-biogas constraint.
+    Linopy version of the shared regional Biogas.SH raw-biogas constraint.
 
-    The constraint limits the total raw-biogas use across all available
-    Biogas.SH routes:
+    All Biogas.SH utilisation pathways compete for one common regional
+    raw-biogas resource:
 
         onsite electricity / eta_el
-        + onsite heat / eta_heat
-        + biomethane production / eta_upgrade
-        <= available raw-biogas resource
 
-    Snapshot weights are applied explicitly because Linopy Variable
-    objects do not support pandas .mul().
+      + onsite heat / eta_heat
+
+      + upgraded biomethane / eta_upgrade
+
+      + direct raw biogas -> SWFL / eta_raw_swfl
+
+      <= available regional raw-biogas resource
+
+
+    Current project efficiencies
+    ----------------------------
+
+        eta_el       = 0.38
+        eta_heat     = 0.45
+        eta_upgrade  = 0.96
+        eta_raw_swfl = 1.00
+
+
+    The direct SWFL route therefore consumes raw-biogas energy one-to-one.
     """
 
     import pandas as pd
 
+
+    # ==================================================================
+    # 1. CONFIGURATION
+    # ==================================================================
+
     arg = self.args[
         "extra_functionality"
-    ]["biogas_sh_resource"]
+    ][
+        "biogas_sh_resource"
+    ]
+
+
+    csv_path = arg.get(
+        "csv_path"
+    )
+
+
+    if (
+        csv_path is None
+        or not str(
+            csv_path
+        ).strip()
+    ):
+
+        raise ValueError(
+            "Biogas.SH resource constraint requires csv_path."
+        )
+
 
     df = pd.read_csv(
-        arg["csv_path"]
+        csv_path
     )
+
 
     eta_el = float(
         arg.get(
@@ -5228,12 +5796,14 @@ def _biogas_sh_resource_linopy(
         )
     )
 
+
     eta_heat = float(
         arg.get(
             "eta_heat",
             0.45,
         )
     )
+
 
     eta_upgrade = float(
         arg.get(
@@ -5242,6 +5812,23 @@ def _biogas_sh_resource_linopy(
         )
     )
 
+
+    eta_raw_swfl = float(
+        arg.get(
+            "eta_raw_swfl",
+            1.0,
+        )
+    )
+
+
+    raw_swfl_carrier = str(
+        arg.get(
+            "raw_swfl_generator_carrier",
+            "biogas_sh_raw_biogas_swfl",
+        )
+    ).strip()
+
+
     ignore_missing = bool(
         arg.get(
             "ignore_missing_components",
@@ -5249,62 +5836,114 @@ def _biogas_sh_resource_linopy(
         )
     )
 
+
+    # ==================================================================
+    # 2. EFFICIENCY VALIDATION
+    # ==================================================================
+
+    efficiencies = {
+        "eta_el": eta_el,
+        "eta_heat": eta_heat,
+        "eta_upgrade": eta_upgrade,
+        "eta_raw_swfl": eta_raw_swfl,
+    }
+
+
+    for key, value in efficiencies.items():
+
+        if value <= 0:
+
+            raise ValueError(
+                f"Biogas.SH resource efficiency "
+                f"{key} must be greater than zero; "
+                f"got {value}."
+            )
+
+
+    if not np.isclose(
+        eta_raw_swfl,
+        1.0,
+        rtol=0.0,
+        atol=1.0e-9,
+    ):
+
+        raise ValueError(
+            "Direct raw-biogas -> SWFL currently requires "
+            "eta_raw_swfl = 1.0 because no upgrading or "
+            "conversion occurs before the SWFL fuel bus. "
+            f"Received {eta_raw_swfl}."
+        )
+
+
+    # ==================================================================
+    # 3. SNAPSHOT WEIGHTS
+    # ==================================================================
+
     snapshots = pd.Index(
         snapshots
     )
 
-    # --------------------------------------------------------------
-    # Snapshot weights
-    # --------------------------------------------------------------
+
     weights = (
         network.snapshot_weightings.generators
         .reindex(
             snapshots
         )
-        .astype(
-            float
-        )
+        .astype(float)
     )
 
+
     if weights.isna().any():
+
         missing_snapshots = (
             weights.index[
                 weights.isna()
-            ].tolist()
+            ]
+            .tolist()
         )
 
+
         raise ValueError(
-            "Missing generator snapshot weights in "
+            "Missing generator snapshot weights in the "
             "Biogas.SH resource constraint for "
             f"snapshots: {missing_snapshots}"
         )
+
 
     represented_hours = float(
         weights.sum()
     )
 
+
     if represented_hours <= 0:
+
         raise ValueError(
             "The represented number of hours in the "
             "Biogas.SH resource constraint must be positive."
         )
 
-    # --------------------------------------------------------------
-    # Annual raw-biogas resource from plant CSV
-    # --------------------------------------------------------------
-    if (
+
+    # ==================================================================
+    # 4. REGIONAL RAW-BIOGAS RESOURCE
+    # ==================================================================
+
+    required_column = (
         "raw_biogas_mwh_hs_a"
-        not in df.columns
-    ):
+    )
+
+
+    if required_column not in df.columns:
+
         raise ValueError(
             "Biogas.SH CSV is missing required column "
-            "'raw_biogas_mwh_hs_a'."
+            f"{required_column!r}."
         )
+
 
     annual_raw_biogas_mwh = float(
         pd.to_numeric(
             df[
-                "raw_biogas_mwh_hs_a"
+                required_column
             ],
             errors="coerce",
         )
@@ -5317,141 +5956,318 @@ def _biogas_sh_resource_linopy(
         .sum()
     )
 
+
+    if annual_raw_biogas_mwh <= 0:
+
+        raise ValueError(
+            "Annual regional Biogas.SH raw-biogas "
+            "potential must be positive."
+        )
+
+
     raw_limit_mwh = (
         annual_raw_biogas_mwh
         * represented_hours
         / 8760.0
     )
 
-    # --------------------------------------------------------------
-    # Identify Biogas.SH generators after clustering
-    # --------------------------------------------------------------
+
+    # ==================================================================
+    # 5. IDENTIFY BIOGAS.SH GENERATORS
+    # ==================================================================
+
     (
         electricity_generators,
         heat_generators,
         ch4_generators,
+        raw_swfl_generators,
     ) = _get_clustered_biogas_sh_generators(
-        network
+        network=network,
+        raw_swfl_carrier=raw_swfl_carrier,
     )
 
-    if not (
+
+    all_generators = (
         electricity_generators
-        or heat_generators
-        or ch4_generators
-    ):
+        + heat_generators
+        + ch4_generators
+        + raw_swfl_generators
+    )
+
+
+    if not all_generators:
+
         message = (
-            "No clustered Biogas.SH generators were found "
-            "for the regional resource constraint."
+            "No Biogas.SH generators were found for the "
+            "regional raw-biogas resource constraint."
         )
 
+
         if ignore_missing:
+
             print(
                 "WARNING: " + message
             )
+
             return
+
 
         raise ValueError(
             message
         )
 
-    if not ch4_generators:
-        message = (
-            "No custom Biogas.SH CH4 generators were found "
-            "after clustering."
+
+    # ==================================================================
+    # 6. CHECK EXPECTED ROUTES
+    # ==================================================================
+
+    biogas_cfg = (
+        self.args.get(
+            "biogas_sh",
+            {},
+        )
+        or {}
+    )
+
+
+    expect_local = bool(
+        biogas_cfg.get(
+            "add_local_generation",
+            False,
+        )
+    )
+
+
+    expect_biomethane = bool(
+        biogas_cfg.get(
+            "add_gas_grid_generation",
+            False,
+        )
+        or biogas_cfg.get(
+            "add_swfl_direct_supply",
+            False,
+        )
+    )
+
+
+    expect_raw_swfl = bool(
+        biogas_cfg.get(
+            "add_swfl_raw_biogas_supply",
+            False,
+        )
+    )
+
+
+    missing_expected = []
+
+
+    if (
+        expect_local
+        and not (
+            electricity_generators
+            or heat_generators
+        )
+    ):
+
+        missing_expected.append(
+            "onsite electricity/heat generators"
         )
 
+
+    if (
+        expect_biomethane
+        and not ch4_generators
+    ):
+
+        missing_expected.append(
+            "Biogas.SH biomethane generators"
+        )
+
+
+    if (
+        expect_raw_swfl
+        and not raw_swfl_generators
+    ):
+
+        missing_expected.append(
+            "direct raw-biogas -> SWFL generator"
+        )
+
+
+    if missing_expected:
+
+        message = (
+            "Expected Biogas.SH components are missing: "
+            + ", ".join(
+                missing_expected
+            )
+        )
+
+
         if ignore_missing:
+
             print(
                 "WARNING: " + message
             )
+
         else:
+
             raise ValueError(
                 message
             )
 
-    # --------------------------------------------------------------
-    # Linopy Generator dispatch variable
-    # --------------------------------------------------------------
+
+    # ==================================================================
+    # 7. LINOPY GENERATOR-DISPATCH VARIABLE
+    # ==================================================================
+
     gen_p = get_var(
         network,
         "Generator",
         "p",
     )
 
+
     expression = 0
 
-    # --------------------------------------------------------------
-    # Onsite electricity
+
+    # ==================================================================
+    # 8. ONSITE ELECTRICITY
+    # ==================================================================
     #
-    # Includes BOTH merchant and EEG-supported tranches because
-    # _get_clustered_biogas_sh_generators() identifies both carriers.
-    # --------------------------------------------------------------
+    # Includes both merchant and EEG-supported tranches.
+    #
+    # Required raw biogas:
+    #
+    #     electricity / eta_el
+    #
     if electricity_generators:
 
         for snapshot in snapshots:
 
             expression = (
                 expression
+
                 +
+
                 gen_p.loc[
                     snapshot,
                     electricity_generators,
                 ].sum()
+
                 * float(
                     weights.loc[
                         snapshot
                     ]
                 )
+
                 / eta_el
             )
 
-    # --------------------------------------------------------------
-    # Onsite heat
-    # --------------------------------------------------------------
+
+    # ==================================================================
+    # 9. ONSITE HEAT
+    # ==================================================================
+
     if heat_generators:
 
         for snapshot in snapshots:
 
             expression = (
                 expression
+
                 +
+
                 gen_p.loc[
                     snapshot,
                     heat_generators,
                 ].sum()
+
                 * float(
                     weights.loc[
                         snapshot
                     ]
                 )
+
                 / eta_heat
             )
 
-    # --------------------------------------------------------------
-    # Central biomethane production
-    # --------------------------------------------------------------
+
+    # ==================================================================
+    # 10. UPGRADED BIOMETHANE
+    # ==================================================================
+    #
+    # Generator output is biomethane energy.
+    #
+    # Raw-biogas requirement:
+    #
+    #     biomethane / eta_upgrade
+    #
     if ch4_generators:
 
         for snapshot in snapshots:
 
             expression = (
                 expression
+
                 +
+
                 gen_p.loc[
                     snapshot,
                     ch4_generators,
                 ].sum()
+
                 * float(
                     weights.loc[
                         snapshot
                     ]
                 )
+
                 / eta_upgrade
             )
 
-    # --------------------------------------------------------------
-    # Add regional raw-biogas constraint
-    # --------------------------------------------------------------
+
+    # ==================================================================
+    # 11. DIRECT RAW BIOGAS -> SWFL
+    # ==================================================================
+    #
+    # The new Generator already represents raw-biogas energy.
+    #
+    # Therefore:
+    #
+    #     raw requirement
+    #         = raw SWFL dispatch / 1.0
+    #
+    # Do NOT use eta_upgrade here.
+    #
+    if raw_swfl_generators:
+
+        for snapshot in snapshots:
+
+            expression = (
+                expression
+
+                +
+
+                gen_p.loc[
+                    snapshot,
+                    raw_swfl_generators,
+                ].sum()
+
+                * float(
+                    weights.loc[
+                        snapshot
+                    ]
+                )
+
+                / eta_raw_swfl
+            )
+
+
+    # ==================================================================
+    # 12. ADD REGIONAL RESOURCE CONSTRAINT
+    # ==================================================================
+
     define_constraints(
         network,
         expression,
@@ -5461,11 +6277,13 @@ def _biogas_sh_resource_linopy(
         "biogas_sh_resource_regional",
     )
 
-    # --------------------------------------------------------------
-    # Diagnostics
-    # --------------------------------------------------------------
+
+    # ==================================================================
+    # 13. DIAGNOSTICS
+    # ==================================================================
+
     print(
-        "\nBiogas.SH regional resource constraint"
+        "\nBiogas.SH regional raw-biogas resource constraint"
     )
 
     print(
@@ -5484,6 +6302,26 @@ def _biogas_sh_resource_linopy(
     )
 
     print(
+        f"  eta onsite electricity:     "
+        f"{eta_el:.4f}"
+    )
+
+    print(
+        f"  eta onsite heat:            "
+        f"{eta_heat:.4f}"
+    )
+
+    print(
+        f"  eta upgrading:              "
+        f"{eta_upgrade:.4f}"
+    )
+
+    print(
+        f"  eta raw SWFL:               "
+        f"{eta_raw_swfl:.4f}"
+    )
+
+    print(
         f"  onsite electricity gens:    "
         f"{len(electricity_generators)}"
     )
@@ -5494,9 +6332,15 @@ def _biogas_sh_resource_linopy(
     )
 
     print(
-        f"  custom CH4 generators:      "
+        f"  biomethane generators:      "
         f"{len(ch4_generators)}"
     )
+
+    print(
+        f"  direct raw SWFL generators: "
+        f"{len(raw_swfl_generators)}"
+    )
+
 
 
 def _biogas_sh_support_nmp(

@@ -1601,343 +1601,1806 @@ def apply_config_to_args(
     resolved: MutableMapping[str, Any],
 ) -> MutableMapping[str, Any]:
     """
-    Apply the resolved YAML scenario to the current top-level eTraGo args.
+    Apply the resolved Biogas.SH / SWFL scenario configuration to eTraGo args.
 
-    Static topology, component names, carriers and file paths remain in appl.py.
-    YAML controls scenario selections, prices, activation, capacities,
-    efficiencies, storage assumptions and optional run settings.
+    The resolved YAML controls:
+
+        - fossil natural-gas prices
+        - biomethane prices
+        - biogenic CO2-sale assumptions
+        - EEG / flexibility support
+        - Biogas.SH route activation
+        - direct raw-biogas supply to SWFL
+        - SWFL unit availability
+        - biomethane eligibility
+        - heat-pump configuration
+        - regional raw-biogas resource constraint
+        - central biomethane storage
+        - run settings
+
+    Biogas.SH fuel pathways
+    -----------------------
+
+    1. Onsite CHP electricity
+
+        raw biogas
+            -> onsite CHP
+            -> electricity
+
+
+    2. Onsite heat
+
+        raw biogas
+            -> onsite CHP / heat use
+            -> heat
+
+
+    3. Upgraded biomethane -> public gas grid
+
+        raw biogas
+            -> collection
+            -> upgrading
+            -> biomethane
+            -> central storage
+            -> public CH4 grid
+
+       Biogenic CO2 is separated only on this upgrading pathway.
+
+
+    4. Direct raw biogas -> SWFL
+
+        raw biogas
+            -> collection / transport
+            -> SWFL raw-biogas bus
+            -> eligible SWFL boilers
+            -> heat
+
+       This pathway:
+
+            - does NOT use biomethane upgrading
+            - does NOT apply eta_upgrade
+            - does NOT receive a CO2-sale credit
+            - uses raw-biogas cost + direct delivery cost
+
+
+    Important
+    ---------
+    The direct raw-biogas route and all other Biogas.SH uses must share
+    the same regional raw-biogas resource constraint. Therefore the
+    resource constraint is required whenever direct raw-biogas supply
+    to SWFL is active.
     """
-    swfl = _mutable_mapping(args, "swfl_real_system", "eTraGo args")
-    biogas = _mutable_mapping(args, "biogas_sh", "eTraGo args")
 
-    extra_functionality = args.get("extra_functionality")
-    if not isinstance(extra_functionality, MutableMapping):
+    # =====================================================================
+    # 1. TOP-LEVEL ARGUMENT SECTIONS
+    # =====================================================================
+
+    swfl = _mutable_mapping(
+        args,
+        "swfl_real_system",
+        "eTraGo args",
+    )
+
+    biogas = _mutable_mapping(
+        args,
+        "biogas_sh",
+        "eTraGo args",
+    )
+
+    extra_functionality = args.get(
+        "extra_functionality"
+    )
+
+    if not isinstance(
+        extra_functionality,
+        MutableMapping,
+    ):
         extra_functionality = {}
-        args["extra_functionality"] = extra_functionality
+        args["extra_functionality"] = (
+            extra_functionality
+        )
+
+
+    # =====================================================================
+    # 2. RESOLVED SCENARIO SECTIONS
+    # =====================================================================
+
+    selection = resolved["selection"]
 
     prices = resolved["prices"]
-    support = resolved["support"]
-    units = resolved["swfl_units"]
-    heat_pump_case = resolved["heat_pumps"]
-    biomethane_use = resolved["biomethane_use"]
-    routes = resolved["biogas_routes"]
-    technical = resolved["technical"]
-    technical_swfl = technical["swfl"]
-    technical_biogas = technical["biogas_sh"]
 
-    # Prices.
-    swfl_direct = _mutable_mapping(biogas, "swfl_direct", "args.biogas_sh")
-    swfl_direct["grid_supply_marginal_cost"] = float(
+    support = resolved["support"]
+
+    units = resolved["swfl_units"]
+
+    heat_pump_case = resolved[
+        "heat_pumps"
+    ]
+
+    biomethane_use = resolved[
+        "biomethane_use"
+    ]
+
+    routes = resolved[
+        "biogas_routes"
+    ]
+
+    technical = resolved[
+        "technical"
+    ]
+
+    technical_swfl = technical[
+        "swfl"
+    ]
+
+    technical_biogas = technical[
+        "biogas_sh"
+    ]
+
+
+    # =====================================================================
+    # 3. RESOLVE BIOGAS.SH ROUTE SWITCHES
+    # =====================================================================
+
+    route_name = str(
+        selection[
+            "biogas_route_case"
+        ]
+    )
+
+    add_local_generation = bool(
+        routes.get(
+            "add_local_generation",
+            False,
+        )
+    )
+
+    add_gas_grid_generation = bool(
+        routes.get(
+            "add_gas_grid_generation",
+            False,
+        )
+    )
+
+    add_swfl_biomethane_supply = bool(
+        routes.get(
+            "add_swfl_direct_supply",
+            False,
+        )
+    )
+
+    add_swfl_raw_biogas_supply = bool(
+        routes.get(
+            "add_swfl_raw_biogas_supply",
+            False,
+        )
+    )
+
+
+    # ---------------------------------------------------------------------
+    # Existing biogas_sh.py understands "hybrid" as a special mode.
+    #
+    # New route combinations use "custom" and the explicit booleans below.
+    # ---------------------------------------------------------------------
+
+    if route_name == "hybrid":
+
+        biogas[
+            "scenario_mode"
+        ] = "hybrid"
+
+    else:
+
+        biogas[
+            "scenario_mode"
+        ] = "custom"
+
+
+    biogas[
+        "add_local_generation"
+    ] = add_local_generation
+
+    biogas[
+        "add_gas_grid_generation"
+    ] = add_gas_grid_generation
+
+    biogas[
+        "add_swfl_direct_supply"
+    ] = add_swfl_biomethane_supply
+
+    biogas[
+        "add_swfl_raw_biogas_supply"
+    ] = add_swfl_raw_biogas_supply
+
+
+    # ---------------------------------------------------------------------
+    # SWFL still requires access to the public CH4 grid even when the
+    # upgraded-biomethane-to-SWFL route is disabled.
+    #
+    # biogas_sh.py should later use this flag when deciding whether the
+    # SWFL natural-gas bus / public-grid supply link must exist.
+    # ---------------------------------------------------------------------
+
+    biogas[
+        "ensure_swfl_gas_access"
+    ] = bool(
+        add_swfl_biomethane_supply
+        or add_swfl_raw_biogas_supply
+    )
+
+
+    # =====================================================================
+    # 4. GENERAL BIOGAS.SH PRICES
+    # =====================================================================
+
+    swfl_direct = _mutable_mapping(
+        biogas,
+        "swfl_direct",
+        "args.biogas_sh",
+    )
+
+
+    # ---------------------------------------------------------------------
+    # Public-grid -> SWFL natural-gas link.
+    #
+    # Fossil-gas commodity + CO2 costs are already assigned upstream to
+    # CH4_NG generators. Only the configured import adder belongs here.
+    # ---------------------------------------------------------------------
+
+    swfl_direct[
+        "grid_supply_marginal_cost"
+    ] = float(
         prices[
             "swfl_import_adder_eur_per_mwh_fuel"
         ]
     )
-    biogas["raw_biogas_cost_eur_per_mwh_hs"] = float(
-        prices["raw_biogas_cost_eur_per_mwh_hs"]
-    )
-    biogas["biomethane_price_override_eur_per_mwh"] = float(
-        prices["biomethane_marginal_cost_eur_per_mwh_hs"]
-    )
-    biogas["default_biomethane_cost"] = float(
-        prices["biomethane_marginal_cost_eur_per_mwh_hs"]
-    )
-    biogas["electricity_marginal_cost"] = float(
-        prices["onsite_electricity_marginal_cost_eur_per_mwh"]
-    )
-    biogas["heat_marginal_cost"] = float(
-        prices["onsite_heat_marginal_cost_eur_per_mwh"]
+
+
+    # ---------------------------------------------------------------------
+    # Raw-biogas fuel price
+    # ---------------------------------------------------------------------
+
+    raw_biogas_cost = float(
+        prices[
+            "raw_biogas_cost_eur_per_mwh_hs"
+        ]
     )
 
-    # Biogas.SH support regime.
-    support_args = biogas.get("support")
-    if not isinstance(support_args, MutableMapping):
+    biogas[
+        "raw_biogas_cost_eur_per_mwh_hs"
+    ] = raw_biogas_cost
+
+
+    # ---------------------------------------------------------------------
+    # Effective biomethane cost.
+    #
+    # This may already contain the CO2 revenue credit calculated in
+    # resolve_config().
+    # ---------------------------------------------------------------------
+
+    effective_biomethane_cost = float(
+        prices[
+            "biomethane_marginal_cost_eur_per_mwh_hs"
+        ]
+    )
+
+    biogas[
+        "biomethane_price_override_eur_per_mwh"
+    ] = effective_biomethane_cost
+
+    biogas[
+        "default_biomethane_cost"
+    ] = effective_biomethane_cost
+
+
+    # ---------------------------------------------------------------------
+    # Onsite Biogas.SH costs
+    # ---------------------------------------------------------------------
+
+    biogas[
+        "electricity_marginal_cost"
+    ] = float(
+        prices[
+            "onsite_electricity_marginal_cost_eur_per_mwh"
+        ]
+    )
+
+    biogas[
+        "heat_marginal_cost"
+    ] = float(
+        prices[
+            "onsite_heat_marginal_cost_eur_per_mwh"
+        ]
+    )
+
+
+    # =====================================================================
+    # 5. BIOGAS.SH EEG / FLEXIBILITY SUPPORT
+    # =====================================================================
+
+    support_args = biogas.get(
+        "support"
+    )
+
+    if not isinstance(
+        support_args,
+        MutableMapping,
+    ):
         support_args = {}
-        biogas["support"] = support_args
+        biogas[
+            "support"
+        ] = support_args
 
-    support_args["case"] = str(support["case"])
-    support_args["eeg_active"] = bool(
-        support.get("eeg_active", False)
+
+    support_args[
+        "case"
+    ] = str(
+        support[
+            "case"
+        ]
     )
-    support_args["market_electricity_marginal_cost"] = float(
-        prices["onsite_electricity_marginal_cost_eur_per_mwh"]
+
+    support_args[
+        "eeg_active"
+    ] = bool(
+        support.get(
+            "eeg_active",
+            False,
+        )
     )
-    support_args["supported_electricity_marginal_cost"] = float(
+
+    support_args[
+        "market_electricity_marginal_cost"
+    ] = float(
+        prices[
+            "onsite_electricity_marginal_cost_eur_per_mwh"
+        ]
+    )
+
+    support_args[
+        "supported_electricity_marginal_cost"
+    ] = float(
         prices[
             "onsite_supported_electricity_marginal_cost_eur_per_mwh"
         ]
     )
-    support_args["supported_hours_per_year"] = float(
-        support.get("supported_hours_per_year", 0.0)
-    )
-    support_args["flexibility_active"] = bool(
-        support.get("flexibility_active", False)
-    )
-    support_args["chp_capacity_multiplier"] = float(
-        support.get("chp_capacity_multiplier", 1.0)
-    )
-    support_args["flex_capex_eur_per_kw"] = float(
-        support.get("flex_capex_eur_per_kw", 800.0)
-    )
-    support_args["flex_lifetime_years"] = float(
-        support.get("flex_lifetime_years", 15.0)
-    )
-    support_args["flex_discount_rate"] = float(
-        support.get("flex_discount_rate", 0.05)
-    )
-    support_args["flex_fixed_om_fraction"] = float(
-        support.get("flex_fixed_om_fraction", 0.02)
-    )
-    support_args["flexibility_payment_eur_per_kw_year"] = float(
-        support.get("flexibility_payment_eur_per_kw_year", 0.0)
+
+    support_args[
+        "supported_hours_per_year"
+    ] = float(
+        support.get(
+            "supported_hours_per_year",
+            0.0,
+        )
     )
 
-    # Activate the corresponding extra constraint only when EEG support is on.
-    if support_args["eeg_active"]:
-        extra_functionality["biogas_sh_support"] = {
+    support_args[
+        "flexibility_active"
+    ] = bool(
+        support.get(
+            "flexibility_active",
+            False,
+        )
+    )
+
+    support_args[
+        "chp_capacity_multiplier"
+    ] = float(
+        support.get(
+            "chp_capacity_multiplier",
+            1.0,
+        )
+    )
+
+    support_args[
+        "flex_capex_eur_per_kw"
+    ] = float(
+        support.get(
+            "flex_capex_eur_per_kw",
+            800.0,
+        )
+    )
+
+    support_args[
+        "flex_lifetime_years"
+    ] = float(
+        support.get(
+            "flex_lifetime_years",
+            15.0,
+        )
+    )
+
+    support_args[
+        "flex_discount_rate"
+    ] = float(
+        support.get(
+            "flex_discount_rate",
+            0.05,
+        )
+    )
+
+    support_args[
+        "flex_fixed_om_fraction"
+    ] = float(
+        support.get(
+            "flex_fixed_om_fraction",
+            0.02,
+        )
+    )
+
+    support_args[
+        "flexibility_payment_eur_per_kw_year"
+    ] = float(
+        support.get(
+            "flexibility_payment_eur_per_kw_year",
+            0.0,
+        )
+    )
+
+
+    # ---------------------------------------------------------------------
+    # EEG support constraint
+    # ---------------------------------------------------------------------
+
+    if support_args[
+        "eeg_active"
+    ]:
+
+        extra_functionality[
+            "biogas_sh_support"
+        ] = {
             "active": True,
-            "supported_hours_per_year": support_args[
-                "supported_hours_per_year"
-            ],
+            "supported_hours_per_year": (
+                support_args[
+                    "supported_hours_per_year"
+                ]
+            ),
             "ignore_missing_components": False,
         }
+
     else:
-        extra_functionality.pop("biogas_sh_support", None)
 
-    # Biogas.SH routes. Final production scenarios use the hybrid topology.
-    if resolved["selection"]["biogas_route_case"] == "hybrid":
-        biogas["scenario_mode"] = "hybrid"
-    else:
-        # Legacy route cases remain available for diagnostic/debug runs.
-        biogas["scenario_mode"] = "custom"
+        extra_functionality.pop(
+            "biogas_sh_support",
+            None,
+        )
 
-    for key in (
-        "add_local_generation",
-        "add_gas_grid_generation",
-        "add_swfl_direct_supply",
-    ):
-        biogas[key] = bool(routes[key])
 
-    # SWFL gas-to-power.
+    # =====================================================================
+    # 6. SWFL GAS-TO-POWER
+    # =====================================================================
+
     central_gas_to_power = _mutable_mapping(
         swfl,
         "central_gas_chp",
         "args.swfl_real_system",
     )
-    gas_to_power_active = bool(units["central_gas_to_power"])
-    central_gas_to_power["active"] = gas_to_power_active
-    central_gas_to_power["add_electric_link"] = gas_to_power_active
 
-    # SWFL boilers and resistive heaters.
+    gas_to_power_active = bool(
+        units[
+            "central_gas_to_power"
+        ]
+    )
+
+    central_gas_to_power[
+        "active"
+    ] = gas_to_power_active
+
+    central_gas_to_power[
+        "add_electric_link"
+    ] = gas_to_power_active
+
+
+    # =====================================================================
+    # 7. SWFL CENTRAL HEAT SYSTEM
+    # =====================================================================
+
     central_heat = _mutable_mapping(
         swfl,
         "central_heat_units",
         "args.swfl_real_system",
     )
-    selected_boilers = set(map(str, units.get("boilers", [])))
-    selected_resistive = set(map(str, units.get("resistive_heaters", [])))
 
-    boiler_data = technical_swfl["boilers"]
-    resistive_data = technical_swfl["resistive_heaters"]
+
+    selected_boilers = set(
+        map(
+            str,
+            units.get(
+                "boilers",
+                [],
+            ),
+        )
+    )
+
+    selected_resistive = set(
+        map(
+            str,
+            units.get(
+                "resistive_heaters",
+                [],
+            ),
+        )
+    )
+
+
+    boiler_data = technical_swfl[
+        "boilers"
+    ]
+
+    resistive_data = technical_swfl[
+        "resistive_heaters"
+    ]
+
 
     _update_named_assets(
-        central_heat["boilers"],
+        central_heat[
+            "boilers"
+        ],
         selected_boilers,
         boiler_data,
     )
+
     _update_named_assets(
-        central_heat["resistive_heaters"],
+        central_heat[
+            "resistive_heaters"
+        ],
         selected_resistive,
         resistive_data,
     )
 
+
     selected_heat_capacity = sum(
-        float(boiler_data[name]["heat_capacity_mw"])
+        float(
+            boiler_data[
+                name
+            ][
+                "heat_capacity_mw"
+            ]
+        )
         for name in selected_boilers
     )
+
+
     selected_heat_capacity += sum(
-        float(resistive_data[name]["heat_capacity_mw"])
+        float(
+            resistive_data[
+                name
+            ][
+                "heat_capacity_mw"
+            ]
+        )
         for name in selected_resistive
     )
 
-    central_heat["active"] = bool(selected_boilers or selected_resistive)
-    central_heat["expected_total_heat_capacity_mw"] = selected_heat_capacity
+
+    central_heat[
+        "active"
+    ] = bool(
+        selected_boilers
+        or selected_resistive
+    )
+
+    central_heat[
+        "expected_total_heat_capacity_mw"
+    ] = selected_heat_capacity
+
+
+    # =====================================================================
+    # 8. RESERVE GAS BOILER
+    # =====================================================================
 
     reserve = _mutable_mapping(
         swfl,
         "reserve_gas_boiler",
         "args.swfl_real_system",
     )
-    reserve["active"] = bool(units.get("reserve_gas_boiler", False))
 
-    # Biomethane-eligible SWFL boilers.
-    eligible_units = list(map(str, biomethane_use.get("eligible_units", [])))
-    central_heat["biomethane_mode"] = str(biomethane_use["mode"])
-    central_heat["planned_biomethane_units"] = eligible_units
-    central_heat["custom_biomethane_units"] = eligible_units
+    reserve[
+        "active"
+    ] = bool(
+        units.get(
+            "reserve_gas_boiler",
+            False,
+        )
+    )
 
-    # Planned heat pumps.
+
+    # =====================================================================
+    # 9. BIOMETHANE-ELIGIBLE SWFL BOILERS
+    # =====================================================================
+    #
+    # If the upgraded biomethane -> SWFL route is disabled, do not create
+    # unnecessary biomethane supply links at K12/K13.
+    # =====================================================================
+
+    configured_biomethane_units = list(
+        map(
+            str,
+            biomethane_use.get(
+                "eligible_units",
+                [],
+            ),
+        )
+    )
+
+
+    if add_swfl_biomethane_supply:
+
+        biomethane_units = (
+            configured_biomethane_units
+        )
+
+        central_heat[
+            "biomethane_mode"
+        ] = str(
+            biomethane_use[
+                "mode"
+            ]
+        )
+
+    else:
+
+        biomethane_units = []
+
+        central_heat[
+            "biomethane_mode"
+        ] = "off"
+
+
+    central_heat[
+        "planned_biomethane_units"
+    ] = list(
+        biomethane_units
+    )
+
+    central_heat[
+        "custom_biomethane_units"
+    ] = list(
+        biomethane_units
+    )
+
+
+    # =====================================================================
+    # 10. SWFL HEAT-PUMP CONFIGURATION
+    # =====================================================================
+
     future_heat_pumps = _mutable_mapping(
         swfl,
         "future_heat_pumps",
         "args.swfl_real_system",
     )
+
+
     selected_heat_pumps = list(
-        map(str, heat_pump_case.get("active_units", []))
+        map(
+            str,
+            heat_pump_case.get(
+                "active_units",
+                [],
+            ),
+        )
     )
-    future_heat_pumps["active"] = bool(selected_heat_pumps)
-    future_heat_pumps["active_units"] = selected_heat_pumps
+
+
+    future_heat_pumps[
+        "active"
+    ] = bool(
+        selected_heat_pumps
+    )
+
+    future_heat_pumps[
+        "active_units"
+    ] = selected_heat_pumps
+
 
     _update_named_assets(
-        future_heat_pumps["units"],
-        set(selected_heat_pumps),
-        technical_swfl["heat_pumps"],
+        future_heat_pumps[
+            "units"
+        ],
+        set(
+            selected_heat_pumps
+        ),
+        technical_swfl[
+            "heat_pumps"
+        ],
     )
 
-    # Buses and selected SWFL area.
-    buses = technical_swfl["buses"]
-    swfl["swfl_ac_bus"] = str(buses["ac"])
-    swfl["swfl_heat_bus"] = str(buses["heat"])
-    swfl["swfl_ch4_bus"] = str(buses["natural_gas"])
-    swfl["selected_mv_grid_district_ids"] = list(
-        map(str, technical_swfl["selected_mv_grid_district_ids"])
+
+    # =====================================================================
+    # 11. SWFL BUS CONFIGURATION
+    # =====================================================================
+
+    buses = technical_swfl[
+        "buses"
+    ]
+
+
+    required_buses = {
+        "ac",
+        "heat",
+        "natural_gas",
+        "biomethane",
+        "public_ch4",
+    }
+
+
+    if add_swfl_raw_biogas_supply:
+
+        required_buses.add(
+            "raw_biogas"
+        )
+
+
+    missing_bus_keys = (
+        required_buses
+        - set(
+            buses.keys()
+        )
     )
 
-    central_heat["natural_gas_bus"] = str(buses["natural_gas"])
-    central_heat["biomethane_bus"] = str(buses["biomethane"])
-    central_heat["ac_bus"] = str(buses["ac"])
-    central_heat["heat_bus"] = str(buses["heat"])
 
-    central_gas_to_power["gas_bus"] = str(buses["natural_gas"])
-    central_gas_to_power["ac_bus"] = str(buses["ac"])
-    central_gas_to_power["heat_bus"] = str(buses["heat"])
+    if missing_bus_keys:
 
-    # SWFL load assumptions.
-    loads = technical_swfl["loads"]
+        raise ScenarioConfigError(
+            "Missing SWFL bus definitions in "
+            "technical.swfl.buses: "
+            f"{sorted(missing_bus_keys)}"
+        )
+
+
+    swfl[
+        "swfl_ac_bus"
+    ] = str(
+        buses[
+            "ac"
+        ]
+    )
+
+    swfl[
+        "swfl_heat_bus"
+    ] = str(
+        buses[
+            "heat"
+        ]
+    )
+
+    swfl[
+        "swfl_ch4_bus"
+    ] = str(
+        buses[
+            "natural_gas"
+        ]
+    )
+
+    swfl[
+        "selected_mv_grid_district_ids"
+    ] = list(
+        map(
+            str,
+            technical_swfl[
+                "selected_mv_grid_district_ids"
+            ],
+        )
+    )
+
+
+    # ---------------------------------------------------------------------
+    # Central heat-system buses
+    # ---------------------------------------------------------------------
+
+    central_heat[
+        "natural_gas_bus"
+    ] = str(
+        buses[
+            "natural_gas"
+        ]
+    )
+
+    central_heat[
+        "biomethane_bus"
+    ] = str(
+        buses[
+            "biomethane"
+        ]
+    )
+
+
+    if (
+        "raw_biogas"
+        in buses
+    ):
+
+        central_heat[
+            "raw_biogas_bus"
+        ] = str(
+            buses[
+                "raw_biogas"
+            ]
+        )
+
+
+    central_heat[
+        "ac_bus"
+    ] = str(
+        buses[
+            "ac"
+        ]
+    )
+
+    central_heat[
+        "heat_bus"
+    ] = str(
+        buses[
+            "heat"
+        ]
+    )
+
+
+    # ---------------------------------------------------------------------
+    # Gas-to-power buses
+    # ---------------------------------------------------------------------
+
+    central_gas_to_power[
+        "gas_bus"
+    ] = str(
+        buses[
+            "natural_gas"
+        ]
+    )
+
+    central_gas_to_power[
+        "ac_bus"
+    ] = str(
+        buses[
+            "ac"
+        ]
+    )
+
+    central_gas_to_power[
+        "heat_bus"
+    ] = str(
+        buses[
+            "heat"
+        ]
+    )
+
+
+    # =====================================================================
+    # 12. DIRECT RAW-BIOGAS SUPPLY TO SWFL
+    # =====================================================================
+    #
+    # Economic structure:
+    #
+    #     delivered raw-biogas cost
+    #
+    #       = raw-biogas fuel cost
+    #       + collection / transport cost
+    #
+    # No biomethane upgrading cost and no CO2-sale credit are included.
+    # =====================================================================
+
+    direct_raw_swfl = (
+        technical_biogas.get(
+            "direct_raw_biogas_to_swfl",
+            {},
+        )
+        or {}
+    )
+
+
+    if (
+        add_swfl_raw_biogas_supply
+        and not isinstance(
+            direct_raw_swfl,
+            Mapping,
+        )
+    ):
+
+        raise ScenarioConfigError(
+            "technical.biogas_sh."
+            "direct_raw_biogas_to_swfl "
+            "must be a mapping."
+        )
+
+
+    if (
+        add_swfl_raw_biogas_supply
+        and not direct_raw_swfl
+    ):
+
+        raise ScenarioConfigError(
+            "The selected route activates direct raw-biogas "
+            "supply to SWFL, but "
+            "technical.biogas_sh.direct_raw_biogas_to_swfl "
+            "is missing."
+        )
+
+
+    raw_swfl_args = biogas.get(
+        "raw_biogas_to_swfl"
+    )
+
+    if raw_swfl_args is None:
+        raw_swfl_args = {}
+        biogas[
+            "raw_biogas_to_swfl"
+        ] = raw_swfl_args
+
+    elif not isinstance(
+            raw_swfl_args,
+            MutableMapping,
+    ):
+        raise ScenarioConfigError(
+            "'raw_biogas_to_swfl' in args.biogas_sh "
+            "must be a mapping."
+        )
+
+
+    raw_swfl_args[
+        "active"
+    ] = add_swfl_raw_biogas_supply
+
+
+    # ---------------------------------------------------------------------
+    # Dedicated fuel bus
+    # ---------------------------------------------------------------------
+
+    if add_swfl_raw_biogas_supply:
+
+        raw_swfl_bus = str(
+            direct_raw_swfl.get(
+                "target_bus",
+                buses[
+                    "raw_biogas"
+                ],
+            )
+        )
+
+    else:
+
+        raw_swfl_bus = str(
+            buses.get(
+                "raw_biogas",
+                "swfl_real_raw_biogas_bus",
+            )
+        )
+
+
+    raw_swfl_args[
+        "target_bus"
+    ] = raw_swfl_bus
+
+    central_heat[
+        "raw_biogas_bus"
+    ] = raw_swfl_bus
+
+
+    # ---------------------------------------------------------------------
+    # Raw-biogas fuel cost
+    #
+    # Prefer the common project raw-biogas price from price_cases.onsite.
+    # The technical block should contain only route-specific additions.
+    # ---------------------------------------------------------------------
+
+    raw_swfl_args[
+        "raw_biogas_cost_eur_per_mwh_hs"
+    ] = raw_biogas_cost
+
+
+    # ---------------------------------------------------------------------
+    # Collection / direct-delivery cost
+    #
+    # Current source-derived main assumption:
+    #
+    #       8.78 EUR/MWh_Hs
+    #
+    # derived separately from Treurat's investment and P&L values.
+    # ---------------------------------------------------------------------
+
+    raw_swfl_transport_cost = float(
+        direct_raw_swfl.get(
+            "transport_cost_eur_per_mwh_hs",
+            0.0,
+        )
+    )
+
+
+    if raw_swfl_transport_cost < 0:
+
+        raise ScenarioConfigError(
+            "direct_raw_biogas_to_swfl."
+            "transport_cost_eur_per_mwh_hs "
+            "must be non-negative."
+        )
+
+
+    raw_swfl_args[
+        "transport_cost_eur_per_mwh_hs"
+    ] = raw_swfl_transport_cost
+
+
+    # ---------------------------------------------------------------------
+    # Final direct-delivery marginal cost.
+    #
+    # Example:
+    #
+    #     75.00 + 8.78
+    #     = 83.78 EUR/MWh_Hs
+    # ---------------------------------------------------------------------
+
+    raw_swfl_args[
+        "marginal_cost_eur_per_mwh_hs"
+    ] = (
+        raw_biogas_cost
+        + raw_swfl_transport_cost
+    )
+
+
+    # ---------------------------------------------------------------------
+    # Optional aggregate delivery capacity
+    #
+    # None means biogas_sh.py may derive the capacity from the regional
+    # annual raw-biogas potential.
+    # ---------------------------------------------------------------------
+
+    configured_raw_swfl_capacity = (
+        direct_raw_swfl.get(
+            "power_capacity_mw",
+            None,
+        )
+    )
+
+
+    if (
+        configured_raw_swfl_capacity
+        is None
+    ):
+
+        raw_swfl_args[
+            "power_capacity_mw"
+        ] = None
+
+    else:
+
+        configured_raw_swfl_capacity = float(
+            configured_raw_swfl_capacity
+        )
+
+        if configured_raw_swfl_capacity < 0:
+
+            raise ScenarioConfigError(
+                "direct_raw_biogas_to_swfl."
+                "power_capacity_mw "
+                "must be non-negative."
+            )
+
+        raw_swfl_args[
+            "power_capacity_mw"
+        ] = configured_raw_swfl_capacity
+
+
+    # ---------------------------------------------------------------------
+    # Stable component names / carriers
+    # ---------------------------------------------------------------------
+
+    raw_swfl_args[
+        "generator_name"
+    ] = str(
+        direct_raw_swfl.get(
+            "generator_name",
+            "biogas_sh_raw_biogas_swfl_supply",
+        )
+    )
+
+    raw_swfl_args[
+        "generator_carrier"
+    ] = str(
+        direct_raw_swfl.get(
+            "generator_carrier",
+            "biogas_sh_raw_biogas_swfl",
+        )
+    )
+
+    raw_swfl_args[
+        "bus_carrier"
+    ] = str(
+        direct_raw_swfl.get(
+            "bus_carrier",
+            "raw_biogas",
+        )
+    )
+
+
+    # =====================================================================
+    # 13. RAW-BIOGAS-ELIGIBLE SWFL BOILERS
+    # =====================================================================
+
+    configured_raw_biogas_units = list(
+        map(
+            str,
+            direct_raw_swfl.get(
+                "eligible_units",
+                [],
+            ),
+        )
+    )
+
+
+    if add_swfl_raw_biogas_supply:
+
+        raw_biogas_units = (
+            configured_raw_biogas_units
+        )
+
+    else:
+
+        raw_biogas_units = []
+
+
+    # ---------------------------------------------------------------------
+    # Check that raw-biogas units actually exist.
+    # ---------------------------------------------------------------------
+
+    unknown_raw_units = (
+        set(
+            raw_biogas_units
+        )
+        - set(
+            boiler_data.keys()
+        )
+    )
+
+
+    if unknown_raw_units:
+
+        raise ScenarioConfigError(
+            "Unknown raw-biogas SWFL boiler units: "
+            f"{sorted(unknown_raw_units)}"
+        )
+
+
+    # ---------------------------------------------------------------------
+    # Check that all raw-biogas-eligible boilers are active in this run.
+    # ---------------------------------------------------------------------
+
+    inactive_raw_units = (
+        set(
+            raw_biogas_units
+        )
+        - selected_boilers
+    )
+
+
+    if inactive_raw_units:
+
+        raise ScenarioConfigError(
+            "Raw-biogas-eligible SWFL boilers are inactive "
+            "in the selected swfl_unit_case: "
+            f"{sorted(inactive_raw_units)}"
+        )
+
+
+    raw_swfl_args[
+        "eligible_units"
+    ] = list(
+        raw_biogas_units
+    )
+
+    central_heat[
+        "raw_biogas_units"
+    ] = list(
+        raw_biogas_units
+    )
+
+
+    # =====================================================================
+    # 14. SWFL LOAD ASSUMPTIONS
+    # =====================================================================
+
+    loads = technical_swfl[
+        "loads"
+    ]
+
+
     heat_load = _mutable_mapping(
         swfl,
         "heat_load",
         "args.swfl_real_system",
     )
+
     ac_load = _mutable_mapping(
         swfl,
         "ac_load",
         "args.swfl_real_system",
     )
 
-    if loads.get("heat_csv_path"):
-        heat_load["csv_path"] = str(loads["heat_csv_path"])
-    heat_load["year"] = int(loads["heat_year"])
-    heat_load["datetime_column"] = str(loads["heat_datetime_column"])
-    heat_load["column"] = str(loads["heat_column"])
-    ac_load["target_annual_demand_mwh"] = float(
-        loads["ac_target_annual_demand_mwh"]
+
+    if loads.get(
+        "heat_csv_path"
+    ):
+
+        heat_load[
+            "csv_path"
+        ] = str(
+            loads[
+                "heat_csv_path"
+            ]
+        )
+
+
+    heat_load[
+        "year"
+    ] = int(
+        loads[
+            "heat_year"
+        ]
     )
 
-    # SWFL technology assumptions.
-    gas_to_power_data = technical_swfl["central_gas_to_power"]
-    central_gas_to_power["electric_capacity_mw"] = float(
-        gas_to_power_data["electric_capacity_mw"]
-    )
-    central_gas_to_power["electric_efficiency"] = float(
-        gas_to_power_data["electric_efficiency"]
-    )
-    central_gas_to_power["marginal_cost"] = float(
-        gas_to_power_data["marginal_cost_eur_per_mwh"]
+    heat_load[
+        "datetime_column"
+    ] = str(
+        loads[
+            "heat_datetime_column"
+        ]
     )
 
-    reserve_data = technical_swfl["reserve_gas_boiler"]
-    reserve["heat_capacity_mw"] = float(
-        reserve_data["heat_capacity_mw"]
-    )
-    reserve["efficiency"] = float(reserve_data["efficiency"])
-
-    # Public-grid natural-gas supply to SWFL.
-    public_supply = technical_biogas["public_grid_to_swfl"]
-    swfl_direct["grid_supply_p_nom"] = float(
-        public_supply["power_capacity_mw"]
-    )
-    swfl_direct["grid_supply_efficiency"] = float(
-        public_supply["efficiency"]
-    )
-    swfl_direct["grid_supply_capital_cost"] = float(
-        public_supply["capital_cost_eur_per_mw"]
+    heat_load[
+        "column"
+    ] = str(
+        loads[
+            "heat_column"
+        ]
     )
 
-    # Shared regional Biogas.SH resource constraint.
-    resource_settings = technical_biogas["resource_constraint"]
-    if bool(resource_settings.get("active", True)):
+
+    ac_load[
+        "target_annual_demand_mwh"
+    ] = float(
+        loads[
+            "ac_target_annual_demand_mwh"
+        ]
+    )
+
+
+    # =====================================================================
+    # 15. SWFL TECHNOLOGY ASSUMPTIONS
+    # =====================================================================
+
+    gas_to_power_data = technical_swfl[
+        "central_gas_to_power"
+    ]
+
+
+    central_gas_to_power[
+        "electric_capacity_mw"
+    ] = float(
+        gas_to_power_data[
+            "electric_capacity_mw"
+        ]
+    )
+
+    central_gas_to_power[
+        "electric_efficiency"
+    ] = float(
+        gas_to_power_data[
+            "electric_efficiency"
+        ]
+    )
+
+    central_gas_to_power[
+        "marginal_cost"
+    ] = float(
+        gas_to_power_data[
+            "marginal_cost_eur_per_mwh"
+        ]
+    )
+
+
+    reserve_data = technical_swfl[
+        "reserve_gas_boiler"
+    ]
+
+
+    reserve[
+        "heat_capacity_mw"
+    ] = float(
+        reserve_data[
+            "heat_capacity_mw"
+        ]
+    )
+
+    reserve[
+        "efficiency"
+    ] = float(
+        reserve_data[
+            "efficiency"
+        ]
+    )
+
+
+    # =====================================================================
+    # 16. PUBLIC-GRID NATURAL-GAS SUPPLY TO SWFL
+    # =====================================================================
+
+    public_supply = technical_biogas[
+        "public_grid_to_swfl"
+    ]
+
+
+    swfl_direct[
+        "grid_supply_p_nom"
+    ] = float(
+        public_supply[
+            "power_capacity_mw"
+        ]
+    )
+
+    swfl_direct[
+        "grid_supply_efficiency"
+    ] = float(
+        public_supply[
+            "efficiency"
+        ]
+    )
+
+    swfl_direct[
+        "grid_supply_capital_cost"
+    ] = float(
+        public_supply[
+            "capital_cost_eur_per_mw"
+        ]
+    )
+
+
+    # =====================================================================
+    # 17. SHARED REGIONAL RAW-BIOGAS RESOURCE CONSTRAINT
+    # =====================================================================
+
+    resource_settings = technical_biogas[
+        "resource_constraint"
+    ]
+
+
+    resource_active = bool(
+        resource_settings.get(
+            "active",
+            True,
+        )
+    )
+
+
+    # ---------------------------------------------------------------------
+    # The new raw-biogas -> SWFL route MUST be constrained by the same
+    # regional resource as onsite generation and biomethane upgrading.
+    # ---------------------------------------------------------------------
+
+    if (
+        add_swfl_raw_biogas_supply
+        and not resource_active
+    ):
+
+        raise ScenarioConfigError(
+            "Direct raw-biogas supply to SWFL is active, but "
+            "technical.biogas_sh.resource_constraint.active "
+            "is false. Enable the shared Biogas.SH resource "
+            "constraint to prevent double counting of raw biogas."
+        )
+
+
+    if resource_active:
+
         resource = extra_functionality.setdefault(
             "biogas_sh_resource",
             {},
         )
-        if not isinstance(resource, MutableMapping):
+
+
+        if not isinstance(
+            resource,
+            MutableMapping,
+        ):
+
             raise ScenarioConfigError(
-                "args.extra_functionality.biogas_sh_resource "
+                "args.extra_functionality."
+                "biogas_sh_resource "
                 "must be a mapping."
             )
 
-        csv_path = resource.get("csv_path") or biogas.get("csv_path")
+
+        csv_path = (
+            resource.get(
+                "csv_path"
+            )
+            or biogas.get(
+                "csv_path"
+            )
+        )
+
+
         if not csv_path:
+
             raise ScenarioConfigError(
-                "The active Biogas.SH resource constraint requires "
-                "csv_path in args.extra_functionality.biogas_sh_resource "
+                "The active Biogas.SH resource constraint "
+                "requires csv_path in "
+                "args.extra_functionality.biogas_sh_resource "
                 "or args.biogas_sh.csv_path."
             )
 
-        resource["csv_path"] = csv_path
-        efficiencies = technical_biogas["efficiencies"]
-        resource["eta_el"] = float(efficiencies["onsite_electricity"])
-        resource["eta_heat"] = float(efficiencies["onsite_heat"])
-        resource["eta_upgrade"] = float(efficiencies["upgrading"])
-        resource["ignore_missing_components"] = bool(
-            resource_settings["ignore_missing_components"]
-        )
-    else:
-        extra_functionality.pop("biogas_sh_resource", None)
 
-    # Central Biogas.SH storage.
-    storage = technical_biogas["storage"]
+        resource[
+            "csv_path"
+        ] = csv_path
+
+
+        efficiencies = technical_biogas[
+            "efficiencies"
+        ]
+
+
+        resource[
+            "eta_el"
+        ] = float(
+            efficiencies[
+                "onsite_electricity"
+            ]
+        )
+
+        resource[
+            "eta_heat"
+        ] = float(
+            efficiencies[
+                "onsite_heat"
+            ]
+        )
+
+        resource[
+            "eta_upgrade"
+        ] = float(
+            efficiencies[
+                "upgrading"
+            ]
+        )
+
+
+        # -------------------------------------------------------------
+        # Direct raw-biogas delivery uses no upgrading.
+        #
+        # The resource equation therefore contains:
+        #
+        #     E_raw_to_SWFL / 1.0
+        #
+        # rather than:
+        #
+        #     E_raw_to_SWFL / eta_upgrade
+        # -------------------------------------------------------------
+
+        resource[
+            "eta_raw_swfl"
+        ] = 1.0
+
+        resource[
+            "raw_swfl_generator_carrier"
+        ] = str(
+            raw_swfl_args[
+                "generator_carrier"
+            ]
+        )
+
+
+        resource[
+            "ignore_missing_components"
+        ] = bool(
+            resource_settings[
+                "ignore_missing_components"
+            ]
+        )
+
+    else:
+
+        extra_functionality.pop(
+            "biogas_sh_resource",
+            None,
+        )
+
+
+    # =====================================================================
+    # 18. CENTRAL BIOGAS.SH BIOMETHANE STORAGE
+    # =====================================================================
+    #
+    # The central storage remains a BIOMETHANE storage.
+    #
+    # Raw biogas sent directly to SWFL does NOT pass through this storage.
+    # =====================================================================
+
+    storage = technical_biogas[
+        "storage"
+    ]
+
+
     storage_args = _mutable_mapping(
         biogas,
         "gas_storage",
         "args.biogas_sh",
     )
-    storage_args["active"] = bool(storage["active"])
-    storage_args["e_nom_mwh"] = float(storage["energy_capacity_mwh"])
-    storage_args["e_initial"] = float(storage["initial_energy_mwh"])
-    storage_args["e_cyclic"] = bool(storage["cyclic"])
-    storage_args["standing_loss"] = float(storage["standing_loss"])
 
-    storage_args["input_link_efficiency"] = float(
-        storage["plant_to_storage"]["efficiency"]
-    )
-    storage_args["input_link_marginal_cost"] = float(
-        storage["plant_to_storage"]["marginal_cost_eur_per_mwh"]
+
+    storage_args[
+        "active"
+    ] = bool(
+        storage[
+            "active"
+        ]
     )
 
-    storage_args["grid_link_p_nom_mw"] = float(
-        storage["storage_to_public_grid"]["power_capacity_mw"]
-    )
-    storage_args["grid_link_efficiency"] = float(
-        storage["storage_to_public_grid"]["efficiency"]
-    )
-    storage_args["grid_link_marginal_cost"] = float(
-        storage["storage_to_public_grid"]["marginal_cost_eur_per_mwh"]
+    storage_args[
+        "e_nom_mwh"
+    ] = float(
+        storage[
+            "energy_capacity_mwh"
+        ]
     )
 
-    storage_args["swfl_link_p_nom_mw"] = float(
-        storage["storage_to_swfl"]["power_capacity_mw"]
+    storage_args[
+        "e_initial"
+    ] = float(
+        storage[
+            "initial_energy_mwh"
+        ]
     )
-    storage_args["swfl_link_efficiency"] = float(
-        storage["storage_to_swfl"]["efficiency"]
-    )
-    storage_args["swfl_link_marginal_cost"] = float(
-        storage["storage_to_swfl"]["marginal_cost_eur_per_mwh"]
-    )
-    storage_args["swfl_target_bus"] = str(buses["biomethane"])
 
-    _apply_run_settings(args, resolved)
-    args["biogas_sh_scenario_name"] = str(resolved["scenario_name"])
+    storage_args[
+        "e_cyclic"
+    ] = bool(
+        storage[
+            "cyclic"
+        ]
+    )
+
+    storage_args[
+        "standing_loss"
+    ] = float(
+        storage[
+            "standing_loss"
+        ]
+    )
+
+
+    # ---------------------------------------------------------------------
+    # Plant biomethane -> central storage
+    # ---------------------------------------------------------------------
+
+    storage_args[
+        "input_link_efficiency"
+    ] = float(
+        storage[
+            "plant_to_storage"
+        ][
+            "efficiency"
+        ]
+    )
+
+    storage_args[
+        "input_link_marginal_cost"
+    ] = float(
+        storage[
+            "plant_to_storage"
+        ][
+            "marginal_cost_eur_per_mwh"
+        ]
+    )
+
+
+    # ---------------------------------------------------------------------
+    # Central biomethane storage -> public gas grid
+    # ---------------------------------------------------------------------
+
+    storage_args[
+        "grid_link_p_nom_mw"
+    ] = float(
+        storage[
+            "storage_to_public_grid"
+        ][
+            "power_capacity_mw"
+        ]
+    )
+
+    storage_args[
+        "grid_link_efficiency"
+    ] = float(
+        storage[
+            "storage_to_public_grid"
+        ][
+            "efficiency"
+        ]
+    )
+
+    storage_args[
+        "grid_link_marginal_cost"
+    ] = float(
+        storage[
+            "storage_to_public_grid"
+        ][
+            "marginal_cost_eur_per_mwh"
+        ]
+    )
+
+
+    # ---------------------------------------------------------------------
+    # Existing biomethane storage -> SWFL route.
+    #
+    # The parameters remain available for old scenarios. Whether this link
+    # is actually created is controlled by add_swfl_direct_supply.
+    # ---------------------------------------------------------------------
+
+    storage_to_swfl = storage.get(
+        "storage_to_swfl",
+        {},
+    ) or {}
+
+
+    if storage_to_swfl:
+
+        storage_args[
+            "swfl_link_p_nom_mw"
+        ] = float(
+            storage_to_swfl[
+                "power_capacity_mw"
+            ]
+        )
+
+        storage_args[
+            "swfl_link_efficiency"
+        ] = float(
+            storage_to_swfl[
+                "efficiency"
+            ]
+        )
+
+        storage_args[
+            "swfl_link_marginal_cost"
+        ] = float(
+            storage_to_swfl[
+                "marginal_cost_eur_per_mwh"
+            ]
+        )
+
+
+    storage_args[
+        "swfl_target_bus"
+    ] = str(
+        buses[
+            "biomethane"
+        ]
+    )
+
+
+    # =====================================================================
+    # 19. RUN SETTINGS AND SCENARIO IDENTIFICATION
+    # =====================================================================
+
+    _apply_run_settings(
+        args,
+        resolved,
+    )
+
+
+    args[
+        "biogas_sh_scenario_name"
+    ] = str(
+        resolved[
+            "scenario_name"
+        ]
+    )
+
+
+    # =====================================================================
+    # 20. DIAGNOSTIC SUMMARY
+    # =====================================================================
+
+    print(
+        "\n"
+        "============================================================"
+    )
+
+    print(
+        "APPLIED BIOGAS.SH ROUTE CONFIGURATION"
+    )
+
+    print(
+        "============================================================"
+    )
+
+    print(
+        "Route case:",
+        route_name,
+    )
+
+    print(
+        "Onsite generation:",
+        add_local_generation,
+    )
+
+    print(
+        "Biomethane -> public grid:",
+        add_gas_grid_generation,
+    )
+
+    print(
+        "Biomethane -> SWFL:",
+        add_swfl_biomethane_supply,
+    )
+
+    print(
+        "Raw biogas -> SWFL:",
+        add_swfl_raw_biogas_supply,
+    )
+
+
+    if add_swfl_raw_biogas_supply:
+
+        print(
+            "\nDIRECT RAW-BIOGAS -> SWFL"
+        )
+
+        print(
+            "------------------------------------------------------------"
+        )
+
+        print(
+            "SWFL raw-biogas bus:",
+            raw_swfl_bus,
+        )
+
+        print(
+            "Eligible SWFL units:",
+            ", ".join(
+                raw_biogas_units
+            )
+            if raw_biogas_units
+            else "none",
+        )
+
+        print(
+            "Raw-biogas cost:",
+            f"{raw_biogas_cost:.2f}",
+            "EUR/MWh_Hs",
+        )
+
+        print(
+            "Collection / transport cost:",
+            f"{raw_swfl_transport_cost:.2f}",
+            "EUR/MWh_Hs",
+        )
+
+        print(
+            "Delivered raw-biogas cost:",
+            (
+                f"{raw_swfl_args['marginal_cost_eur_per_mwh_hs']:.2f}"
+            ),
+            "EUR/MWh_Hs",
+        )
+
+        print(
+            "Upgrading efficiency applied:",
+            "no",
+        )
+
+        print(
+            "CO2-sale credit applied:",
+            "no",
+        )
+
+        print(
+            "Shared raw-biogas constraint:",
+            "active",
+        )
+
+
+    print(
+        "============================================================\n"
+    )
+
+
     return args
 
 

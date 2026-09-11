@@ -502,6 +502,9 @@ args = {
 
             "natural_gas_bus": "biogas_sh_swfl_ch4_bus",
             "biomethane_bus": "swfl_real_biomethane_ch4_bus",
+            
+            # Dedicated non-upgraded raw-biogas bus.
+            "raw_biogas_bus": "swfl_real_raw_biogas_bus",
 
             "ac_bus": "33935",
             "heat_bus": "swfl_real_central_heat_bus",
@@ -524,6 +527,15 @@ args = {
                 "swfl_real_k12",
                 "swfl_real_k13",
             ],
+            
+            # ------------------------------------------------------------------
+            # Direct raw-biogas eligibility
+            # ------------------------------------------------------------------
+            #
+            # scenario_config.py will overwrite this according to
+            # technical.biogas_sh.direct_raw_biogas_to_swfl.eligible_units.
+            #
+            "raw_biogas_units": [],
 
             # Normal eGon2035 case: no HEL.
             "allow_hel_backup": False,
@@ -787,6 +799,13 @@ args = {
         "add_local_generation": True, #use Biogas.SH → supply local heat and electricty
         "add_gas_grid_generation": True, #add Biogas.SH → public gas grid injection route.
         "add_swfl_direct_supply": True, #add Biogas.SH → Stadtwerke Flensburg
+        
+        # config.yaml activates it for hybrid_raw_swfl.
+        "add_swfl_raw_biogas_supply": False,
+
+        # SWFL still needs access to fossil natural gas even when the
+        # upgraded-biomethane -> SWFL route is disabled.
+        "ensure_swfl_gas_access": True,
 
         # Legacy field kept for compatibility. If add_gas_grid_generation is absent,
         # this is interpreted as gas-grid generation.
@@ -842,6 +861,55 @@ args = {
             # SWFL demand now comes from the real CHP/heat links.
             "add_swfl_gas_load": False,
             "swfl_demand_mwh_a": 0.0,
+        },
+        
+        "raw_biogas_to_swfl": {
+
+            # Safe default. The route case in config.yaml overwrites this.
+            "active": False,
+
+            "target_bus": "swfl_real_raw_biogas_bus",
+        
+            # Raw-biogas commodity cost.
+            #
+            # scenario_config.py overwrites this from:
+                #
+                #   price_cases.onsite.raw_biogas_cost_eur_per_mwh_hs
+                #
+            "raw_biogas_cost_eur_per_mwh_hs": 75.0,
+
+            # Project-derived collection / transport adder.
+            #
+            # scenario_config.py overwrites this from:
+                #
+                # technical.biogas_sh.direct_raw_biogas_to_swfl
+                #
+            "transport_cost_eur_per_mwh_hs": 8.78,
+
+            # Final delivered cost:
+                #
+                #   75.00 + 8.78
+                #   = 83.78 EUR/MWh_Hs
+                #
+            "marginal_cost_eur_per_mwh_hs": 83.78,
+
+            # None means:
+            #
+            #   total annual regional raw-biogas potential / 8760
+            #
+            "power_capacity_mw": None,
+
+            "generator_name": "biogas_sh_raw_biogas_swfl_supply",
+        
+            "generator_carrier": "biogas_sh_raw_biogas_swfl",
+
+            "bus_carrier": "raw_biogas",
+
+            # Units allowed to receive direct raw biogas.
+            "eligible_units": [
+                "swfl_real_k12",
+                "swfl_real_k13",
+            ],
         },
 
         "gas_storage": {
@@ -966,7 +1034,6 @@ args = {
 
         "biomethane_price_override_eur_per_mwh": 92.9,
         "default_biomethane_cost": 92.9,
-        },
 
         "support": {
             # Safe default if config.yaml has not overridden the run.
@@ -988,6 +1055,8 @@ args = {
             "flex_fixed_om_fraction": 0.02,
             "flexibility_payment_eur_per_kw_year": 0.0,
         },
+        
+        },      
 }
 
 

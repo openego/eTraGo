@@ -256,7 +256,7 @@ selection:
   #
   #       Biogas.SH storage -> SWFL biomethane bus -> K12/K13
   #
-  biomethane_use_case: "k12_k13_only"
+  biomethane_use_case: "off"
 
 
   # ---------------------------------------------------------------------------
@@ -286,7 +286,7 @@ selection:
   # Route-exclusive configurations should only be used as explicit debugging
   # or validation tests.
   #
-  biogas_route_case: "hybrid"
+  biogas_route_case: "hybrid_raw_swfl"
 
 # ---------------------------------------------------------------------------
 
@@ -305,7 +305,7 @@ batch:
 # Null means: preserve the corresponding value already defined in appl.py.
 run:
   start_snapshot: 1
-  end_snapshot: 72
+  end_snapshot: 10
   ac_clusters: 50
   result_name_template: "{scenario}_{hours}h_{ac_clusters}ac"
 
@@ -601,140 +601,479 @@ biomethane_use_cases:
 # -----------------------------------------------------------------------------
 # BIOGAS.SH ROUTE CASES
 # -----------------------------------------------------------------------------
-# The internal booleans retain their existing names for compatibility:
-#   add_gas_grid_generation -> plant buses -> storage -> public CH4 grid
-#   add_swfl_direct_supply  -> plant buses -> storage -> SWFL biomethane bus
+#
+# Physical routes:
+#
+#   onsite:
+#       raw biogas -> onsite electricity / heat
+#
+#   storage_to_grid:
+#       raw biogas -> upgrading -> biomethane
+#       -> central storage -> public CH4 grid
+#
+#   storage_to_swfl:
+#       LEGACY / sensitivity route:
+#       raw biogas -> upgrading -> biomethane
+#       -> central storage -> SWFL
+#
+#   hybrid:
+#       LEGACY hybrid:
+#       onsite + public-grid biomethane + SWFL biomethane
+#
+#   hybrid_raw_swfl:
+#       CURRENT PROJECT ROUTE:
+#       onsite + public-grid biomethane
+#       + direct raw biogas -> SWFL
+#
+# The raw-biogas -> SWFL route bypasses upgrading and therefore:
+#
+#   - has no upgrading loss,
+#   - does not use the biomethane storage,
+#   - does not receive the CO2-sale credit.
+# -----------------------------------------------------------------------------
+
 biogas_route_cases:
+
   onsite:
-    description: "Use only onsite electricity/heat options."
+    description: >
+      Use only onsite electricity and heat generation.
+
     add_local_generation: true
     add_gas_grid_generation: false
     add_swfl_direct_supply: false
+    add_swfl_raw_biogas_supply: false
+
 
   storage_to_grid:
-    description: "Route biomethane through central storage to the public CH4 grid."
+    description: >
+      Upgrade raw biogas to biomethane and route it through
+      central storage to the public CH4 grid.
+
     add_local_generation: false
     add_gas_grid_generation: true
     add_swfl_direct_supply: false
+    add_swfl_raw_biogas_supply: false
+
 
   storage_to_swfl:
-    description: "Route biomethane through central storage to the SWFL biomethane bus."
+    description: >
+      Legacy sensitivity route. Upgrade raw biogas to
+      biomethane and route it through central storage
+      to the dedicated SWFL biomethane bus.
+
     add_local_generation: false
     add_gas_grid_generation: false
     add_swfl_direct_supply: true
+    add_swfl_raw_biogas_supply: false
+
 
   hybrid:
-    description: "Enable onsite options and both central-storage output routes."
+    description: >
+      Legacy hybrid route with onsite generation,
+      public-grid biomethane injection and upgraded
+      biomethane supply to SWFL.
+
     add_local_generation: true
     add_gas_grid_generation: true
     add_swfl_direct_supply: true
+    add_swfl_raw_biogas_supply: false
+
+
+  hybrid_raw_swfl:
+    description: >
+      Main project route. Enable onsite electricity and heat,
+      upgraded biomethane injection into the public CH4 grid,
+      and direct non-upgraded raw-biogas supply to SWFL.
+
+    add_local_generation: true
+
+    # Raw biogas -> upgrading -> biomethane
+    # -> storage -> public CH4 grid
+    add_gas_grid_generation: true
+
+    # No upgraded biomethane supply to SWFL.
+    add_swfl_direct_supply: false
+
+    # Raw biogas is delivered directly to SWFL.
+    add_swfl_raw_biogas_supply: true
 
 # -----------------------------------------------------------------------------
 # TECHNICAL ASSUMPTIONS
 # -----------------------------------------------------------------------------
 technical:
+
+  # ===========================================================================
+  # STADTWERKE FLENSBURG SYSTEM
+  # ===========================================================================
   swfl:
+
+    # -------------------------------------------------------------------------
+    # Main SWFL buses
+    # -------------------------------------------------------------------------
+    #
+    # Natural gas, upgraded biomethane, and raw biogas remain on separate
+    # buses so that their flows and economics can be tracked independently.
+    #
     buses:
       ac: "33935"
+
       heat: "swfl_real_central_heat_bus"
+
+      # Fossil natural-gas supply to SWFL.
       natural_gas: "biogas_sh_swfl_ch4_bus"
+
+      # Dedicated upgraded-biomethane bus.
+      # Used only when add_swfl_direct_supply=true.
       biomethane: "swfl_real_biomethane_ch4_bus"
+
+      # Dedicated non-upgraded raw-biogas bus.
+      # Used by the direct raw-biogas -> SWFL route.
+      raw_biogas: "swfl_real_raw_biogas_bus"
+
+      # Existing public CH4-grid bus.
       public_ch4: "47538"
 
+
+    # -------------------------------------------------------------------------
+    # SWFL / Flensburg spatial area
+    # -------------------------------------------------------------------------
     selected_mv_grid_district_ids:
       - "33935"
       - "33543"
       - "35906"
 
+
+    # -------------------------------------------------------------------------
+    # SWFL demand assumptions
+    # -------------------------------------------------------------------------
     loads:
-      # Null preserves the path already configured in appl.py.
+
+      # null preserves the heat-profile path already configured in appl.py.
       heat_csv_path: null
+
       heat_year: 2023
+
       heat_datetime_column: "timestamp"
+
       heat_column: "hkw_heat_mw"
+
+      # Annual SWFL electricity demand.
       ac_target_annual_demand_mwh: 381516.0
 
+
+    # -------------------------------------------------------------------------
+    # SWFL central gas-to-power unit
+    # -------------------------------------------------------------------------
+    #
+    # This is currently represented as an electricity-only gas conversion
+    # Link. The detailed heat side is represented separately by K5/K11/K12/K13.
+    #
     central_gas_to_power:
+
+      # Electrical output capacity.
       electric_capacity_mw: 241.0
+
+      # Fuel -> electricity efficiency.
       electric_efficiency: 0.40
+
+      # Fuel costs are represented upstream.
       marginal_cost_eur_per_mwh: 0.0
 
+
+    # -------------------------------------------------------------------------
+    # SWFL fuel-fired heat units
+    # -------------------------------------------------------------------------
+    #
+    # Heat capacities refer to useful thermal output.
+    #
     boilers:
+
       swfl_real_k5:
         heat_capacity_mw: 60.0
         efficiency: 0.90
+
       swfl_real_k11:
         heat_capacity_mw: 70.0
         efficiency: 0.90
+
       swfl_real_k12:
         heat_capacity_mw: 80.0
         efficiency: 0.90
+
       swfl_real_k13:
         heat_capacity_mw: 90.0
         efficiency: 0.90
 
+
+    # -------------------------------------------------------------------------
+    # SWFL electrode / resistive heaters
+    # -------------------------------------------------------------------------
     resistive_heaters:
+
       swfl_real_ehk1:
         heat_capacity_mw: 30.0
         efficiency: 0.99
+
       swfl_real_ehk2:
         heat_capacity_mw: 40.0
         efficiency: 0.99
 
+
+    # -------------------------------------------------------------------------
+    # Planned SWFL large heat pumps
+    # -------------------------------------------------------------------------
     heat_pumps:
+
       swfl_gwp_1:
         heat_capacity_mw: 60.0
         cop: 3.0
         planned_year: 2028
+
       swfl_gwp_2:
         heat_capacity_mw: 60.0
         cop: 3.0
         planned_year: null
 
+
+    # -------------------------------------------------------------------------
+    # Optional reserve heating plant
+    # -------------------------------------------------------------------------
     reserve_gas_boiler:
+
       heat_capacity_mw: 203.0
+
       efficiency: 1.0
 
+
+  # ===========================================================================
+  # BIOGAS.SH SYSTEM
+  # ===========================================================================
   biogas_sh:
+
+    # -------------------------------------------------------------------------
+    # Conversion efficiencies
+    # -------------------------------------------------------------------------
+    #
+    # These efficiencies are used by the shared annual raw-biogas
+    # resource constraint.
+    #
     efficiencies:
+
+      # Raw biogas -> onsite electricity.
       onsite_electricity: 0.38
+
+      # Raw biogas -> onsite useful heat.
       onsite_heat: 0.45
+
+      # Raw biogas -> upgraded biomethane.
       upgrading: 0.96
 
+
+    # -------------------------------------------------------------------------
+    # Direct raw-biogas delivery to Stadtwerke Flensburg
+    # -------------------------------------------------------------------------
+    #
+    # Physical route:
+    #
+    #     regional raw biogas
+    #           |
+    #           v
+    #     collection / transport
+    #           |
+    #           v
+    #     SWFL raw-biogas bus
+    #           |
+    #           +----> K12
+    #           |
+    #           +----> K13
+    #
+    # This route bypasses biomethane upgrading completely.
+    #
+    # Therefore:
+    #
+    #   - no eta_upgrade is applied,
+    #   - no biomethane production cost is applied,
+    #   - no separated-CO2 sales credit is applied.
+    #
+    # The raw-biogas commodity cost itself is NOT defined here.
+    # It comes from:
+    #
+    #   price_cases.onsite.raw_biogas_cost_eur_per_mwh_hs
+    #
+    # Current value:
+    #
+    #   75.00 EUR/MWh_Hs
+    #
+    direct_raw_biogas_to_swfl:
+
+      # Dedicated SWFL raw-biogas bus.
+      target_bus: "swfl_real_raw_biogas_bus"
+
+      # Source-derived collection / transport adder.
+      #
+      # Delivered raw-biogas marginal cost is therefore:
+      #
+      #   75.00 + 8.78
+      #   = 83.78 EUR/MWh_Hs
+      #
+      transport_cost_eur_per_mwh_hs: 8.78
+
+      # Aggregate raw-biogas delivery capacity.
+      #
+      # null means:
+      #
+      #   p_nom =
+      #       total annual regional raw-biogas potential / 8760
+      #
+      power_capacity_mw: null
+
+      # Stable component identifiers used by biogas_sh.py.
+      generator_name: "biogas_sh_raw_biogas_swfl_supply"
+
+      generator_carrier: "biogas_sh_raw_biogas_swfl"
+
+      bus_carrier: "raw_biogas"
+
+      # SWFL units physically allowed to use direct raw biogas.
+      eligible_units:
+        - "swfl_real_k12"
+        - "swfl_real_k13"
+
+
+    # -------------------------------------------------------------------------
+    # Shared regional raw-biogas resource constraint
+    # -------------------------------------------------------------------------
+    #
+    # REQUIRED for the hybrid_raw_swfl topology.
+    #
+    # All competing Biogas.SH pathways draw from the same regional
+    # raw-biogas resource:
+    #
+    #     onsite electricity / eta_el
+    #
+    #   + onsite heat / eta_heat
+    #
+    #   + upgraded biomethane / eta_upgrade
+    #
+    #   + direct raw biogas -> SWFL
+    #
+    #   <= available annual raw-biogas potential
+    #
+    # Direct raw biogas -> SWFL enters with factor 1.0 because there is
+    # no upgrading step.
+    #
     resource_constraint:
-      active: false #True
+
+      active: true
+
       ignore_missing_components: false
 
+
+    # -------------------------------------------------------------------------
+    # Public natural-gas grid -> SWFL connection
+    # -------------------------------------------------------------------------
+    #
+    # This route provides fossil natural gas to SWFL independently of the
+    # Biogas.SH raw-biogas and biomethane routes.
+    #
+    # Fossil-gas commodity and CO2 costs are represented upstream at
+    # CH4_NG generators. Therefore no fuel cost is added here.
+    #
     public_grid_to_swfl:
+
       power_capacity_mw: 1500.0
+
       efficiency: 1.0
+
       capital_cost_eur_per_mw: 0.0
 
+
+    # -------------------------------------------------------------------------
+    # Central upgraded-biomethane storage
+    # -------------------------------------------------------------------------
+    #
+    # IMPORTANT:
+    #
+    # This storage belongs only to the upgraded biomethane pathway:
+    #
+    #     raw biogas
+    #         -> upgrading
+    #         -> biomethane
+    #         -> central storage
+    #
+    # The direct raw-biogas -> SWFL route does NOT pass through this storage.
+    #
     storage:
+
       active: true
-      energy_capacity_mwh: 500.0 #TODO: need to be checked against the documented 5,000 m³ storage
+
+
+      # -----------------------------------------------------------------------
+      # Storage energy capacity
+      # -----------------------------------------------------------------------
+
+      energy_capacity_mwh: 500.0
+
+      # TODO:
+      # Verify this value against the documented physical storage volume
+      # of approximately 5,000 m3.
+
       initial_energy_mwh: 0.0
+
       cyclic: true
+
       standing_loss: 0.0
 
+
+      # -----------------------------------------------------------------------
+      # Plant biomethane -> central storage
+      # -----------------------------------------------------------------------
       plant_to_storage:
+
         efficiency: 1.0
+
         marginal_cost_eur_per_mwh: 0.0
 
+
+      # -----------------------------------------------------------------------
+      # Central storage -> public CH4 grid
+      # -----------------------------------------------------------------------
       storage_to_public_grid:
+
         power_capacity_mw: 50.0
+
         efficiency: 1.0
+
         marginal_cost_eur_per_mwh: 0.0
 
+
+      # -----------------------------------------------------------------------
+      # Central storage -> SWFL upgraded-biomethane route
+      # -----------------------------------------------------------------------
+      #
+      # Retained for legacy / sensitivity scenarios such as:
+      #
+      #   storage_to_swfl
+      #   hybrid
+      #
+      # This route is NOT used when:
+      #
+      #   biogas_route_case = "hybrid_raw_swfl"
+      #
       storage_to_swfl:
+
         power_capacity_mw: 50.0
+
         efficiency: 1.0
+
         marginal_cost_eur_per_mwh: 0.0
 
 # -----------------------------------------------------------------------------
 # OPTIONAL FACTORIAL SENSITIVITY MATRIX
 # -----------------------------------------------------------------------------
+
 scenario_matrix:
+
   enabled: true
 
   dimensions:
@@ -744,24 +1083,43 @@ scenario_matrix:
       - "followon_eeg_no_flex"
       - "followon_eeg_flex"
 
+
     fossil_gas_price_case:
       - "low_2035"
       - "legacy_egon"
       - "high_2035"
       - "crisis_2035"
 
-    # All following dimensions are deliberately fixed.
+
+    # Fixed project biomethane-cost assumption.
     biomethane_price_case:
       - "project_92_9"
 
-    heat_pump_case:
-      - "two"
 
+    # Fixed CO2-sale assumption for this matrix.
+    co2_sale_case:
+      - "medium_76_5"
+
+
+    # Fixed heat-pump configuration.
+    heat_pump_case:
+      - "one_gwp1"
+
+
+    # Fixed SWFL generation configuration.
     swfl_unit_case:
       - "all_operational"
 
-    biomethane_use_case:
-      - "k12_k13_only"
 
+    # Upgraded biomethane is NOT supplied directly to SWFL.
+    biomethane_use_case:
+      - "off"
+
+
+    # Main project topology:
+    #
+    # onsite +
+    # biomethane -> public grid +
+    # raw biogas -> SWFL
     biogas_route_case:
-      - "hybrid"
+      - "hybrid_raw_swfl"

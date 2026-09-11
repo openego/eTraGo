@@ -145,68 +145,105 @@ def apply_swfl_real_system(
     1. Identify the Flensburg/SWFL replacement area.
     2. Preserve the existing eGon AC-load profile shape.
     3. Remove generic eGon loads, generators, and conversion technologies.
-    4. Create the project-specific SWFL buses.
-    5. Add the real heat-load profile.
-    6. Add the real-scaled AC-load profile.
-    7. Optionally add the aggregate 241 MWel electricity-generation link.
-    8. Optionally add the detailed central heat units:
+    4. Create the project-specific SWFL AC, heat, and natural-gas buses.
+    5. Add the real SWFL heat-load profile.
+    6. Add the scaled SWFL AC-load profile.
+    7. Optionally add the aggregate SWFL gas-to-power link.
+    8. Add detailed SWFL heat-production units:
        K5, K11, K12, K13, EHK1, and EHK2.
-    9. Optionally add the reserve heating plant.
-    10. Optionally add future large heat pumps.
+    9. Allow the detailed fuel-fired units to receive separately:
+       - fossil natural gas,
+       - upgraded biomethane,
+       - direct raw biogas,
+       - optional HEL.
+    10. Optionally add the reserve heating plant.
+    11. Optionally add future SWFL heat pumps.
 
     Important
     ---------
-    When ``central_heat_units.active=True``, the aggregate 370 MWth link in
-    ``central_gas_chp`` must be disabled using:
+    Natural gas, upgraded biomethane, and raw biogas are represented on
+    separate buses so their physical and economic flows remain distinguishable.
+
+    When ``central_heat_units.active=True``, the old aggregate SWFL heat
+    link in ``central_gas_chp`` must be disabled:
 
         central_gas_chp.add_heat_link = False
 
-    Otherwise, the same SWFL heat capacity would be represented twice.
+    Otherwise SWFL heat-production capacity would be represented twice.
     """
+
     settings = settings or {}
 
-    # ------------------------------------------------------------------
-    # 0. Activation check
-    # ------------------------------------------------------------------
-    if not _as_bool(settings.get("active", False), False):
+    # ==================================================================
+    # 0. ACTIVATION
+    # ==================================================================
+
+    if not _as_bool(
+        settings.get(
+            "active",
+            False,
+        ),
+        False,
+    ):
         logger.info(
             "SWFL real system inactive; network remains unchanged."
         )
         return network
 
-    _ensure_timeseries_tables(network)
+    _ensure_timeseries_tables(
+        network
+    )
 
-    snapshots = pd.Index(network.snapshots)
+    snapshots = pd.Index(
+        network.snapshots
+    )
 
-    # ------------------------------------------------------------------
-    # 1. Select the Flensburg/SWFL area before removing anything
-    # ------------------------------------------------------------------
+
+    # ==================================================================
+    # 1. IDENTIFY SWFL AREA
+    # ==================================================================
+
     area_buses = get_swfl_area_buses(
         network=network,
         settings=settings,
     )
 
-    # ------------------------------------------------------------------
-    # 2. Preserve the existing eGon AC-load profile shape
-    # ------------------------------------------------------------------
-    ac_cfg = settings.get("ac_load", {}) or {}
+
+    # ==================================================================
+    # 2. PRESERVE EXISTING AC LOAD PROFILE SHAPE
+    # ==================================================================
+
+    ac_cfg = (
+        settings.get(
+            "ac_load",
+            {},
+        )
+        or {}
+    )
+
     ac_active = _as_bool(
-        ac_cfg.get("active", True),
+        ac_cfg.get(
+            "active",
+            True,
+        ),
         True,
     )
 
     ac_shape = None
 
     if ac_active:
+
         ac_shape = build_existing_ac_profile_shape(
             network=network,
             area_buses=area_buses,
             cfg=ac_cfg,
         )
 
-    # ------------------------------------------------------------------
-    # 3. Remove generic eGon Flensburg/SWFL assets
-    # ------------------------------------------------------------------
+
+    # ==================================================================
+    # 3. REMOVE OLD FLENSBURG / SWFL ASSETS
+    # ==================================================================
+
     if _as_bool(
         settings.get(
             "remove_existing_flensburg_assets",
@@ -214,16 +251,25 @@ def apply_swfl_real_system(
         ),
         True,
     ):
+
         remove_existing_flensburg_assets(
             network=network,
             area_buses=area_buses,
             settings=settings,
         )
 
-    # ------------------------------------------------------------------
-    # 4. Remove existing central/rural heat pumps if requested
-    # ------------------------------------------------------------------
-    hp_cfg = settings.get("future_heat_pumps", {}) or {}
+
+    # ==================================================================
+    # 4. REMOVE LEGACY HEAT PUMPS
+    # ==================================================================
+
+    hp_cfg = (
+        settings.get(
+            "future_heat_pumps",
+            {},
+        )
+        or {}
+    )
 
     if _as_bool(
         hp_cfg.get(
@@ -232,15 +278,18 @@ def apply_swfl_real_system(
         ),
         True,
     ):
+
         remove_existing_heat_pumps(
             network=network,
             area_buses=area_buses,
             settings=settings,
         )
 
-    # ------------------------------------------------------------------
-    # 5. Create/update the main SWFL buses
-    # ------------------------------------------------------------------
+
+    # ==================================================================
+    # 5. MAIN SWFL BUSES
+    # ==================================================================
+
     swfl_ac_bus = str(
         settings.get(
             "swfl_ac_bus",
@@ -262,7 +311,11 @@ def apply_swfl_real_system(
         )
     )
 
-    x, y = get_swfl_coordinates(settings)
+
+    x, y = get_swfl_coordinates(
+        settings
+    )
+
 
     ensure_bus(
         network=network,
@@ -293,18 +346,31 @@ def apply_swfl_real_system(
         y=y,
     )
 
-    # ------------------------------------------------------------------
-    # 6. Add the real SWFL heat load
-    # ------------------------------------------------------------------
-    heat_cfg = settings.get("heat_load", {}) or {}
+
+    # ==================================================================
+    # 6. REAL SWFL HEAT LOAD
+    # ==================================================================
+
+    heat_cfg = (
+        settings.get(
+            "heat_load",
+            {},
+        )
+        or {}
+    )
+
     heat_active = _as_bool(
-        heat_cfg.get("active", True),
+        heat_cfg.get(
+            "active",
+            True,
+        ),
         True,
     )
 
     heat_profile = None
 
     if heat_active:
+
         heat_profile = read_heat_profile_for_snapshots(
             snapshots=snapshots,
             cfg=heat_cfg,
@@ -331,14 +397,17 @@ def apply_swfl_real_system(
             p_set=heat_profile,
         )
 
-    # ------------------------------------------------------------------
-    # 7. Add the scaled SWFL AC load
-    # ------------------------------------------------------------------
+
+    # ==================================================================
+    # 7. REAL / SCALED SWFL ELECTRICITY LOAD
+    # ==================================================================
+
     if ac_active:
+
         if ac_shape is None:
             raise ValueError(
-                "SWFL AC-load configuration is active, but no existing "
-                "eGon AC profile shape was created."
+                "SWFL AC-load configuration is active, "
+                "but no existing eGon AC profile shape was created."
             )
 
         ac_profile = scale_ac_profile_to_target(
@@ -366,26 +435,41 @@ def apply_swfl_real_system(
             p_set=ac_profile,
         )
 
-    # ------------------------------------------------------------------
-    # 8. Read central generation configurations
-    # ------------------------------------------------------------------
-    chp_cfg = settings.get(
-        "central_gas_chp",
-        {},
-    ) or {}
 
-    heat_units_cfg = settings.get(
-        "central_heat_units",
-        {},
-    ) or {}
+    # ==================================================================
+    # 8. CENTRAL GENERATION CONFIGURATION
+    # ==================================================================
+
+    chp_cfg = (
+        settings.get(
+            "central_gas_chp",
+            {},
+        )
+        or {}
+    )
+
+    heat_units_cfg = (
+        settings.get(
+            "central_heat_units",
+            {},
+        )
+        or {}
+    )
+
 
     chp_active = _as_bool(
-        chp_cfg.get("active", True),
+        chp_cfg.get(
+            "active",
+            True,
+        ),
         True,
     )
 
     detailed_heat_active = _as_bool(
-        heat_units_cfg.get("active", False),
+        heat_units_cfg.get(
+            "active",
+            False,
+        ),
         False,
     )
 
@@ -400,22 +484,27 @@ def apply_swfl_real_system(
         )
     )
 
-    # Prevent double representation of the 370 MWth system.
-    if detailed_heat_active and aggregate_heat_active:
+
+    if (
+        detailed_heat_active
+        and aggregate_heat_active
+    ):
+
         raise ValueError(
-            "Both the aggregate SWFL heat link and the detailed central "
-            "heat units are active. This would double-count SWFL heat "
-            "capacity. Set "
+            "Both the aggregate SWFL heat link and the detailed "
+            "central heat units are active. This would double-count "
+            "SWFL heat capacity. Set "
             "args['swfl_real_system']['central_gas_chp']"
             "['add_heat_link'] = False."
         )
 
-    # ------------------------------------------------------------------
-    # 9. Add the aggregate SWFL electricity-generation link
-    # ------------------------------------------------------------------
-    # The temporary aggregate representation may retain the 241 MWel
-    # electricity side while its old 370 MWth heat side is disabled.
+
+    # ==================================================================
+    # 9. SWFL GAS-TO-POWER
+    # ==================================================================
+
     if chp_active:
+
         add_central_gas_chp_links(
             network=network,
             cfg=chp_cfg,
@@ -439,10 +528,13 @@ def apply_swfl_real_system(
             ),
         )
 
-    # ------------------------------------------------------------------
-    # 10. Add detailed SWFL central heat-generation units
-    # ------------------------------------------------------------------
+
+    # ==================================================================
+    # 10. DETAILED SWFL CENTRAL HEAT SYSTEM
+    # ==================================================================
+
     if detailed_heat_active:
+
         natural_gas_bus = str(
             heat_units_cfg.get(
                 "natural_gas_bus",
@@ -457,18 +549,19 @@ def apply_swfl_real_system(
             )
         )
 
-        # The buses must remain separate so that natural gas and
-        # biomethane can be tracked independently.
-        if natural_gas_bus == biomethane_bus:
-            raise ValueError(
-                "central_heat_units.natural_gas_bus and "
-                "central_heat_units.biomethane_bus must be different. "
-                "Otherwise natural gas and biomethane cannot be "
-                "distinguished in the optimisation."
+        raw_biogas_bus = str(
+            heat_units_cfg.get(
+                "raw_biogas_bus",
+                "swfl_real_raw_biogas_bus",
             )
+        )
 
-        # The natural-gas bus should normally already be the main SWFL
-        # CH4 bus. Ensure it exists in case another bus was configured.
+
+        # --------------------------------------------------------------
+        # Natural gas is the standard fuel and is always required by
+        # the detailed SWFL gas boilers.
+        # --------------------------------------------------------------
+
         ensure_bus(
             network=network,
             name=natural_gas_bus,
@@ -477,20 +570,25 @@ def apply_swfl_real_system(
             y=y,
         )
 
-        # Dedicated bus supplied from the Biogas.SH storage.
-        ensure_bus(
-            network=network,
-            name=biomethane_bus,
-            carrier="CH4",
-            x=x,
-            y=y,
-        )
+
+        # --------------------------------------------------------------
+        # IMPORTANT:
+            #
+            # Do NOT create the biomethane or raw-biogas buses here
+            # unconditionally.
+            #
+            # add_central_heat_units() knows which fuels are actually
+            # enabled and creates only the buses that are needed.
+            #
+            # This prevents isolated CH4 buses from entering gas clustering.
+        # --------------------------------------------------------------
 
         add_central_heat_units(
             network=network,
             cfg=heat_units_cfg,
             natural_gas_bus=natural_gas_bus,
             biomethane_bus=biomethane_bus,
+            raw_biogas_bus=raw_biogas_bus,
             ac_bus=str(
                 heat_units_cfg.get(
                     "ac_bus",
@@ -507,18 +605,27 @@ def apply_swfl_real_system(
             y=y,
         )
 
-    # ------------------------------------------------------------------
-    # 11. Add the optional 203 MWth reserve heating plant
-    # ------------------------------------------------------------------
-    reserve_cfg = settings.get(
-        "reserve_gas_boiler",
-        {},
-    ) or {}
+
+    # ==================================================================
+    # 11. OPTIONAL RESERVE GAS BOILER
+    # ==================================================================
+
+    reserve_cfg = (
+        settings.get(
+            "reserve_gas_boiler",
+            {},
+        )
+        or {}
+    )
 
     if _as_bool(
-        reserve_cfg.get("active", False),
+        reserve_cfg.get(
+            "active",
+            False,
+        ),
         False,
     ):
+
         reserve_gas_bus = str(
             reserve_cfg.get(
                 "gas_bus",
@@ -546,13 +653,19 @@ def apply_swfl_real_system(
             ),
         )
 
-    # ------------------------------------------------------------------
-    # 12. Add future large SWFL heat pumps
-    # ------------------------------------------------------------------
+
+    # ==================================================================
+    # 12. FUTURE LARGE SWFL HEAT PUMPS
+    # ==================================================================
+
     if _as_bool(
-        hp_cfg.get("active", False),
+        hp_cfg.get(
+            "active",
+            False,
+        ),
         False,
     ):
+
         add_future_heat_pumps(
             network=network,
             cfg=hp_cfg,
@@ -560,9 +673,11 @@ def apply_swfl_real_system(
             heat_bus=swfl_heat_bus,
         )
 
-    # ------------------------------------------------------------------
-    # 13. Print summary and return the modified network
-    # ------------------------------------------------------------------
+
+    # ==================================================================
+    # 13. SUMMARY
+    # ==================================================================
+
     print_swfl_real_system_summary(
         network=network,
         settings=settings,
@@ -572,7 +687,6 @@ def apply_swfl_real_system(
     )
 
     return network
-
 
 
 # =============================================================================
@@ -1689,6 +1803,7 @@ def add_central_heat_units(
     cfg: Dict[str, Any],
     natural_gas_bus: str,
     biomethane_bus: str,
+    raw_biogas_bus: str,
     ac_bus: str,
     heat_bus: str,
     x: float,
@@ -1697,75 +1812,248 @@ def add_central_heat_units(
     """
     Add detailed SWFL central heat-generation units.
 
-    Fuel-fired units:
+    Fuel-fired units
+    ----------------
         K5   60 MWth
         K11  70 MWth
         K12  80 MWth
         K13  90 MWth
 
-    Electric units:
+    Electric units
+    --------------
         EHK1 30 MWth
         EHK2 40 MWth
 
-    Every fuel-fired boiler receives one internal fuel bus and one conversion
-    link. Natural gas, biomethane and optional HEL supply this internal bus.
+    Fuel topology
+    -------------
+    Each fuel-fired unit receives one internal fuel bus and one heat
+    conversion Link.
 
-    This ensures that multiple fuels share the same physical boiler capacity.
+    Separate supply Links may feed that common fuel bus from:
+
+        natural gas
+        upgraded biomethane
+        raw biogas
+        optional HEL
+
+    Example for K12:
+
+        natural gas --------\
+                             \
+        biomethane ----------- > K12 fuel bus -> K12 boiler -> heat
+                             /
+        raw biogas ----------/
+
+    This architecture guarantees that all fuels compete for the SAME
+    physical boiler capacity.
+
+    Fuel prices are represented upstream at the corresponding source.
+    The supply links in this function therefore contain only optional
+    route-specific transport costs.
     """
 
-    if natural_gas_bus not in network.buses.index.astype(str):
+    # ==================================================================
+    # 1. REQUIRED SYSTEM BUSES
+    # ==================================================================
+
+    existing_buses = set(
+        network.buses.index.astype(str)
+    )
+
+
+    if natural_gas_bus not in existing_buses:
+
         raise ValueError(
             f"Natural-gas bus {natural_gas_bus!r} "
             "does not exist in network.buses."
         )
 
-    if heat_bus not in network.buses.index.astype(str):
+
+    if heat_bus not in existing_buses:
+
         raise ValueError(
             f"SWFL heat bus {heat_bus!r} "
             "does not exist in network.buses."
         )
 
-    if ac_bus not in network.buses.index.astype(str):
+
+    if ac_bus not in existing_buses:
+
         raise ValueError(
             f"SWFL AC bus {ac_bus!r} "
             "does not exist in network.buses."
         )
 
-    ensure_bus(
-        network,
-        biomethane_bus,
-        carrier="CH4",
-        x=x,
-        y=y,
+
+    # ==================================================================
+    # 2. UNIT CONFIGURATION
+    # ==================================================================
+
+    boilers = (
+        cfg.get(
+            "boilers",
+            [],
+        )
+        or []
     )
 
-    ensure_carrier(
-        network,
-        "swfl_real_boiler_fuel",
+    resistive_heaters = (
+        cfg.get(
+            "resistive_heaters",
+            [],
+        )
+        or []
     )
 
-    boilers = cfg.get("boilers", []) or []
-    resistive_heaters = cfg.get("resistive_heaters", []) or []
 
     boiler_names = [
-        str(unit.get("name", "")).strip()
+        str(
+            unit.get(
+                "name",
+                "",
+            )
+        ).strip()
         for unit in boilers
-        if str(unit.get("name", "")).strip()
+        if str(
+            unit.get(
+                "name",
+                "",
+            )
+        ).strip()
     ]
+
+
+    available_boilers = set(
+        boiler_names
+    )
+
+
+    # ==================================================================
+    # 3. BIOMETHANE ELIGIBILITY
+    # ==================================================================
 
     biomethane_units = resolve_biomethane_units(
         cfg,
         boiler_names,
     )
 
+
+    # ==================================================================
+    # 4. RAW-BIOGAS ELIGIBILITY
+    # ==================================================================
+
+    raw_biogas_units = {
+        str(name).strip()
+        for name in cfg.get(
+            "raw_biogas_units",
+            [],
+        )
+        if str(name).strip()
+    }
+
+
+    unknown_raw_biogas_units = (
+        raw_biogas_units
+        - available_boilers
+    )
+
+
+    if unknown_raw_biogas_units:
+
+        raise ValueError(
+            "Unknown raw-biogas boiler units: "
+            + ", ".join(
+                sorted(
+                    unknown_raw_biogas_units
+                )
+            )
+        )
+
+
+    # ==================================================================
+    # 6. ENSURE DEDICATED FUEL BUSES
+    # ==================================================================
+
+    ensure_carrier(
+        network,
+        "CH4",
+    )
+
+
+    if biomethane_units:
+
+        if biomethane_bus == natural_gas_bus:
+
+            raise ValueError(
+                "Natural-gas and biomethane buses must be different."
+            )
+
+        ensure_bus(
+            network=network,
+            name=biomethane_bus,
+            carrier="CH4",
+            x=x,
+            y=y,
+        )
+
+
+    # ------------------------------------------------------------------
+    # Raw-biogas bus
+    #
+    # Raw biogas uses its own carrier and therefore stays outside the
+    # normal CH4 gas-clustering topology.
+    # ------------------------------------------------------------------
+
+    if raw_biogas_units:
+
+        if raw_biogas_bus == natural_gas_bus:
+
+            raise ValueError(
+                "Raw-biogas and natural-gas buses must be different."
+            )
+
+        if (
+                biomethane_units
+                and raw_biogas_bus == biomethane_bus
+        ):
+
+                raise ValueError(
+                    "Raw-biogas and biomethane buses must be different."
+                )
+
+        ensure_carrier(
+            network,
+            "raw_biogas",
+        )
+
+        ensure_bus(
+            network=network,
+            name=raw_biogas_bus,
+            carrier="raw_biogas",
+            x=x,
+            y=y,
+        )
+
+
+    ensure_carrier(
+        network,
+        "swfl_real_boiler_fuel",
+    )
+
+
+    # ==================================================================
+    # 7. OPTIONAL HEL SUPPLY
+    # ==================================================================
+
     allow_hel_backup = _as_bool(
-        cfg.get("allow_hel_backup", False),
+        cfg.get(
+            "allow_hel_backup",
+            False,
+        ),
         False,
     )
 
-    # ------------------------------------------------------------------
-    # Optional HEL supply
-    # ------------------------------------------------------------------
+
     hel_bus = str(
         cfg.get(
             "hel_bus",
@@ -1780,24 +2068,29 @@ def add_central_heat_units(
         )
     )
 
+
     remove_components(
         network,
         "Generator",
-        [hel_generator],
+        [
+            hel_generator,
+        ],
     )
 
+
     if allow_hel_backup:
-        ensure_bus(
-            network,
-            hel_bus,
-            carrier="heating_oil",
-            x=x,
-            y=y,
-        )
 
         ensure_carrier(
             network,
             "heating_oil",
+        )
+
+        ensure_bus(
+            network=network,
+            name=hel_bus,
+            carrier="heating_oil",
+            x=x,
+            y=y,
         )
 
         network.add(
@@ -1823,9 +2116,11 @@ def add_central_heat_units(
             capital_cost=0.0,
         )
 
-    # ------------------------------------------------------------------
-    # Helper for fuel-supply links
-    # ------------------------------------------------------------------
+
+    # ==================================================================
+    # 8. HELPER: FUEL-SUPPLY LINK
+    # ==================================================================
+
     def add_fuel_supply_link(
         name: str,
         source_bus: str,
@@ -1834,16 +2129,50 @@ def add_central_heat_units(
         carrier: str,
         marginal_cost: float = 0.0,
     ) -> None:
+        """
+        Connect one external fuel bus to one boiler's internal fuel bus.
+
+        p_nom is on the fuel-input side.
+        """
+
+        if source_bus not in network.buses.index.astype(str):
+
+            raise ValueError(
+                f"Fuel source bus {source_bus!r} "
+                f"for Link {name!r} does not exist."
+            )
+
+
+        if target_bus not in network.buses.index.astype(str):
+
+            raise ValueError(
+                f"Fuel target bus {target_bus!r} "
+                f"for Link {name!r} does not exist."
+            )
+
+
+        if p_nom < 0:
+
+            raise ValueError(
+                f"Fuel Link {name!r} has negative "
+                f"capacity {p_nom} MW."
+            )
+
+
         ensure_carrier(
             network,
             carrier,
         )
 
+
         remove_components(
             network,
             "Link",
-            [name],
+            [
+                name,
+            ],
         )
+
 
         network.add(
             "Link",
@@ -1851,34 +2180,56 @@ def add_central_heat_units(
             bus0=source_bus,
             bus1=target_bus,
             carrier=carrier,
-            p_nom=p_nom,
+            p_nom=float(
+                p_nom
+            ),
             p_nom_extendable=False,
             p_min_pu=0.0,
             p_max_pu=1.0,
             efficiency=1.0,
-            marginal_cost=marginal_cost,
+            marginal_cost=float(
+                marginal_cost
+            ),
             capital_cost=0.0,
         )
 
+
+    # ==================================================================
+    # 9. FUEL-FIRED BOILERS
+    # ==================================================================
+
     total_boiler_heat_capacity = 0.0
 
-    # ------------------------------------------------------------------
-    # Fuel-fired boiler units
-    # ------------------------------------------------------------------
+    biomethane_heat_capacity = 0.0
+
+    raw_biogas_heat_capacity = 0.0
+
+
     for unit in boilers:
+
         name = str(
-            unit.get("name", "")
+            unit.get(
+                "name",
+                "",
+            )
         ).strip()
 
+
         if not name:
+
             raise ValueError(
                 "Each central heat boiler needs a name."
             )
 
+
         unit_active = _as_bool(
-            unit.get("active", True),
+            unit.get(
+                "active",
+                True,
+            ),
             True,
         )
+
 
         fuel_bus = str(
             unit.get(
@@ -1887,12 +2238,14 @@ def add_central_heat_units(
             )
         )
 
+
         boiler_link = str(
             unit.get(
                 "heat_link_name",
                 f"{name}_to_heat",
             )
         )
+
 
         natural_gas_link = (
             f"{name}_natural_gas_supply"
@@ -1902,11 +2255,19 @@ def add_central_heat_units(
             f"{name}_biomethane_supply"
         )
 
+        raw_biogas_link = (
+            f"{name}_raw_biogas_supply"
+        )
+
         hel_link = (
             f"{name}_hel_supply"
         )
 
-        # Remove stale components, especially when switching scenarios.
+
+        # --------------------------------------------------------------
+        # Remove stale versions before rebuilding this unit.
+        # --------------------------------------------------------------
+
         remove_components(
             network,
             "Link",
@@ -1914,12 +2275,19 @@ def add_central_heat_units(
                 boiler_link,
                 natural_gas_link,
                 biomethane_link,
+                raw_biogas_link,
                 hel_link,
             ],
         )
 
+
         if not unit_active:
             continue
+
+
+        # --------------------------------------------------------------
+        # Physical boiler parameters
+        # --------------------------------------------------------------
 
         heat_capacity = float(
             unit.get(
@@ -1927,6 +2295,7 @@ def add_central_heat_units(
                 0.0,
             )
         )
+
 
         efficiency = float(
             unit.get(
@@ -1938,46 +2307,76 @@ def add_central_heat_units(
             )
         )
 
+
         if heat_capacity <= 0:
+
             raise ValueError(
-                f"Boiler {name} has invalid heat capacity "
+                f"Boiler {name!r} has invalid heat capacity "
                 f"{heat_capacity} MW."
             )
 
+
         if efficiency <= 0:
+
             raise ValueError(
-                f"Boiler {name} has invalid efficiency "
+                f"Boiler {name!r} has invalid efficiency "
                 f"{efficiency}."
             )
 
+
         fuel_input_capacity = (
-            heat_capacity / efficiency
+            heat_capacity
+            / efficiency
         )
 
+
+        # --------------------------------------------------------------
+        # Internal common fuel bus.
+        #
+        # The boiler Link downstream of this bus enforces the shared
+        # physical capacity for all fuels.
+        # --------------------------------------------------------------
+
         ensure_bus(
-            network,
-            fuel_bus,
+            network=network,
+            name=fuel_bus,
             carrier="swfl_real_boiler_fuel",
             x=x,
             y=y,
         )
 
+
+        # --------------------------------------------------------------
+        # Base fuels
+        # --------------------------------------------------------------
+
         base_fuels = {
-            str(fuel).strip().lower()
+            str(fuel)
+            .strip()
+            .lower()
             for fuel in unit.get(
                 "base_fuels",
-                ["natural_gas"],
+                [
+                    "natural_gas",
+                ],
             )
         }
 
-        # Natural gas supply
+
+        # --------------------------------------------------------------
+        # Natural gas -> internal boiler fuel bus
+        # --------------------------------------------------------------
+
         if "natural_gas" in base_fuels:
+
             add_fuel_supply_link(
                 name=natural_gas_link,
                 source_bus=natural_gas_bus,
                 target_bus=fuel_bus,
                 p_nom=fuel_input_capacity,
-                carrier="swfl_real_natural_gas_to_boiler",
+                carrier=(
+                    "swfl_real_natural_gas_to_boiler"
+                ),
                 marginal_cost=float(
                     unit.get(
                         "natural_gas_transport_cost",
@@ -1986,14 +2385,21 @@ def add_central_heat_units(
                 ),
             )
 
-        # Biomethane supply
+
+        # --------------------------------------------------------------
+        # Upgraded biomethane -> internal boiler fuel bus
+        # --------------------------------------------------------------
+
         if name in biomethane_units:
+
             add_fuel_supply_link(
                 name=biomethane_link,
                 source_bus=biomethane_bus,
                 target_bus=fuel_bus,
                 p_nom=fuel_input_capacity,
-                carrier="swfl_real_biomethane_to_boiler",
+                carrier=(
+                    "swfl_real_biomethane_to_boiler"
+                ),
                 marginal_cost=float(
                     unit.get(
                         "biomethane_transport_cost",
@@ -2002,24 +2408,81 @@ def add_central_heat_units(
                 ),
             )
 
-        # Optional HEL supply, normally only relevant for K5
+            biomethane_heat_capacity += (
+                heat_capacity
+            )
+
+
+        # --------------------------------------------------------------
+        # Direct raw biogas -> internal boiler fuel bus
+        #
+        # IMPORTANT:
+        # Fuel price + collection cost are represented upstream at the
+        # dedicated raw-biogas source Generator.
+        #
+        # Therefore this Link must not add the 83.78 EUR/MWh_Hs again.
+        # --------------------------------------------------------------
+
+        if name in raw_biogas_units:
+
+            add_fuel_supply_link(
+                name=raw_biogas_link,
+                source_bus=raw_biogas_bus,
+                target_bus=fuel_bus,
+                p_nom=fuel_input_capacity,
+                carrier=(
+                    "swfl_real_raw_biogas_to_boiler"
+                ),
+                marginal_cost=float(
+                    unit.get(
+                        "raw_biogas_transport_cost",
+                        0.0,
+                    )
+                ),
+            )
+
+            raw_biogas_heat_capacity += (
+                heat_capacity
+            )
+
+
+        # --------------------------------------------------------------
+        # Optional HEL
+        # --------------------------------------------------------------
+
         optional_fuels = {
-            str(fuel).strip().lower()
+            str(fuel)
+            .strip()
+            .lower()
             for fuel in unit.get(
                 "optional_fuels",
                 [],
             )
         }
 
-        if allow_hel_backup and "hel" in optional_fuels:
+
+        if (
+            allow_hel_backup
+            and "hel" in optional_fuels
+        ):
+
             add_fuel_supply_link(
                 name=hel_link,
                 source_bus=hel_bus,
                 target_bus=fuel_bus,
                 p_nom=fuel_input_capacity,
-                carrier="swfl_real_hel_to_boiler",
+                carrier=(
+                    "swfl_real_hel_to_boiler"
+                ),
                 marginal_cost=0.0,
             )
+
+
+        # --------------------------------------------------------------
+        # Boiler conversion Link:
+        #
+        # common fuel bus -> SWFL heat bus
+        # --------------------------------------------------------------
 
         boiler_carrier = str(
             unit.get(
@@ -2028,10 +2491,12 @@ def add_central_heat_units(
             )
         )
 
+
         ensure_carrier(
             network,
             boiler_carrier,
         )
+
 
         network.add(
             "Link",
@@ -2044,29 +2509,52 @@ def add_central_heat_units(
             p_nom=fuel_input_capacity,
 
             p_nom_extendable=_as_bool(
-                unit.get("extendable", False),
+                unit.get(
+                    "extendable",
+                    False,
+                ),
                 False,
             ),
+
             p_min_pu=float(
-                unit.get("p_min_pu", 0.0)
+                unit.get(
+                    "p_min_pu",
+                    0.0,
+                )
             ),
+
             p_max_pu=float(
-                unit.get("p_max_pu", 1.0)
+                unit.get(
+                    "p_max_pu",
+                    1.0,
+                )
             ),
+
             efficiency=efficiency,
 
-            # Fuel price is represented upstream.
-            # This value represents variable non-fuel O&M only.
+            # Fuel cost is represented upstream.
             marginal_cost=float(
-                unit.get("marginal_cost", 0.0)
+                unit.get(
+                    "marginal_cost",
+                    0.0,
+                )
             ),
+
             capital_cost=float(
-                unit.get("capital_cost", 0.0)
+                unit.get(
+                    "capital_cost",
+                    0.0,
+                )
             ),
         )
 
-        # Metadata for reporting
+
+        # --------------------------------------------------------------
+        # Reporting metadata
+        # --------------------------------------------------------------
+
         try:
+
             network.links.loc[
                 boiler_link,
                 "heat_capacity_mw",
@@ -2076,37 +2564,58 @@ def add_central_heat_units(
                 boiler_link,
                 "boiler_efficiency",
             ] = efficiency
+
         except Exception:
             pass
 
-        total_boiler_heat_capacity += heat_capacity
 
-    # ------------------------------------------------------------------
-    # Electrode boilers
-    # ------------------------------------------------------------------
+        total_boiler_heat_capacity += (
+            heat_capacity
+        )
+
+
+    # ==================================================================
+    # 10. ELECTRODE / RESISTIVE BOILERS
+    # ==================================================================
+
     total_resistive_heat_capacity = 0.0
 
+
     for unit in resistive_heaters:
+
         name = str(
-            unit.get("name", "")
+            unit.get(
+                "name",
+                "",
+            )
         ).strip()
 
+
         if not name:
+
             raise ValueError(
                 "Each resistive heater needs a name."
             )
 
+
         remove_components(
             network,
             "Link",
-            [name],
+            [
+                name,
+            ],
         )
 
+
         if not _as_bool(
-            unit.get("active", True),
+            unit.get(
+                "active",
+                True,
+            ),
             True,
         ):
             continue
+
 
         heat_capacity = float(
             unit.get(
@@ -2114,6 +2623,7 @@ def add_central_heat_units(
                 0.0,
             )
         )
+
 
         efficiency = float(
             unit.get(
@@ -2125,21 +2635,28 @@ def add_central_heat_units(
             )
         )
 
+
         if heat_capacity <= 0:
+
             raise ValueError(
-                f"Resistive heater {name} has invalid "
+                f"Resistive heater {name!r} has invalid "
                 f"heat capacity {heat_capacity} MW."
             )
 
+
         if efficiency <= 0:
+
             raise ValueError(
-                f"Resistive heater {name} has invalid "
+                f"Resistive heater {name!r} has invalid "
                 f"efficiency {efficiency}."
             )
 
+
         electric_input_capacity = (
-            heat_capacity / efficiency
+            heat_capacity
+            / efficiency
         )
+
 
         carrier = str(
             unit.get(
@@ -2148,10 +2665,12 @@ def add_central_heat_units(
             )
         )
 
+
         ensure_carrier(
             network,
             carrier,
         )
+
 
         network.add(
             "Link",
@@ -2171,41 +2690,65 @@ def add_central_heat_units(
             carrier=carrier,
             p_nom=electric_input_capacity,
             p_nom_extendable=_as_bool(
-                unit.get("extendable", False),
+                unit.get(
+                    "extendable",
+                    False,
+                ),
                 False,
             ),
             p_min_pu=float(
-                unit.get("p_min_pu", 0.0)
+                unit.get(
+                    "p_min_pu",
+                    0.0,
+                )
             ),
             p_max_pu=float(
-                unit.get("p_max_pu", 1.0)
+                unit.get(
+                    "p_max_pu",
+                    1.0,
+                )
             ),
             efficiency=efficiency,
             marginal_cost=float(
-                unit.get("marginal_cost", 0.0)
+                unit.get(
+                    "marginal_cost",
+                    0.0,
+                )
             ),
             capital_cost=float(
-                unit.get("capital_cost", 0.0)
+                unit.get(
+                    "capital_cost",
+                    0.0,
+                )
             ),
         )
 
+
         try:
+
             network.links.loc[
                 name,
                 "heat_capacity_mw",
             ] = heat_capacity
+
         except Exception:
             pass
 
-        total_resistive_heat_capacity += heat_capacity
 
-    # ------------------------------------------------------------------
-    # Capacity validation
-    # ------------------------------------------------------------------
+        total_resistive_heat_capacity += (
+            heat_capacity
+        )
+
+
+    # ==================================================================
+    # 11. CAPACITY VALIDATION
+    # ==================================================================
+
     total_heat_capacity = (
         total_boiler_heat_capacity
         + total_resistive_heat_capacity
     )
+
 
     expected_capacity = float(
         cfg.get(
@@ -2214,6 +2757,7 @@ def add_central_heat_units(
         )
     )
 
+
     tolerance = float(
         cfg.get(
             "capacity_validation_tolerance_mw",
@@ -2221,7 +2765,15 @@ def add_central_heat_units(
         )
     )
 
-    if abs(total_heat_capacity - expected_capacity) > tolerance:
+
+    if (
+        abs(
+            total_heat_capacity
+            - expected_capacity
+        )
+        > tolerance
+    ):
+
         logger.warning(
             "SWFL central heat capacity is %.3f MW, "
             "but expected %.3f MW.",
@@ -2229,40 +2781,54 @@ def add_central_heat_units(
             expected_capacity,
         )
 
-    biomethane_capacity = sum(
-        float(unit.get("heat_capacity_mw", 0.0))
-        for unit in boilers
-        if str(unit.get("name", "")).strip()
-        in biomethane_units
-        and _as_bool(unit.get("active", True), True)
+
+    # ==================================================================
+    # 12. SUMMARY
+    # ==================================================================
+
+    print(
+        "\nSWFL detailed central heat units added"
     )
 
-    print("\nSWFL detailed central heat units added")
     print(
-        f"  boiler heat capacity MW:      "
+        f"  boiler heat capacity MW:       "
         f"{total_boiler_heat_capacity:.3f}"
     )
+
     print(
-        f"  resistive heat capacity MW:   "
+        f"  resistive heat capacity MW:    "
         f"{total_resistive_heat_capacity:.3f}"
     )
+
     print(
-        f"  total heat capacity MW:       "
+        f"  total heat capacity MW:        "
         f"{total_heat_capacity:.3f}"
     )
+
     print(
-        f"  biomethane-enabled units:     "
+        f"  biomethane-enabled units:      "
         f"{sorted(biomethane_units) if biomethane_units else 'none'}"
     )
+
     print(
-        f"  biomethane heat capacity MW:  "
-        f"{biomethane_capacity:.3f}"
-    )
-    print(
-        f"  HEL backup active:            "
-        f"{allow_hel_backup}"
+        f"  biomethane heat capacity MW:   "
+        f"{biomethane_heat_capacity:.3f}"
     )
 
+    print(
+        f"  raw-biogas-enabled units:      "
+        f"{sorted(raw_biogas_units) if raw_biogas_units else 'none'}"
+    )
+
+    print(
+        f"  raw-biogas heat capacity MW:   "
+        f"{raw_biogas_heat_capacity:.3f}"
+    )
+
+    print(
+        f"  HEL backup active:             "
+        f"{allow_hel_backup}"
+    )
 
 def add_reserve_gas_boiler(network, cfg: Dict[str, Any], gas_bus: str, heat_bus: str) -> None:
     name = str(cfg.get("name", "swfl_real_reserve_gas_boiler"))
