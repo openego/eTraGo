@@ -480,28 +480,74 @@ def optimize_with_rolling_horizon(
 
             # Set e at the end of the horizon
             # by setting e_max_pu and e_min_pu
-            n.stores_t.e_max_pu.loc[
-                snapshots[end - 1], seasonal_stores
-            ] = pre_market.stores_t.e.loc[
-                snapshots[end - 1], seasonal_stores
-            ].div(
-                pre_market.stores.e_nom_opt[seasonal_stores]
-            ).clip(
-                lower=0.0
-            ) * (
-                1 + 1e6
+            # --------------------------------------------------------------
+            # Target seasonal-store SOC at the end of the rolling horizon.
+            #
+            # Keep the terminal state close to the pre-market trajectory
+            # without generating extremely large positive/negative per-unit
+            # bounds, which causes severe LP scaling problems.
+            # --------------------------------------------------------------
+
+            terminal_soc_tolerance = 1.0e-6
+    
+
+            target_soc_pu = (
+                pre_market.stores_t.e.loc[
+                    snapshots[end - 1],
+                    seasonal_stores,
+                ]
+                .div(
+                    pre_market.stores.e_nom_opt[
+                        seasonal_stores
+                    ]
+                )
+                .replace(
+                    [np.inf, -np.inf],
+                    np.nan,
+                )
+                .fillna(
+                    0.0
+                )
+                .clip(
+                    lower=0.0,
+                    upper=1.0,
+                )
             )
+
+
             n.stores_t.e_min_pu.loc[
-                snapshots[end - 1], seasonal_stores
-            ] = pre_market.stores_t.e.loc[
-                snapshots[end - 1], seasonal_stores
-            ].div(
-                pre_market.stores.e_nom_opt[seasonal_stores]
+                snapshots[end - 1],
+                seasonal_stores,
+            ] = (
+                target_soc_pu
+                - terminal_soc_tolerance
             ).clip(
-                lower=0.0
-            ) * (
-                1 - 1e6
+                lower=0.0,
+                upper=1.0,
             )
+
+
+            n.stores_t.e_max_pu.loc[
+                snapshots[end - 1],
+                seasonal_stores,
+            ] = (
+                target_soc_pu
+                + terminal_soc_tolerance
+            ).clip(
+                lower=0.0,
+                upper=1.0,
+            )
+
+
+            n.stores_t.e_min_pu.fillna(
+                0.0,
+                inplace=True,
+            )
+
+            n.stores_t.e_max_pu.fillna(
+                1.0,
+                inplace=True,
+                )
             n.stores_t.e_min_pu.fillna(0.0, inplace=True)
             n.stores_t.e_max_pu.fillna(1.0, inplace=True)
 
@@ -570,12 +616,48 @@ def optimize_with_rolling_horizon(
             )
 
             if status != "ok":
-                logger.warning(f"""Optimization failed with status {status}
-                    and condition {condition}""")
-                n.model.print_infeasibilities()
-                import pdb
 
-                pdb.set_trace()
+                logger.warning(
+                    "Optimization failed for rolling-horizon window "
+                    "[%s:%s] with status=%s and condition=%s",
+                    sns[0],
+                    sns[-1],
+                    status,
+                    condition,
+                )
+
+                condition_text = str(
+                    condition
+                ).lower()
+
+                # IIS only makes sense for a genuinely infeasible model.
+                if "infeasible" in condition_text:
+
+                    try:
+
+                        n.model.print_infeasibilities()
+
+                    except Exception as exc:
+
+                        logger.exception(
+                            "Could not compute IIS: %s",
+                            exc,
+                        )
+
+                else:
+
+                    logger.warning(
+                        "No IIS requested because this is not "
+                        "an infeasibility result. The failure is "
+                        "most likely numerical."
+                    )
+
+                raise RuntimeError(
+                    "Rolling-horizon optimization failed for "
+                    f"[{sns[0]}:{sns[-1]}]: "
+                    f"status={status}, "
+                    f"condition={condition}"
+                )
 
         else:
             n.lopf(
