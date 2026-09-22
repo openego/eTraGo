@@ -91,7 +91,7 @@ selection:
   # CORE RUNS:
   # Run all four cases for every support scenario.
   #
-  fossil_gas_price_case: "high_2035"
+  fossil_gas_price_case: "legacy_egon"
 
 
   # ---------------------------------------------------------------------------
@@ -191,7 +191,7 @@ selection:
   # CORE RUNS:
   # Run all three support cases for every fossil-gas price case.
   #
-  support_case: "followon_eeg_flex"
+  support_case: "post_eeg"
 
 
   # ---------------------------------------------------------------------------
@@ -305,7 +305,7 @@ batch:
 # Null means: preserve the corresponding value already defined in appl.py.
 run:
   start_snapshot: 1
-  end_snapshot: 72
+  end_snapshot: 2160
   ac_clusters: 50
   result_name_template: "{scenario}_{hours}h_{ac_clusters}ac"
 

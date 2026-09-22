@@ -3637,18 +3637,18 @@ def apply_biogas_sh_transport_route(
     # Biomethane production cost is already upstream.
     #
     # This Link therefore contains ONLY:
-    #
-    #     delivery cost - THG credit
-    #
+        #
+        #     delivery cost - THG quota credit
+        #
+        # The THG credit can be calculated from:
+            #
+            #     quota price [EUR/tCO2]
+            #       x
+            #     certified GHG saving [tCO2/MWh_Hs]
+            #
+            # or explicitly overridden for sensitivity analysis.
+            #
     # ==================================================================
-
-    biomethane_link_marginal_cost = float(
-        cfg.get(
-            "biomethane_link_marginal_cost_eur_per_mwh_hs",
-            0.0,
-        )
-    )
-
 
     delivery_cost = float(
         cfg.get(
@@ -3658,11 +3658,159 @@ def apply_biogas_sh_transport_route(
     )
 
 
-    thg_credit = float(
+    # ------------------------------------------------------------------
+    # THG quota settings
+    # ------------------------------------------------------------------
+
+    thg_quota_active = _as_bool(
         cfg.get(
-            "thg_credit_eur_per_mwh_hs",
+            "thg_quota_active",
+            False,
+        ),
+        False,
+    )
+
+    thg_quota_price = float(
+        cfg.get(
+            "thg_quota_price_eur_per_tco2",
             0.0,
         )
+    )
+
+    ghg_saving = cfg.get(
+        "ghg_saving_tco2_per_mwh_hs",
+        None,
+    )
+
+    thg_credit_override = cfg.get(
+        "thg_credit_override_eur_per_mwh_hs",
+        None,
+    )
+
+
+    # ------------------------------------------------------------------
+    # Validate basic values
+    # ------------------------------------------------------------------
+    
+    if delivery_cost < 0.0:
+        raise ValueError(
+            "transport_biomethane."
+            "delivery_cost_eur_per_mwh_hs "
+            "must be non-negative."
+        )
+
+    if thg_quota_price < 0.0:
+        raise ValueError(
+            "transport_biomethane."
+            "thg_quota_price_eur_per_tco2 "
+            "must be non-negative."
+        )
+
+
+    # ------------------------------------------------------------------
+    # Calculate THG credit
+    # ------------------------------------------------------------------
+    
+    if (
+        thg_credit_override is not None
+        and not _is_missing(thg_credit_override)
+    ):
+
+        thg_credit = float(
+            thg_credit_override
+        )
+
+        thg_credit_source = "override"
+        
+
+    elif thg_quota_active:
+
+        if (
+            ghg_saving is None
+            or _is_missing(ghg_saving)
+        ):
+            raise ValueError(
+                "THG quota is active, but "
+                "transport_biomethane."
+                "ghg_saving_tco2_per_mwh_hs "
+                "is not defined."
+            )
+
+        ghg_saving = float(
+            ghg_saving
+        )
+
+        if ghg_saving < 0.0:
+            raise ValueError(
+                "transport_biomethane."
+                "ghg_saving_tco2_per_mwh_hs "
+                "must be non-negative."
+            )
+
+        thg_credit = (
+            thg_quota_price
+            * ghg_saving
+        )
+
+        thg_credit_source = (
+            "quota_price_x_ghg_saving"
+        )
+
+
+    else:
+
+        thg_credit = 0.0
+        
+        thg_credit_source = "inactive"
+
+
+    # ------------------------------------------------------------------
+    # Net downstream marginal cost of BM -> HGV transport
+    # ------------------------------------------------------------------
+
+    biomethane_link_marginal_cost = (
+        delivery_cost
+        - thg_credit
+    )
+
+
+    print(
+        "\nBiomethane -> HGV transport economics"
+    )
+
+    print(
+        f"  delivery cost:             "
+        f"{delivery_cost:.4f} EUR/MWh_Hs"
+    )
+
+    print(
+        f"  THG quota active:          "
+        f"{thg_quota_active}"
+    )
+
+    print(
+        f"  THG quota price:           "
+        f"{thg_quota_price:.2f} EUR/tCO2"
+    )
+
+    print(
+        f"  GHG saving:                "
+        f"{ghg_saving}"
+    )
+
+    print(
+        f"  THG credit source:         "
+        f"{thg_credit_source}"
+    )
+
+    print(
+        f"  THG credit:                "
+        f"{thg_credit:.4f} EUR/MWh_Hs"
+    )
+
+    print(
+        f"  BM -> HGV marginal adder:  "
+        f"{biomethane_link_marginal_cost:.4f} EUR/MWh_Hs"
     )
 
 
