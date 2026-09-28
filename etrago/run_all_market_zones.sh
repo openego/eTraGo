@@ -150,8 +150,27 @@ args["load_shedding"] = True
 # Separate output directory
 args["export_results_path"] = run_dir
 
-# Separate solver log
+# Validate production solver configuration
 solver_options = args.setdefault("solver_options", {})
+
+required_solver_options = {
+    "method": 2,
+    "threads": 4,
+    "NumericFocus": 3,
+    "ScaleFlag": 2,
+    "BarHomogeneous": 1,
+}
+
+for key, expected in required_solver_options.items():
+    actual = solver_options.get(key)
+
+    if actual != expected:
+        raise SystemExit(
+            f"ERROR: solver option {key!r} must be {expected!r}, "
+            f"found {actual!r}."
+        )
+
+# Separate solver log
 solver_log = str(Path(run_dir) / f"solver_{run_name}.log")
 
 if "logFile" in solver_options:
@@ -210,6 +229,12 @@ print("  skip_snapshots:", args["skip_snapshots"])
 print("  focus districts:", len(focus_region))
 print("  cluster_within_focus:", cluster_within_focus)
 print("  load_shedding:", args["load_shedding"])
+print("  solver:", args["solver"])
+print("  solver options:")
+
+for key, value in args["solver_options"].items():
+    print(f"    {key}: {value}")
+
 print("  results:", args["export_results_path"])
 PY
 

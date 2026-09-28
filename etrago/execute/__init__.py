@@ -137,12 +137,117 @@ def run_lopf(etrago, extra_functionality, method):
     x = time.time()
 
     if method["formulation"] == "pyomo":
+
+        ef = extra_functionality
+        
+        if os.environ.get("ETRAGO_BOUND_DEBUG") == "1":
+            base_extra_functionality = ef
+
+            def debug_extra_functionality(network, snapshots):
+                import heapq
+                import math
+                from collections import Counter
+
+                from pyomo.environ import Var, value
+
+                # First add all normal eTraGo constraints.
+                base_extra_functionality(network, snapshots)
+                
+                print("\n" + "=" * 100)
+                print("PYOMO VARIABLE BOUND DIAGNOSTIC")
+                print("=" * 100)
+
+                # Keep only the 100 largest finite bounds, so memory use stays small.
+                top = []
+                component_counts = Counter()
+                total_large = 0
+                total_vars = 0
+
+                for component in network.model.component_objects(
+                        Var, active=True
+                ):
+                    for idx, var in component.items():
+                        total_vars += 1
+
+                        for side, bound in (
+                                ("LB", var.lb),
+                                ("UB", var.ub),
+                        ):
+                            if bound is None:
+                                continue
+
+                            try:
+                                bound = value(bound, exception=False)
+                            except Exception:
+                                continue
+
+                            if bound is None:
+                                continue
+
+                            try:
+                                bound = float(bound)
+                            except (TypeError, ValueError):
+                                continue
+
+                            if not math.isfinite(bound):
+                                continue
+
+                            magnitude = abs(bound)
+
+                            # Count all unusually large finite bounds.
+                            if magnitude >= 1e8:
+                                total_large += 1
+                                component_counts[component.name] += 1
+
+                            # Retain top 100 finite bounds overall.
+                            item = (
+                                magnitude,
+                                component.name,
+                                str(idx),
+                                side,
+                                bound,
+                            )
+
+                            if len(top) < 100:
+                                heapq.heappush(top, item)
+                            elif magnitude > top[0][0]:
+                                heapq.heapreplace(top, item)
+
+                print(f"Variables scanned: {total_vars:,}")
+                print(f"Finite bounds >= 1e8: {total_large:,}")
+                
+                print("\nLarge-bound counts by variable component:")
+                for name, count in component_counts.most_common():
+                    print(f"  {name:45s} {count:,}")
+
+                print("\nTOP 100 ABSOLUTE FINITE VARIABLE BOUNDS:")
+                print("-" * 100)
+
+                for magnitude, name, idx, side, bound in sorted(
+                        top, reverse=True
+                ):
+                    print(
+                        f"{name:45s} "
+                        f"{side}={bound:.12g} "
+                        f"idx={idx}"
+                    )
+
+                print("=" * 100)
+                print("Stopping before solver because ETRAGO_BOUND_DEBUG=1")
+                print("=" * 100 + "\n")
+
+                raise RuntimeError(
+                    "Intentional stop after Pyomo bound diagnostic"
+                )
+
+            ef = debug_extra_functionality
+
         etrago.network.lopf(
             etrago.network.snapshots,
             solver_name=etrago.args["solver"],
             solver_options=etrago.args["solver_options"],
             pyomo=True,
-            extra_functionality=extra_functionality,
+            extra_functionality=ef,
             formulation=etrago.args["model_formulation"],
         )
 

@@ -981,7 +981,9 @@ def _cluster_partition_kmedoids(
 
     # Treat disconnected components separately.
     components = [
-        pd.Index(component)
+        pd.Index(
+            sorted(component, key=lambda bus: str(bus))
+        )
         for component in nx.connected_components(graph)
     ]
 
