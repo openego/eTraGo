@@ -65,6 +65,17 @@ def grid_optimization(
         ].index,
     )
 
+    fix_electrolyzer_investments = (
+        self.args["method"]["market_optimization"].get(
+            "fix_electrolyzer_investments_in_grid",
+            False,
+        )
+    )
+
+    if fix_electrolyzer_investments:
+        fix_market_electrolyzer_investments(self)
+
+
     fix_chp_generation(self)
 
     add_redispatch_generators(
@@ -191,6 +202,72 @@ def fix_chp_generation(self):
         self.market_model.links_t.p0[links_fixed].mul(
             0.99 / self.market_model.links.p_nom[links_fixed]
         )
+    )
+
+
+def fix_market_electrolyzer_investments(self):
+    """
+    Carry the electrolyzer investment decision from the market model
+    into the grid model.
+
+    Capacity/location are fixed.
+    Dispatch remains flexible in the grid optimization.
+    """
+
+    carrier = "power_to_H2"
+
+    market_links = self.market_model.links
+    grid_links = self.network.links
+
+    market_idx = market_links.index[
+        market_links.carrier == carrier
+    ]
+
+    grid_idx = grid_links.index[
+        grid_links.carrier == carrier
+    ]
+
+    # The same physical electrolyzers should exist in both models.
+    missing_in_grid = market_idx.difference(grid_idx)
+    missing_in_market = grid_idx.difference(market_idx)
+
+    if len(missing_in_grid) or len(missing_in_market):
+        raise RuntimeError(
+            "Electrolyzer mapping between market and grid model is inconsistent.\n"
+            f"Missing in grid: {missing_in_grid.tolist()}\n"
+            f"Missing in market: {missing_in_market.tolist()}"
+        )
+
+    # market_model.p_nom already contains the capacity resulting from
+    # the pre-market investment optimization.
+    market_capacity = (
+        market_links.loc[market_idx, "p_nom"]
+        .astype(float)
+        .clip(lower=0.0)
+    )
+
+    old_grid_capacity = grid_links.loc[market_idx, "p_nom"].copy()
+
+    # Transfer the market investment decision.
+    grid_links.loc[market_idx, "p_nom"] = market_capacity
+
+    # Do NOT allow the grid optimization to relocate/re-size electrolyzers.
+    grid_links.loc[market_idx, "p_nom_extendable"] = False
+
+    logger.info(
+        "Fixed %s electrolyzer investments from market model. "
+        "Market capacity: %.3f MW; "
+        "grid capacity before fixing: %.3f MW; "
+        "grid capacity after fixing: %.3f MW.",
+        len(market_idx),
+        market_capacity.sum(),
+        old_grid_capacity.sum(),
+        grid_links.loc[market_idx, "p_nom"].sum(),
+    )
+
+    logger.info(
+        "Extendable power_to_H2 links after fixing: %s",
+        grid_links.loc[market_idx, "p_nom_extendable"].sum(),
     )
 
 

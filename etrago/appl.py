@@ -70,6 +70,7 @@ args = {
             },
             "snapshot_step": 5,  #1 for hourly resolution; e.g. 5 keeps every fifth snapshot
             "redispatch": True,
+            "fix_electrolyzer_investments_in_grid": False,
         },
         "distribution_grids": False,  # False or path to file with edisgo results
     },
