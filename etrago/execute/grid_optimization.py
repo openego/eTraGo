@@ -150,21 +150,24 @@ def grid_optimization(
         )
 
 
-def fix_chp_generation(self):
+def fix_chp_generation(self, network=None):
+    if network is None:
+        network = self.network
+
     # Select generator and link components that are fixed after
     # the market optimization.
-    gens_fixed = self.network.generators[
-        self.network.generators.carrier.str.endswith("_CHP")
+    gens_fixed = network.generators[
+        network.generators.carrier.str.endswith("_CHP")
     ].index
 
-    links_fixed = self.network.links[
-        self.network.links.carrier.str.endswith("_CHP")
+    links_fixed = network.links[
+        network.links.carrier.str.endswith("_CHP")
     ].index
 
     # Fix generator dispatch from market simulation:
     # Set p_max_pu of generators using results from (disaggregated) market
     # model
-    self.network.generators_t.p_max_pu.loc[:, gens_fixed] = (
+    network.generators_t.p_max_pu.loc[:, gens_fixed] = (
         self.market_model.generators_t.p[gens_fixed].mul(
             1.01 / self.market_model.generators.p_nom[gens_fixed]
         )
@@ -172,7 +175,7 @@ def fix_chp_generation(self):
 
     # Set p_min_pu of generators using results from (disaggregated) market
     # model
-    self.network.generators_t.p_min_pu.loc[:, gens_fixed] = (
+    network.generators_t.p_min_pu.loc[:, gens_fixed] = (
         self.market_model.generators_t.p[gens_fixed].mul(
             0.99 / self.market_model.generators.p_nom[gens_fixed]
         )
@@ -180,14 +183,14 @@ def fix_chp_generation(self):
 
     # Fix link dispatch (gas turbines) from market simulation
     # Set p_max_pu of links using results from (disaggregated) market model
-    self.network.links_t.p_max_pu.loc[:, links_fixed] = (
+    network.links_t.p_max_pu.loc[:, links_fixed] = (
         self.market_model.links_t.p0[links_fixed].mul(
             1.01 / self.market_model.links.p_nom[links_fixed]
         )
     )
 
     # Set p_min_pu of links using results from (disaggregated) market model
-    self.network.links_t.p_min_pu.loc[:, links_fixed] = (
+    network.links_t.p_min_pu.loc[:, links_fixed] = (
         self.market_model.links_t.p0[links_fixed].mul(
             0.99 / self.market_model.links.p_nom[links_fixed]
         )
