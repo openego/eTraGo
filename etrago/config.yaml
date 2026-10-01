@@ -91,7 +91,7 @@ selection:
   # CORE RUNS:
   # Run all four cases for every support scenario.
   #
-  fossil_gas_price_case: "legacy_egon"
+  fossil_gas_price_case: "crisis_2035"
 
 
   # ---------------------------------------------------------------------------
@@ -191,7 +191,7 @@ selection:
   # CORE RUNS:
   # Run all three support cases for every fossil-gas price case.
   #
-  support_case: "post_eeg"
+  support_case: "followon_eeg_flex"
 
 
   # ---------------------------------------------------------------------------
@@ -212,7 +212,7 @@ selection:
   # Other values should only be used if a corresponding case is explicitly
   # defined in the heat-pump case configuration.
   #
-  heat_pump_case: "one_gwp1"
+  heat_pump_case: "two"
 
 
   # ---------------------------------------------------------------------------
@@ -294,10 +294,10 @@ selection:
 # dimensions are inherited from "selection" above. The four entries below
 # therefore run the same technical scenario with four fossil-gas price cases.
 batch:
-  enabled: false
-  stop_on_error: true
+  enabled: true
+  stop_on_error: false
   scenarios:
-    - fossil_gas_price_case: "low_2035"
+    #- fossil_gas_price_case: "low_2035"
     - fossil_gas_price_case: "legacy_egon"
     - fossil_gas_price_case: "high_2035"
     - fossil_gas_price_case: "crisis_2035"
@@ -305,7 +305,7 @@ batch:
 # Null means: preserve the corresponding value already defined in appl.py.
 run:
   start_snapshot: 1
-  end_snapshot: 2160
+  end_snapshot: 8760
   ac_clusters: 50
   result_name_template: "{scenario}_{hours}h_{ac_clusters}ac"
 
@@ -412,7 +412,7 @@ co2_sale_cases:
     sale_price_eur_per_t: 0.0
     additional_cost_eur_per_t: 0.0
     marketable_fraction: 1.0
-    co2_yield_t_per_mwh_biomethane: 0.12365
+    co2_yield_t_per_mwh_biomethane: 0.14981
 
   low_50:
     description: >
@@ -421,7 +421,7 @@ co2_sale_cases:
     sale_price_eur_per_t: 50.0
     additional_cost_eur_per_t: 0.0
     marketable_fraction: 1.0
-    co2_yield_t_per_mwh_biomethane: 0.12365
+    co2_yield_t_per_mwh_biomethane: 0.14981
 
   medium_60:
     description: >
@@ -430,7 +430,7 @@ co2_sale_cases:
     sale_price_eur_per_t: 60.0
     additional_cost_eur_per_t: 0.0
     marketable_fraction: 1.0
-    co2_yield_t_per_mwh_biomethane: 0.12365
+    co2_yield_t_per_mwh_biomethane: 0.14981
 
   high_144:
     description: >
@@ -439,7 +439,7 @@ co2_sale_cases:
     sale_price_eur_per_t: 144.0
     additional_cost_eur_per_t: 0.0
     marketable_fraction: 1.0
-    co2_yield_t_per_mwh_biomethane: 0.12365
+    co2_yield_t_per_mwh_biomethane: 0.14981
 
 # -----------------------------------------------------------------------------
 # BIOGAS.SH SUPPORT CASES
@@ -1172,7 +1172,6 @@ scenario_matrix:
 
 
     fossil_gas_price_case:
-      - "low_2035"
       - "legacy_egon"
       - "high_2035"
       - "crisis_2035"
@@ -1190,7 +1189,7 @@ scenario_matrix:
 
     # Fixed heat-pump configuration.
     heat_pump_case:
-      - "one_gwp1"
+      - "two"
 
 
     # Fixed SWFL generation configuration.

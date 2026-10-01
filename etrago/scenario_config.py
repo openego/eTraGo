@@ -4228,6 +4228,7 @@ def expand_scenario_matrix(
                     "support_case",
                     "fossil_gas_price_case",
                     "biomethane_price_case",
+                    "co2_sale_case",
                     "heat_pump_case",
                     "swfl_unit_case",
                     "biomethane_use_case",
