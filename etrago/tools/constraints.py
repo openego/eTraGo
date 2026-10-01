@@ -36,6 +36,7 @@ import pandas as pd
 import pyomo.environ as po
 import saio
 import sqlalchemy
+from sqlalchemy.orm import sessionmaker
 
 if "READTHEDOCS" not in os.environ:
     from etrago.tools import db
@@ -1890,67 +1891,80 @@ def _capacity_factor_per_gen_cntr_nmp(self, network, snapshots):
 
 
 def read_max_gas_generation(self):
-    """Return the values limiting the gas production in Germany
+    """Return values limiting annual gas production in Germany."""
 
-    Read max_gas_generation_overtheyear from
-    scenario.egon_scenario_parameters if the table is available in the
-    database and return the dictionnary containing the values needed
-    for the constraints to limit the gas production in Germany,
-    depending of the scenario.
-
-    Returns
-    -------
-    arg: dict
-
-    """
     scn_name = self.args["scn_name"]
+
     arg_def = {
         "eGon2035": {
-            "CH4": 36000000,
-            "biogas": 10000000,
-        },  # [MWh] Netzentwicklungsplan Gas 2020–2030
+            "CH4": 36_000_000,
+            "biogas": 10_000_000,
+        },
         "eGon2035_lowflex": {
-            "CH4": 36000000,
-            "biogas": 10000000,
-        },  # [MWh] Netzentwicklungsplan Gas 2020–2030
+            "CH4": 36_000_000,
+            "biogas": 10_000_000,
+        },
         "eGon100RE": {
-            "biogas": 133465842
-        },  # [MWh] Value from reference p-e-s run used in eGon-data
+            "biogas": 133_465_842,
+        },
         "powerd2025": {
-            "biogas": 58288115,
-            "CH4": 842433316,
-        },  # [MWh] Value from reference p-e-s run used in eGon-data
+            "biogas": 58_288_115,
+            "CH4": 842_433_316,
+        },
         "powerd2030": {
-            "biogas": 58288271,
-            "CH4": 213616374,
-        },  # [MWh] Value from reference p-e-s run used in eGon-data
+            "biogas": 58_288_271,
+            "CH4": 213_616_374,
+        },
         "powerd2035": {
-            "biogas": 191753884,
+            "biogas": 191_753_884,
             "CH4": 35,
-        },  # [MWh] Value from reference p-e-s run used in eGon-data
+        },
     }
+
     engine = db.connection(section=self.args["db"])
+    session = None
+
     try:
         if "oep.iks.cs.ovgu.de" in str(engine.url):
-            saio.register_schema("tables", self.engine)
-            from saio.tables import edut_00_137 as egon_scenario_parameters
+            saio.register_schema("tables", engine)
+            from saio.tables import (
+                edut_00_137 as egon_scenario_parameters,
+            )
         else:
             saio.register_schema("grid", engine)
             from saio.grid import egon_scenario_parameters
+
+        session = sessionmaker(bind=engine)()
+
         df = saio.as_pandas(
-            self.session.query(egon_scenario_parameters).filter(
+            session.query(egon_scenario_parameters).filter(
                 egon_scenario_parameters.name
-                == self.args["scn_name"].split("_")[0]
+                == scn_name.split("_")[0]
             )
         )
-        arg = df["gas_parameters"][0]["max_gas_generation_overtheyear"]
-    except sqlalchemy.exc.NoSuchTableError as e:
-        logging.warning(f"""
-            The database query failed for
-            'scenario.egon_scenario_parameters'.
-            Fallback values are being used. Error message: {e}
-            """)
+
+        if df.empty:
+            raise LookupError(
+                f"No gas parameters found for scenario {scn_name!r}."
+            )
+
+        arg = df["gas_parameters"].iloc[0][
+            "max_gas_generation_overtheyear"
+        ]
+
+    except (sqlalchemy.exc.NoSuchTableError, LookupError) as error:
+        logging.warning(
+            "\n"
+            "The database query for "
+            "'scenario.egon_scenario_parameters' failed.\n"
+            f"Fallback values are used. Error: {error}"
+        )
         arg = arg_def[scn_name]
+
+    finally:
+        if session is not None:
+            session.close()
+        engine.dispose()
 
     return arg
 
