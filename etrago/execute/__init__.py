@@ -601,7 +601,7 @@ def optimize_with_rolling_horizon(
             ).clip(
                 lower=0.0
             ) * (
-                1 + 1e6
+                1 + 1e-6
             )
             n.stores_t.e_min_pu.loc[
                 snapshots[end - 1], seasonal_stores
@@ -612,7 +612,7 @@ def optimize_with_rolling_horizon(
             ).clip(
                 lower=0.0
             ) * (
-                1 - 1e6
+                1 - 1e-6
             )
             n.stores_t.e_min_pu.fillna(0.0, inplace=True)
             n.stores_t.e_max_pu.fillna(1.0, inplace=True)
