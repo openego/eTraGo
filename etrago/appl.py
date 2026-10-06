@@ -176,6 +176,13 @@ args = {
         "Threads": 4,
     },
 
+    # Numerical clean-up of the grid (redispatch) model. Defaults in
+    # execute/grid_optimization.py keep the original behaviour.
+    "numerics": {
+        "min_abs_pu": 1e-4,  # zero p_min_pu/p_max_pu below this (was 1e-5)
+        "min_abs_marginal_cost": 1e-2,  # zero |marginal cost| below this [EUR/MWh]
+    },
+
     # Size load shedding per bus instead of using the network-wide maximum
     # load (about 160 GW) on every bus.
     "load_shedding_sizing": {

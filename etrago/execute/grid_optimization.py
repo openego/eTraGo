@@ -94,24 +94,42 @@ def grid_optimization(
     self.network.generators.marginal_cost_quadratic.fillna(0.0, inplace=True)
     self.network.links.marginal_cost_quadratic.fillna(0.0, inplace=True)
 
-    # Replacevery small values with zero to avoid numerical problems
-    self.network.generators_t.p_max_pu.where(
-        self.network.generators_t.p_max_pu.abs() > 1e-5,
-        other=0.0,
-        inplace=True,
-    )
-    self.network.generators_t.p_min_pu.where(
-        self.network.generators_t.p_min_pu.abs() > 1e-5,
-        other=0.0,
-        inplace=True,
-    )
-    self.network.links_t.p_max_pu.where(
-        self.network.links_t.p_max_pu.abs() > 1e-5, other=0.0, inplace=True
-    )
+    # Replace very small values with zero to avoid numerical problems.
+    # Thresholds are configurable via args["numerics"]; the defaults keep
+    # the original behaviour (p.u. values below 1e-5, no cost cleanup).
+    numerics = self.args.get("numerics") or {}
+    pu_tol = float(numerics.get("min_abs_pu", 1e-5))
+    mc_tol = float(numerics.get("min_abs_marginal_cost", 0.0))
 
-    self.network.links_t.p_min_pu.where(
-        self.network.links_t.p_min_pu.abs() > 1e-5, other=0.0, inplace=True
-    )
+    for df in (
+        self.network.generators_t.p_max_pu,
+        self.network.generators_t.p_min_pu,
+        self.network.links_t.p_max_pu,
+        self.network.links_t.p_min_pu,
+    ):
+        df.where(df.abs() > pu_tol, other=0.0, inplace=True)
+
+    if mc_tol > 0.0:
+        for df in (
+            self.network.generators_t.marginal_cost,
+            self.network.links_t.marginal_cost,
+        ):
+            df.where((df.abs() >= mc_tol) | df.isna(), other=0.0, inplace=True)
+        for component in (
+            self.network.generators,
+            self.network.links,
+            self.network.storage_units,
+            self.network.stores,
+        ):
+            component.loc[
+                component.marginal_cost.abs() < mc_tol, "marginal_cost"
+            ] = 0.0
+        logger.info(
+            "Grid model: zeroed marginal costs below %g and p.u. values "
+            "below %g.",
+            mc_tol,
+            pu_tol,
+        )
 
     self.network.links.loc[
         (
