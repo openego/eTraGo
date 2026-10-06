@@ -423,7 +423,8 @@ def sector_coupled_clustering_strategy(etrago):
 
 def _get_protected_custom_ch4_buses(etrago, network):
     """
-    Collect custom CH4 buses that must remain singleton buses during gas clustering.
+    Collect custom CH4 buses that must remain singleton buses during gas
+    clustering.
     """
     settings = etrago.args["network_clustering"]["gas_grids"]
 
@@ -446,52 +447,13 @@ def _get_protected_custom_ch4_buses(etrago, network):
         protected.update(custom_links["bus1"].astype(str))
 
     protected = sorted(
-        b for b in protected
+        b
+        for b in protected
         if b in network.buses.index
         and str(network.buses.loc[b, "carrier"]) == "CH4"
     )
 
     return protected
-
-
-def assert_no_mixed_carrier_clusters(network, busmap, stage=""):
-    """
-    Ensure each final busmap cluster contains only one carrier.
-    """
-    busmap = busmap.copy()
-    busmap.index = busmap.index.astype(str)
-    busmap = busmap.astype(str)
-
-    buses = network.buses.copy()
-    buses.index = buses.index.astype(str)
-
-    common = busmap.index.intersection(buses.index)
-
-    df = pd.DataFrame(
-        {
-            "cluster": busmap.loc[common].astype(str),
-            "carrier": buses.loc[common, "carrier"].astype(str),
-        }
-    )
-
-    n_carriers = df.groupby("cluster")["carrier"].nunique()
-    bad_clusters = n_carriers[n_carriers > 1].index.tolist()
-
-    if bad_clusters:
-        details = df[df["cluster"].isin(bad_clusters)].sort_values(
-            ["cluster", "carrier"]
-        )
-
-        logger.error(
-            "Mixed-carrier busmap detected %s:\n%s",
-            stage,
-            details.to_string(),
-        )
-
-        raise ValueError(
-            "Mixed-carrier busmap detected before aggregation. "
-            "See log output above."
-        )
 
 
 def enforce_custom_ch4_singletons_final(etrago, network, busmap, stage=""):
@@ -516,7 +478,8 @@ def enforce_custom_ch4_singletons_final(etrago, network, busmap, stage=""):
         busmap.loc[str(bus)] = str(bus)
 
     logger.info(
-        "Final singleton protection for %s custom CH4 buses before aggregation: %s",
+        "Final singleton protection for %s custom CH4 buses before "
+        "aggregation: %s",
         len(protected),
         protected,
     )
@@ -591,24 +554,23 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
         network = etrago.pre_market_model
 
     if ("H2_grid" in network.buses.carrier.unique()) & (scn in ["eGon2035"]):
-         busmap.index = busmap.index.astype(str)
+        busmap.index = busmap.index.astype(str)
 
-         h2_buses = network.buses.index[
-             network.buses["carrier"].astype(str).eq("H2_grid")
-         ].astype(str)
+        h2_buses = network.buses.index[
+            network.buses["carrier"].astype(str).eq("H2_grid")
+        ].astype(str)
 
-         # If run_spatial_clustering_gas already joined CH4 and H2 busmaps,
-         # do not call get_h2_clusters again.
-         h2_already_in_busmap = h2_buses.isin(busmap.index).all()
+        # If run_spatial_clustering_gas already joined CH4 and H2 busmaps,
+        # do not call get_h2_clusters again.
+        h2_already_in_busmap = h2_buses.isin(busmap.index).all()
 
-         if not h2_already_in_busmap:
-             busmap = get_h2_clusters(etrago, busmap)
-         else:
-             logger.info(
-                 "H2_grid buses already present in gas busmap; skip get_h2_clusters()."
-             )
-        
-        
+        if not h2_already_in_busmap:
+            busmap = get_h2_clusters(etrago, busmap)
+        else:
+            logger.info(
+                "H2_grid buses already present in gas busmap; "
+                "skip get_h2_clusters()."
+            )
 
     # Add all other buses to busmap
     missing_idx = list(
@@ -681,7 +643,6 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
         generator_strategies=strategies_generators(),
         bus_strategies=strategies_buses(),
     )
-    
 
     if apply_on != "market_model":
         # aggregation of the links and links time series
@@ -1272,7 +1233,8 @@ def protect_custom_ch4_buses_from_clustering(etrago, busmap, medoid_idx=None):
 
     Important:
     This function must be called AFTER CH4 and H2 busmaps are joined.
-    Otherwise protected CH4 cluster IDs can collide with shifted H2 cluster IDs.
+    Otherwise protected CH4 cluster IDs can collide with shifted H2 cluster
+    IDs.
     """
     settings = etrago.args["network_clustering"]["gas_grids"]
 
@@ -1304,7 +1266,8 @@ def protect_custom_ch4_buses_from_clustering(etrago, busmap, medoid_idx=None):
         protected.update(custom_links["bus1"].astype(str))
 
     protected = sorted(
-        b for b in protected
+        b
+        for b in protected
         if b in network.buses.index
         and str(network.buses.loc[b, "carrier"]) == "CH4"
     )
@@ -1499,7 +1462,7 @@ def run_spatial_clustering_gas(self):
                 busmap,
                 medoid_idx,
             )
-            
+
             busmap, medoid_idx = protect_custom_ch4_buses_from_clustering(
                 self,
                 busmap,

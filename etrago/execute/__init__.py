@@ -489,55 +489,39 @@ def optimize_with_rolling_horizon(
             # --------------------------------------------------------------
 
             terminal_soc_tolerance = 1.0e-6
-    
 
             target_soc_pu = (
                 pre_market.stores_t.e.loc[
                     snapshots[end - 1],
                     seasonal_stores,
                 ]
-                .div(
-                    pre_market.stores.e_nom_opt[
-                        seasonal_stores
-                    ]
-                )
+                .div(pre_market.stores.e_nom_opt[seasonal_stores])
                 .replace(
                     [np.inf, -np.inf],
                     np.nan,
                 )
-                .fillna(
-                    0.0
-                )
+                .fillna(0.0)
                 .clip(
                     lower=0.0,
                     upper=1.0,
                 )
             )
 
-
             n.stores_t.e_min_pu.loc[
                 snapshots[end - 1],
                 seasonal_stores,
-            ] = (
-                target_soc_pu
-                - terminal_soc_tolerance
-            ).clip(
+            ] = (target_soc_pu - terminal_soc_tolerance).clip(
                 lower=0.0,
                 upper=1.0,
             )
-
 
             n.stores_t.e_max_pu.loc[
                 snapshots[end - 1],
                 seasonal_stores,
-            ] = (
-                target_soc_pu
-                + terminal_soc_tolerance
-            ).clip(
+            ] = (target_soc_pu + terminal_soc_tolerance).clip(
                 lower=0.0,
                 upper=1.0,
             )
-
 
             n.stores_t.e_min_pu.fillna(
                 0.0,
@@ -547,7 +531,7 @@ def optimize_with_rolling_horizon(
             n.stores_t.e_max_pu.fillna(
                 1.0,
                 inplace=True,
-                )
+            )
             n.stores_t.e_min_pu.fillna(0.0, inplace=True)
             n.stores_t.e_max_pu.fillna(1.0, inplace=True)
 
@@ -626,9 +610,7 @@ def optimize_with_rolling_horizon(
                     condition,
                 )
 
-                condition_text = str(
-                    condition
-                ).lower()
+                condition_text = str(condition).lower()
 
                 # IIS only makes sense for a genuinely infeasible model.
                 if "infeasible" in condition_text:

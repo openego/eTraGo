@@ -82,6 +82,7 @@ from etrago.execute.sclopf import (
     iterate_sclopf,
     post_contingency_analysis_lopf,
 )
+from etrago.tools.biogas_sh import apply_biogas_sh_assets
 from etrago.tools.distribution_grids import add_simplified_distribution_grids
 from etrago.tools.extendable import extendable
 from etrago.tools.io import (
@@ -119,8 +120,6 @@ from etrago.tools.utilities import (
     set_trafo_costs,
     update_busmap,
 )
-
-from etrago.tools.biogas_sh import apply_biogas_sh_assets
 
 logger = logging.getLogger(__name__)
 
@@ -424,7 +423,7 @@ class Etrago:
     levelize_abroad_inland_parameters = levelize_abroad_inland_parameters
 
     add_simplified_distribution_grids = add_simplified_distribution_grids
-    
+
     apply_biogas_sh_assets = apply_biogas_sh_assets
 
     def dc_lines(self):

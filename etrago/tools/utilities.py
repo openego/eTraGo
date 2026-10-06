@@ -694,10 +694,7 @@ def load_shedding(
         if "p_nom" not in kwargs and sizing.get("per_bus", False):
             p_set = network.get_switchable_as_dense("Load", "p_set")
             peak_by_bus = (
-                p_set.clip(lower=0.0)
-                .max()
-                .groupby(network.loads.bus)
-                .sum()
+                p_set.clip(lower=0.0).max().groupby(network.loads.bus).sum()
             )
             p_nom = (
                 (float(sizing.get("peak_factor", 1.2)) * peak_by_bus)
@@ -834,11 +831,7 @@ def restore_load_shedding_after_clustering(
     # cannot leave us with partial or duplicated coverage.
     # --------------------------------------------------------------
 
-    generator_carrier = (
-        network.generators["carrier"]
-        .fillna("")
-        .astype(str)
-    )
+    generator_carrier = network.generators["carrier"].fillna("").astype(str)
 
     existing_shedding = network.generators.index[
         generator_carrier.isin(shedding_carriers)
@@ -868,9 +861,7 @@ def restore_load_shedding_after_clustering(
 
     load_shedding(
         etrago,
-        negative_load_shedding=list(
-            negative_load_shedding
-        ),
+        negative_load_shedding=list(negative_load_shedding),
     )
 
     # --------------------------------------------------------------
@@ -881,22 +872,14 @@ def restore_load_shedding_after_clustering(
     generators = network.generators
 
     required_bus_carriers = {
-        str(carrier)
-        for carrier in negative_load_shedding
+        str(carrier) for carrier in negative_load_shedding
     }
 
     protected_bus_mask = (
-        buses["carrier"]
-        .fillna("")
-        .astype(str)
-        .isin(required_bus_carriers)
+        buses["carrier"].fillna("").astype(str).isin(required_bus_carriers)
     )
 
-    protected_buses = set(
-        buses.index[
-            protected_bus_mask
-        ].astype(str)
-    )
+    protected_buses = set(buses.index[protected_bus_mask].astype(str))
 
     if not protected_buses:
 
@@ -905,23 +888,13 @@ def restore_load_shedding_after_clustering(
             f"{sorted(required_bus_carriers)} remain after clustering."
         )
 
-    generator_bus = (
-        generators["bus"]
-        .fillna("")
-        .astype(str)
-    )
+    generator_bus = generators["bus"].fillna("").astype(str)
 
-    generator_carrier = (
-        generators["carrier"]
-        .fillna("")
-        .astype(str)
-    )
+    generator_carrier = generators["carrier"].fillna("").astype(str)
 
     summary = {
         "protected_buses": len(protected_buses),
-        "removed_existing_generators": len(
-            existing_shedding
-        ),
+        "removed_existing_generators": len(existing_shedding),
     }
 
     for shedding_carrier in [
@@ -929,44 +902,23 @@ def restore_load_shedding_after_clustering(
         "negative load shedding",
     ]:
 
-        carrier_mask = (
-            generator_carrier
-            == shedding_carrier
-        )
+        carrier_mask = generator_carrier == shedding_carrier
 
-        covered_buses = set(
-            generator_bus[
-                carrier_mask
-            ]
-        )
+        covered_buses = set(generator_bus[carrier_mask])
 
-        covered_protected_buses = (
-            protected_buses
-            & covered_buses
-        )
+        covered_protected_buses = protected_buses & covered_buses
 
-        missing_buses = (
-            protected_buses
-            - covered_buses
-        )
+        missing_buses = protected_buses - covered_buses
 
-        summary[
-            f"{shedding_carrier} generators"
-        ] = int(
-            carrier_mask.sum()
-        )
+        summary[f"{shedding_carrier} generators"] = int(carrier_mask.sum())
 
-        summary[
-            f"{shedding_carrier} protected coverage"
-        ] = len(
+        summary[f"{shedding_carrier} protected coverage"] = len(
             covered_protected_buses
         )
 
         if missing_buses:
 
-            preview = sorted(
-                missing_buses
-            )[:20]
+            preview = sorted(missing_buses)[:20]
 
             raise RuntimeError(
                 f"{shedding_carrier} is missing on "
@@ -983,9 +935,7 @@ def restore_load_shedding_after_clustering(
 
     if debug_bus in buses.index.astype(str):
 
-        debug_generators = generators[
-            generator_bus == debug_bus
-        ][
+        debug_generators = generators[generator_bus == debug_bus][
             [
                 column
                 for column in [
@@ -1026,6 +976,7 @@ def restore_load_shedding_after_clustering(
     )
 
     return summary
+
 
 def set_control_strategies(network):
     """Sets control strategies for AC generators and storage units

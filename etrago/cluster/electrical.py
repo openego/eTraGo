@@ -34,8 +34,6 @@ from six import iteritems
 import numpy as np
 import pandas as pd
 import pypsa.io as io
-import networkx as nx
-
 
 logger = logging.getLogger(__name__)
 
@@ -1011,7 +1009,7 @@ def postprocessing(
                 n_protected_focus_buses += 1
 
                 # Singleton cluster:
-                    # its x/y coordinates already correspond to the original bus.
+                # its x/y coordinates already correspond to the original bus.
                 continue
 
             # --------------------------------------------------------------
@@ -1022,7 +1020,7 @@ def postprocessing(
                 n_protected_boundary_buses += 1
 
                 # Singleton cluster:
-                    # its x/y coordinates already correspond to the original bus.
+                # its x/y coordinates already correspond to the original bus.
                 continue
 
             # --------------------------------------------------------------
@@ -1030,9 +1028,7 @@ def postprocessing(
             # --------------------------------------------------------------
             if cluster_label in medoid_lookup.index:
 
-                medoid = str(
-                    medoid_lookup.loc[cluster_label]
-                )
+                medoid = str(medoid_lookup.loc[cluster_label])
 
                 if medoid not in etrago.network.buses.index.astype(str):
 
@@ -1048,11 +1044,9 @@ def postprocessing(
 
                 # Because the original network index may not itself be stored
                 # as str, resolve the actual index value safely.
-                original_bus_index = (
-                    etrago.network.buses.index[
-                        etrago.network.buses.index.astype(str) == medoid
-                    ][0]
-                )
+                original_bus_index = etrago.network.buses.index[
+                    etrago.network.buses.index.astype(str) == medoid
+                ][0]
 
                 clustering.network.buses.at[
                     i,
@@ -1279,44 +1273,26 @@ def run_spatial_clustering(self):
     # 0. Read clustering configuration
     # ==================================================================
 
-    clustering_args = self.args[
-        "network_clustering"
-    ]
+    clustering_args = self.args["network_clustering"]
 
-    electricity_args = clustering_args[
-        "electricity_grid"
-    ]
+    electricity_args = clustering_args["electricity_grid"]
 
-    method_args = clustering_args[
-        "method"
-    ]
+    method_args = clustering_args["method"]
 
     if not electricity_args.get(
         "active",
         False,
     ):
-        logger.info(
-            "Electrical spatial clustering is disabled."
-        )
+        logger.info("Electrical spatial clustering is disabled.")
         return
 
-    focus_region = method_args.get(
-        "focus_region"
-    )
+    focus_region = method_args.get("focus_region")
 
-    cluster_within_focus = (
-        electricity_args.get(
-            "cluster_within_focus"
-        )
-    )
+    cluster_within_focus = electricity_args.get("cluster_within_focus")
 
-    algorithm = method_args.get(
-        "algorithm"
-    )
+    algorithm = method_args.get("algorithm")
 
-    k_elec_busmap = electricity_args.get(
-        "k_elec_busmap"
-    )
+    k_elec_busmap = electricity_args.get("k_elec_busmap")
 
     per_country = method_args.get(
         "per_country",
@@ -1331,29 +1307,20 @@ def run_spatial_clustering(self):
     zero_x_tolerance = 1e-12
 
     explicit_focus_protection = bool(
-        focus_region
-        and cluster_within_focus is False
+        focus_region and cluster_within_focus is False
     )
 
     # ==================================================================
     # 1. Preserve original network for spatial disaggregation
     # ==================================================================
 
-    if self.args.get(
-        "spatial_disaggregation"
-    ) is not None:
+    if self.args.get("spatial_disaggregation") is not None:
 
-        self.disaggregated_network = (
-            self.network.copy()
-        )
+        self.disaggregated_network = self.network.copy()
 
     else:
 
-        self.disaggregated_network = (
-            self.network.copy(
-                with_time=False
-            )
-        )
+        self.disaggregated_network = self.network.copy(with_time=False)
 
     # ==================================================================
     # 2. Standard eTraGo preprocessing
@@ -1364,9 +1331,7 @@ def run_spatial_clustering(self):
         weight,
         n_clusters,
         busmap_foreign,
-    ) = preprocessing(
-        self
-    )
+    ) = preprocessing(self)
 
     # IMPORTANT:
     #
@@ -1376,25 +1341,13 @@ def run_spatial_clustering(self):
     #
     # Do not use line IDs from self.network after clustering to identify
     # physical branches because PyPSA may rebuild/re-index lines.
-    source_lines = (
-        elec_network.lines.copy(
-            deep=True
-        )
-    )
+    source_lines = elec_network.lines.copy(deep=True)
 
-    source_lines["_source_id"] = (
-        source_lines.index.astype(str)
-    )
+    source_lines["_source_id"] = source_lines.index.astype(str)
 
-    source_lines["bus0"] = (
-        source_lines["bus0"]
-        .astype(str)
-    )
+    source_lines["bus0"] = source_lines["bus0"].astype(str)
 
-    source_lines["bus1"] = (
-        source_lines["bus1"]
-        .astype(str)
-    )
+    source_lines["bus1"] = source_lines["bus1"].astype(str)
 
     # ==================================================================
     # 3. Initialize focus-region containers
@@ -1472,19 +1425,11 @@ def run_spatial_clustering(self):
                 include_border=True,
             )
 
-            focus_buses = pd.Index(
-                focus_buses.astype(str)
-            )
+            focus_buses = pd.Index(focus_buses.astype(str))
 
-            boundary_buses = pd.Index(
-                boundary_buses.astype(str)
-            )
+            boundary_buses = pd.Index(boundary_buses.astype(str))
 
-            protected_buses = (
-                focus_buses.union(
-                    boundary_buses
-                )
-            )
+            protected_buses = focus_buses.union(boundary_buses)
 
             logger.info(
                 "\n"
@@ -1517,21 +1462,15 @@ def run_spatial_clustering(self):
     # 5. Run configured AC clustering algorithm
     # ==================================================================
 
-    busmap = pd.Series(
-        dtype=str
-    )
+    busmap = pd.Series(dtype=str)
 
-    medoid_idx = pd.Series(
-        dtype=str
-    )
+    medoid_idx = pd.Series(dtype=str)
 
     if algorithm == "kmeans":
 
         if not k_elec_busmap:
 
-            logger.info(
-                "Start k-means Clustering AC"
-            )
+            logger.info("Start k-means Clustering AC")
 
             busmap = kmean_clustering(
                 self,
@@ -1544,9 +1483,7 @@ def run_spatial_clustering(self):
 
         if not k_elec_busmap:
 
-            logger.info(
-                "Start k-medoids Dijkstra Clustering AC"
-            )
+            logger.info("Start k-medoids Dijkstra Clustering AC")
 
             (
                 busmap,
@@ -1578,37 +1515,21 @@ def run_spatial_clustering(self):
             pd.Series,
         ):
 
-            busmap = pd.Series(
-                busmap
-            )
+            busmap = pd.Series(busmap)
 
-        busmap = (
-            busmap.copy()
-        )
+        busmap = busmap.copy()
 
-        busmap.index = (
-            busmap.index.astype(str)
-        )
+        busmap.index = busmap.index.astype(str)
 
-        busmap = (
-            busmap.astype(str)
-        )
+        busmap = busmap.astype(str)
 
         # --------------------------------------------------------------
         # Verify all protected buses exist in the clustering busmap.
         # --------------------------------------------------------------
 
-        missing_focus = (
-            focus_buses.difference(
-                busmap.index
-            )
-        )
+        missing_focus = focus_buses.difference(busmap.index)
 
-        missing_boundary = (
-            boundary_buses.difference(
-                busmap.index
-            )
-        )
+        missing_boundary = boundary_buses.difference(busmap.index)
 
         if len(missing_focus):
 
@@ -1632,11 +1553,7 @@ def run_spatial_clustering(self):
 
         for bus in focus_buses:
 
-            busmap.loc[
-                str(bus)
-            ] = (
-                f"focus_{bus}"
-            )
+            busmap.loc[str(bus)] = f"focus_{bus}"
 
         # --------------------------------------------------------------
         # Protect each boundary bus as one singleton.
@@ -1644,47 +1561,27 @@ def run_spatial_clustering(self):
 
         for bus in boundary_buses:
 
-            busmap.loc[
-                str(bus)
-            ] = (
-                f"boundary_{bus}"
-            )
+            busmap.loc[str(bus)] = f"boundary_{bus}"
 
         # --------------------------------------------------------------
         # Validate singleton behaviour.
         # --------------------------------------------------------------
 
-        protected_labels = (
-            busmap.reindex(
-                protected_buses
-            )
-        )
+        protected_labels = busmap.reindex(protected_buses)
 
         if protected_labels.isna().any():
 
-            missing = (
-                protected_labels[
-                    protected_labels.isna()
-                ].index.tolist()
-            )
+            missing = protected_labels[protected_labels.isna()].index.tolist()
 
             raise RuntimeError(
-                "Protected buses lost their cluster mapping: "
-                f"{missing}"
+                "Protected buses lost their cluster mapping: " f"{missing}"
             )
 
-        if (
-            protected_labels.nunique()
-            != len(protected_buses)
-        ):
+        if protected_labels.nunique() != len(protected_buses):
 
-            duplicated = (
-                protected_labels[
-                    protected_labels.duplicated(
-                        keep=False
-                    )
-                ]
-            )
+            duplicated = protected_labels[
+                protected_labels.duplicated(keep=False)
+            ]
 
             raise RuntimeError(
                 "Focus/boundary buses are not unique singleton "
@@ -1720,9 +1617,7 @@ def run_spatial_clustering(self):
         medoid_idx,
     )
 
-    clustered_network = (
-        clustering.network
-    )
+    clustered_network = clustering.network
 
     # ==================================================================
     # 8. Repair protected AC lines damaged during clustering
@@ -1756,50 +1651,28 @@ def run_spatial_clustering(self):
             pd.Series,
         ):
 
-            final_busmap = (
-                busmap.copy()
-            )
+            final_busmap = busmap.copy()
 
         else:
 
-            final_busmap = pd.Series(
-                busmap
-            )
+            final_busmap = pd.Series(busmap)
 
-        final_busmap.index = (
-            final_busmap.index.astype(str)
-        )
+        final_busmap.index = final_busmap.index.astype(str)
 
-        final_busmap = (
-            final_busmap.astype(str)
-        )
+        final_busmap = final_busmap.astype(str)
 
         # --------------------------------------------------------------
         # Determine where every source line endpoint ended up.
         # --------------------------------------------------------------
 
-        mapped_source_lines = (
-            source_lines.copy()
+        mapped_source_lines = source_lines.copy()
+
+        mapped_source_lines["_mapped_bus0"] = mapped_source_lines["bus0"].map(
+            final_busmap
         )
 
-        mapped_source_lines[
-            "_mapped_bus0"
-        ] = (
-            mapped_source_lines[
-                "bus0"
-            ].map(
-                final_busmap
-            )
-        )
-
-        mapped_source_lines[
-            "_mapped_bus1"
-        ] = (
-            mapped_source_lines[
-                "bus1"
-            ].map(
-                final_busmap
-            )
+        mapped_source_lines["_mapped_bus1"] = mapped_source_lines["bus1"].map(
+            final_busmap
         )
 
         # --------------------------------------------------------------
@@ -1807,28 +1680,15 @@ def run_spatial_clustering(self):
         # --------------------------------------------------------------
 
         clustered_x = pd.to_numeric(
-            clustered_network.lines[
-                "x"
-            ],
+            clustered_network.lines["x"],
             errors="coerce",
         )
 
-        bad_line_mask = (
-            ~np.isfinite(
-                clustered_x
-            )
-            |
-            (
-                clustered_x.abs()
-                <= zero_x_tolerance
-            )
+        bad_line_mask = ~np.isfinite(clustered_x) | (
+            clustered_x.abs() <= zero_x_tolerance
         )
 
-        bad_line_indices = (
-            clustered_network.lines.index[
-                bad_line_mask
-            ]
-        )
+        bad_line_indices = clustered_network.lines.index[bad_line_mask]
 
         protected_prefixes = (
             "focus_",
@@ -1859,21 +1719,12 @@ def run_spatial_clustering(self):
 
             if (
                 values.isna().any()
-                or
-                (~np.isfinite(values)).any()
-                or
-                (values.abs() <= tolerance).any()
+                or (~np.isfinite(values)).any()
+                or (values.abs() <= tolerance).any()
             ):
                 return np.nan
 
-            return (
-                1.0
-                /
-                (
-                    1.0
-                    / values
-                ).sum()
-            )
+            return 1.0 / (1.0 / values).sum()
 
         # --------------------------------------------------------------
         # Helper: capacity-weighted representative length
@@ -1883,10 +1734,7 @@ def run_spatial_clustering(self):
             candidates,
         ):
 
-            if (
-                "length"
-                not in candidates.columns
-            ):
+            if "length" not in candidates.columns:
                 return np.nan
 
             lengths = pd.to_numeric(
@@ -1897,34 +1745,23 @@ def run_spatial_clustering(self):
             if lengths.notna().sum() == 0:
                 return np.nan
 
-            if (
-                "s_nom"
-                in candidates.columns
-            ):
+            if "s_nom" in candidates.columns:
 
                 capacities = pd.to_numeric(
                     candidates["s_nom"],
                     errors="coerce",
                 ).fillna(0.0)
 
-                total_capacity = (
-                    capacities.sum()
-                )
+                total_capacity = capacities.sum()
 
                 if total_capacity > 0:
 
                     return float(
-                        (
-                            lengths.fillna(0.0)
-                            * capacities
-                        ).sum()
-                        /
-                        total_capacity
+                        (lengths.fillna(0.0) * capacities).sum()
+                        / total_capacity
                     )
 
-            return float(
-                lengths.mean()
-            )
+            return float(lengths.mean())
 
         # --------------------------------------------------------------
         # Repair each invalid clustered line
@@ -1932,23 +1769,11 @@ def run_spatial_clustering(self):
 
         for clustered_index in bad_line_indices:
 
-            clustered_row = (
-                clustered_network.lines.loc[
-                    clustered_index
-                ]
-            )
+            clustered_row = clustered_network.lines.loc[clustered_index]
 
-            clustered_bus0 = str(
-                clustered_row[
-                    "bus0"
-                ]
-            )
+            clustered_bus0 = str(clustered_row["bus0"])
 
-            clustered_bus1 = str(
-                clustered_row[
-                    "bus1"
-                ]
-            )
+            clustered_bus1 = str(clustered_row["bus1"])
 
             # ----------------------------------------------------------
             # Automatically repair ONLY branches fully contained inside
@@ -1957,15 +1782,9 @@ def run_spatial_clustering(self):
             # We do not silently change standard external clustering.
             # ----------------------------------------------------------
 
-            protected_to_protected = (
-                clustered_bus0.startswith(
-                    protected_prefixes
-                )
-                and
-                clustered_bus1.startswith(
-                    protected_prefixes
-                )
-            )
+            protected_to_protected = clustered_bus0.startswith(
+                protected_prefixes
+            ) and clustered_bus1.startswith(protected_prefixes)
 
             if not protected_to_protected:
 
@@ -1977,11 +1796,7 @@ def run_spatial_clustering(self):
                     clustered_bus1,
                 )
 
-                unresolved_lines.append(
-                    str(
-                        clustered_index
-                    )
-                )
+                unresolved_lines.append(str(clustered_index))
 
                 continue
 
@@ -1993,55 +1808,21 @@ def run_spatial_clustering(self):
             # ----------------------------------------------------------
 
             same_direction = (
-                (
-                    mapped_source_lines[
-                        "_mapped_bus0"
-                    ]
-                    == clustered_bus0
-                )
-                &
-                (
-                    mapped_source_lines[
-                        "_mapped_bus1"
-                    ]
-                    == clustered_bus1
-                )
-            )
+                mapped_source_lines["_mapped_bus0"] == clustered_bus0
+            ) & (mapped_source_lines["_mapped_bus1"] == clustered_bus1)
 
             reverse_direction = (
-                (
-                    mapped_source_lines[
-                        "_mapped_bus0"
-                    ]
-                    == clustered_bus1
-                )
-                &
-                (
-                    mapped_source_lines[
-                        "_mapped_bus1"
-                    ]
-                    == clustered_bus0
-                )
-            )
+                mapped_source_lines["_mapped_bus0"] == clustered_bus1
+            ) & (mapped_source_lines["_mapped_bus1"] == clustered_bus0)
 
-            candidates = (
-                mapped_source_lines[
-                    same_direction
-                    |
-                    reverse_direction
-                ].copy()
-            )
+            candidates = mapped_source_lines[
+                same_direction | reverse_direction
+            ].copy()
 
             # A source branch which maps both ends to the same final bus
             # cannot represent this surviving clustered line.
             candidates = candidates[
-                candidates[
-                    "_mapped_bus0"
-                ]
-                !=
-                candidates[
-                    "_mapped_bus1"
-                ]
+                candidates["_mapped_bus0"] != candidates["_mapped_bus1"]
             ]
 
             if candidates.empty:
@@ -2054,11 +1835,7 @@ def run_spatial_clustering(self):
                     clustered_bus1,
                 )
 
-                unresolved_lines.append(
-                    str(
-                        clustered_index
-                    )
-                )
+                unresolved_lines.append(str(clustered_index))
 
                 continue
 
@@ -2073,13 +1850,8 @@ def run_spatial_clustering(self):
 
             invalid_source_x = (
                 source_x.isna()
-                |
-                (~np.isfinite(source_x))
-                |
-                (
-                    source_x.abs()
-                    <= zero_x_tolerance
-                )
+                | (~np.isfinite(source_x))
+                | (source_x.abs() <= zero_x_tolerance)
             )
 
             if invalid_source_x.any():
@@ -2107,19 +1879,12 @@ def run_spatial_clustering(self):
                                 "s_nom",
                                 "length",
                             ]
-                            if column
-                            in candidates.columns
+                            if column in candidates.columns
                         ]
-                    ].to_string(
-                        index=False
-                    ),
+                    ].to_string(index=False),
                 )
 
-                unresolved_lines.append(
-                    str(
-                        clustered_index
-                    )
-                )
+                unresolved_lines.append(str(clustered_index))
 
                 continue
 
@@ -2129,61 +1894,31 @@ def run_spatial_clustering(self):
 
             if len(candidates) == 1:
 
-                source_row = (
-                    candidates.iloc[0]
-                )
+                source_row = candidates.iloc[0]
 
-                restored_x = float(
-                    source_row["x"]
-                )
+                restored_x = float(source_row["x"])
 
-                if (
-                    "r"
-                    in source_row.index
-                ):
-                    restored_r = (
-                        source_row["r"]
-                    )
+                if "r" in source_row.index:
+                    restored_r = source_row["r"]
                 else:
                     restored_r = np.nan
 
-                if (
-                    "g"
-                    in source_row.index
-                ):
-                    restored_g = (
-                        source_row["g"]
-                    )
+                if "g" in source_row.index:
+                    restored_g = source_row["g"]
                 else:
                     restored_g = np.nan
 
-                if (
-                    "b"
-                    in source_row.index
-                ):
-                    restored_b = (
-                        source_row["b"]
-                    )
+                if "b" in source_row.index:
+                    restored_b = source_row["b"]
                 else:
                     restored_b = np.nan
 
-                if (
-                    "length"
-                    in source_row.index
-                ):
-                    restored_length = (
-                        source_row["length"]
-                    )
+                if "length" in source_row.index:
+                    restored_length = source_row["length"]
                 else:
                     restored_length = np.nan
 
-                source_description = (
-                    str(
-                        source_row[
-                            "_source_id"
-                        ]
-                    )
-                )
+                source_description = str(source_row["_source_id"])
 
             # ==========================================================
             # CASE B: several physical source branches map onto the same
@@ -2195,95 +1930,48 @@ def run_spatial_clustering(self):
 
             else:
 
-                restored_x = (
-                    _parallel_equivalent(
-                        candidates[
-                            "x"
-                        ]
-                    )
-                )
+                restored_x = _parallel_equivalent(candidates["x"])
 
-                if (
-                    "r"
-                    in candidates.columns
-                ):
+                if "r" in candidates.columns:
 
-                    restored_r = (
-                        _parallel_equivalent(
-                            candidates[
-                                "r"
-                            ]
-                        )
-                    )
+                    restored_r = _parallel_equivalent(candidates["r"])
 
                 else:
 
                     restored_r = np.nan
 
                 # Parallel shunt admittances add.
-                if (
-                    "g"
-                    in candidates.columns
-                ):
+                if "g" in candidates.columns:
 
-                    restored_g = (
-                        pd.to_numeric(
-                            candidates[
-                                "g"
-                            ],
-                            errors="coerce",
-                        ).sum(
-                            min_count=1
-                        )
-                    )
+                    restored_g = pd.to_numeric(
+                        candidates["g"],
+                        errors="coerce",
+                    ).sum(min_count=1)
 
                 else:
 
                     restored_g = np.nan
 
-                if (
-                    "b"
-                    in candidates.columns
-                ):
+                if "b" in candidates.columns:
 
-                    restored_b = (
-                        pd.to_numeric(
-                            candidates[
-                                "b"
-                            ],
-                            errors="coerce",
-                        ).sum(
-                            min_count=1
-                        )
-                    )
+                    restored_b = pd.to_numeric(
+                        candidates["b"],
+                        errors="coerce",
+                    ).sum(min_count=1)
 
                 else:
 
                     restored_b = np.nan
 
-                restored_length = (
-                    _representative_length(
-                        candidates
-                    )
-                )
+                restored_length = _representative_length(candidates)
 
-                source_description = (
-                    ", ".join(
-                        candidates[
-                            "_source_id"
-                        ].astype(str)
-                    )
+                source_description = ", ".join(
+                    candidates["_source_id"].astype(str)
                 )
 
                 if (
-                    not np.isfinite(
-                        restored_x
-                    )
-                    or
-                    abs(
-                        restored_x
-                    )
-                    <= zero_x_tolerance
+                    not np.isfinite(restored_x)
+                    or abs(restored_x) <= zero_x_tolerance
                 ):
 
                     logger.error(
@@ -2292,11 +1980,7 @@ def run_spatial_clustering(self):
                         clustered_index,
                     )
 
-                    unresolved_lines.append(
-                        str(
-                            clustered_index
-                        )
-                    )
+                    unresolved_lines.append(str(clustered_index))
 
                     continue
 
@@ -2304,20 +1988,17 @@ def run_spatial_clustering(self):
             # Save clustered values for diagnostics
             # ----------------------------------------------------------
 
-            x_before = (
-                clustered_network.lines.at[
-                    clustered_index,
-                    "x",
-                ]
-            )
+            x_before = clustered_network.lines.at[
+                clustered_index,
+                "x",
+            ]
 
             r_before = (
                 clustered_network.lines.at[
                     clustered_index,
                     "r",
                 ]
-                if "r"
-                in clustered_network.lines.columns
+                if "r" in clustered_network.lines.columns
                 else np.nan
             )
 
@@ -2326,8 +2007,7 @@ def run_spatial_clustering(self):
                     clustered_index,
                     "length",
                 ]
-                if "length"
-                in clustered_network.lines.columns
+                if "length" in clustered_network.lines.columns
                 else np.nan
             )
 
@@ -2345,16 +2025,9 @@ def run_spatial_clustering(self):
             # ----------------------------------------------------------
 
             if (
-                "r"
-                in clustered_network.lines.columns
-                and
-                pd.notna(
-                    restored_r
-                )
-                and
-                np.isfinite(
-                    restored_r
-                )
+                "r" in clustered_network.lines.columns
+                and pd.notna(restored_r)
+                and np.isfinite(restored_r)
             ):
 
                 clustered_network.lines.at[
@@ -2367,16 +2040,9 @@ def run_spatial_clustering(self):
             # ----------------------------------------------------------
 
             if (
-                "g"
-                in clustered_network.lines.columns
-                and
-                pd.notna(
-                    restored_g
-                )
-                and
-                np.isfinite(
-                    restored_g
-                )
+                "g" in clustered_network.lines.columns
+                and pd.notna(restored_g)
+                and np.isfinite(restored_g)
             ):
 
                 clustered_network.lines.at[
@@ -2389,16 +2055,9 @@ def run_spatial_clustering(self):
             # ----------------------------------------------------------
 
             if (
-                "b"
-                in clustered_network.lines.columns
-                and
-                pd.notna(
-                    restored_b
-                )
-                and
-                np.isfinite(
-                    restored_b
-                )
+                "b" in clustered_network.lines.columns
+                and pd.notna(restored_b)
+                and np.isfinite(restored_b)
             ):
 
                 clustered_network.lines.at[
@@ -2411,16 +2070,9 @@ def run_spatial_clustering(self):
             # ----------------------------------------------------------
 
             if (
-                "length"
-                in clustered_network.lines.columns
-                and
-                pd.notna(
-                    restored_length
-                )
-                and
-                np.isfinite(
-                    restored_length
-                )
+                "length" in clustered_network.lines.columns
+                and pd.notna(restored_length)
+                and np.isfinite(restored_length)
             ):
 
                 clustered_network.lines.at[
@@ -2428,11 +2080,7 @@ def run_spatial_clustering(self):
                     "length",
                 ] = restored_length
 
-            restored_lines.append(
-                str(
-                    clustered_index
-                )
-            )
+            restored_lines.append(str(clustered_index))
 
             logger.info(
                 "\n"
@@ -2462,28 +2110,15 @@ def run_spatial_clustering(self):
         # ==============================================================
 
         checked_x = pd.to_numeric(
-            clustered_network.lines[
-                "x"
-            ],
+            clustered_network.lines["x"],
             errors="coerce",
         )
 
-        still_bad_mask = (
-            ~np.isfinite(
-                checked_x
-            )
-            |
-            (
-                checked_x.abs()
-                <= zero_x_tolerance
-            )
+        still_bad_mask = ~np.isfinite(checked_x) | (
+            checked_x.abs() <= zero_x_tolerance
         )
 
-        still_bad_lines = (
-            clustered_network.lines[
-                still_bad_mask
-            ]
-        )
+        still_bad_lines = clustered_network.lines[still_bad_mask]
 
         if not still_bad_lines.empty:
 
@@ -2499,8 +2134,7 @@ def run_spatial_clustering(self):
                     "v_nom",
                     "length",
                 ]
-                if column
-                in still_bad_lines.columns
+                if column in still_bad_lines.columns
             ]
 
             raise RuntimeError(
@@ -2508,9 +2142,7 @@ def run_spatial_clustering(self):
                 "Zero or non-finite AC line reactance remains after "
                 "endpoint-based protected-line restoration.\n"
                 "The following branches are not safe for LOPF:\n\n"
-                + still_bad_lines[
-                    columns
-                ].to_string()
+                + still_bad_lines[columns].to_string()
             )
 
         logger.info(
@@ -2529,17 +2161,13 @@ def run_spatial_clustering(self):
     # 10. Store final clustering busmap
     # ==================================================================
 
-    self.update_busmap(
-        busmap
-    )
+    self.update_busmap(busmap)
 
     # ==================================================================
     # 11. Replace active network with clustered network
     # ==================================================================
 
-    self.network = (
-        clustered_network
-    )
+    self.network = clustered_network
 
     # ==================================================================
     # 12. Restore country/geographical information
@@ -2555,37 +2183,22 @@ def run_spatial_clustering(self):
     # PyPSA topology/clustering calls can overwrite control assignments.
     # ==================================================================
 
-    set_control_strategies(
-        self.network
-    )
+    set_control_strategies(self.network)
 
     # ==================================================================
     # 14. Final electrical integrity check
     # ==================================================================
 
     final_x = pd.to_numeric(
-        self.network.lines[
-            "x"
-        ],
+        self.network.lines["x"],
         errors="coerce",
     )
 
-    final_bad_mask = (
-        ~np.isfinite(
-            final_x
-        )
-        |
-        (
-            final_x.abs()
-            <= zero_x_tolerance
-        )
+    final_bad_mask = ~np.isfinite(final_x) | (
+        final_x.abs() <= zero_x_tolerance
     )
 
-    final_bad_lines = (
-        self.network.lines[
-            final_bad_mask
-        ]
-    )
+    final_bad_lines = self.network.lines[final_bad_mask]
 
     if not final_bad_lines.empty:
 
@@ -2601,8 +2214,7 @@ def run_spatial_clustering(self):
                 "v_nom",
                 "length",
             ]
-            if column
-            in final_bad_lines.columns
+            if column in final_bad_lines.columns
         ]
 
         raise RuntimeError(
@@ -2610,23 +2222,16 @@ def run_spatial_clustering(self):
             "Spatial clustering produced an electrically invalid "
             "AC network.\n"
             "Zero/non-finite reactance remains:\n\n"
-            + final_bad_lines[
-                columns
-            ].to_string()
+            + final_bad_lines[columns].to_string()
         )
 
     # ==================================================================
     # 15. Final clustering diagnostics
     # ==================================================================
 
-    final_ac_buses = (
-        self.network.buses[
-            self.network.buses[
-                "carrier"
-            ].astype(str)
-            == "AC"
-        ]
-    )
+    final_ac_buses = self.network.buses[
+        self.network.buses["carrier"].astype(str) == "AC"
+    ]
 
     logger.info(
         "\n"
