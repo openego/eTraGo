@@ -46,7 +46,11 @@ __copyright__ = (
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, ClaraBuettner, CarlosEpia"
 
-from etrago.tools.utilities import adjust_chp_model, adjust_PtH2_model
+from etrago.tools.utilities import (
+    adjust_chp_model,
+    adjust_e_initial_emob,
+    adjust_PtH2_model,
+)
 
 
 def market_optimization(self):
@@ -58,6 +62,8 @@ def market_optimization(self):
     self.pre_market_model.determine_network_topology()
 
     logger.info("Start solving pre market model")
+
+    adjust_e_initial_emob(self.pre_market_model)
 
     if self.args["method"]["formulation"] == "pyomo":
         self.pre_market_model.lopf(

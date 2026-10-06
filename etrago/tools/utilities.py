@@ -743,6 +743,65 @@ def load_shedding(
             )
 
 
+def adjust_e_initial_emob(network, snapshot=None):
+    """Limit e_initial of e-mobility stores to their SoC band
+
+    The e_initial of the e-mobility stores refers to the first hour of the
+    year. When the optimization starts at a different snapshot (e.g. due to
+    start_snapshot or a rolling horizon), e_initial can be outside of the
+    allowed state of charge and lead to infeasibilities. Therefore,
+    e_initial is clipped to e_min_pu and e_max_pu of the first snapshot.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshot : pandas.Timestamp, optional
+        First snapshot of the optimization. The default is None, then the
+        first snapshot of the network is used.
+
+    Returns
+    -------
+    None.
+
+    """
+    stores = network.stores.index[
+        network.stores.carrier == "battery_storage"
+    ]
+
+    if stores.empty:
+        return
+
+    if snapshot is None:
+        snapshot = network.snapshots[0]
+
+    e_nom = network.stores.loc[stores, "e_nom"]
+    e_min = (
+        network.get_switchable_as_dense(
+            "Store", "e_min_pu", snapshots=[snapshot], inds=stores
+        ).loc[snapshot]
+        * e_nom
+    )
+    e_max = (
+        network.get_switchable_as_dense(
+            "Store", "e_max_pu", snapshots=[snapshot], inds=stores
+        ).loc[snapshot]
+        * e_nom
+    )
+
+    e_initial = network.stores.loc[stores, "e_initial"]
+    e_initial_clipped = e_initial.clip(lower=e_min, upper=e_max)
+
+    changed = (e_initial - e_initial_clipped).abs() > 1e-6
+    if changed.any():
+        logger.info(
+            f"e_initial of {changed.sum()} e-mobility stores clipped to the "
+            f"SoC band of snapshot {snapshot}"
+        )
+
+    network.stores.loc[stores, "e_initial"] = e_initial_clipped
+
+
 def set_control_strategies(network):
     """Sets control strategies for AC generators and storage units
 
