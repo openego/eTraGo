@@ -176,6 +176,14 @@ args = {
         "Threads": 4,
     },
 
+    # Size load shedding per bus instead of using the network-wide maximum
+    # load (about 160 GW) on every bus.
+    "load_shedding_sizing": {
+        "per_bus": True,
+        "peak_factor": 1.2,  # p_nom = factor * peak load at the bus
+        "p_nom_floor": 1000.0,  # MW, also for buses without load
+    },
+
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # scenario, e.g. eGon2035, eGon2035_lowflex or status2019
 

@@ -688,6 +688,36 @@ def load_shedding(
         marginal_cost = kwargs.get("marginal_cost", marginal_cost_def)
         p_nom = kwargs.get("p_nom", p_nom_def)
 
+        # Optional per-bus sizing: the network-wide maximum load on every
+        # bus creates very large bounds and hurts solver numerics.
+        sizing = self.args.get("load_shedding_sizing") or {}
+        if "p_nom" not in kwargs and sizing.get("per_bus", False):
+            p_set = network.get_switchable_as_dense("Load", "p_set")
+            peak_by_bus = (
+                p_set.clip(lower=0.0)
+                .max()
+                .groupby(network.loads.bus)
+                .sum()
+            )
+            p_nom = (
+                (float(sizing.get("peak_factor", 1.2)) * peak_by_bus)
+                .reindex(network.buses.index)
+                .fillna(0.0)
+                .clip(lower=float(sizing.get("p_nom_floor", 1000.0)))
+            )
+            logger.info(
+                "Per-bus load shedding: p_nom %.1f-%.1f MW (was %.1f MW "
+                "on every bus).",
+                p_nom.min(),
+                p_nom.max(),
+                p_nom_def,
+            )
+
+        def p_nom_for(buses):
+            if isinstance(p_nom, pd.Series):
+                return p_nom.loc[buses].values
+            return p_nom
+
         if "load" not in network.carriers.index:
             network.add("Carrier", "load")
         else:
@@ -709,7 +739,7 @@ def load_shedding(
             pd.DataFrame(
                 dict(
                     marginal_cost=marginal_cost,
-                    p_nom=p_nom,
+                    p_nom=p_nom_for(network.buses.index),
                     carrier="load shedding",
                     bus=network.buses.index,
                     control="PQ",
@@ -735,7 +765,7 @@ def load_shedding(
                 pd.DataFrame(
                     dict(
                         marginal_cost=-marginal_cost,
-                        p_nom=p_nom,
+                        p_nom=p_nom_for(neg_shedding_buses),
                         p_min_pu=-1,
                         p_max_pu=0,
                         carrier="negative load shedding",
