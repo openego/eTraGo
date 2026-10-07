@@ -601,7 +601,7 @@ class Etrago:
 def import_egon_results(etrago, path):
     
     import pypsa
-    ego = pypsa.Network(path+"desaggregated/lowflex_network_1_hour.nc")
+    ego = pypsa.Network(path+"desaggregated/lowflex_network_peak_week.nc")
     
     # take over snapshot
     etrago.network.set_snapshots(ego.snapshots)
@@ -726,58 +726,82 @@ def import_egon_results(etrago, path):
                 
                 
 def import_dc_links_results(etrago, path):
-    
     # p_set for DC-links must be defined specifically
-    # because DC-links results are not desaggregated
+    # because DC-links results are not in the imported ego network
+    
+    def _country_pair(c0, c1):
+        """Canonical, direction-independent country pair."""
+        return tuple(sorted((c0, c1)))
     
     # import clustered results
-    clus_bus = pd.read_csv(path+"clustered/buses.csv", index_col=0)
-    clus = pd.read_csv(path+"clustered/links.csv", index_col=0, dtype={0: str})
-    clus = clus[clus.carrier=='DC']
-    clus_ts = pd.read_csv(path+"clustered/links-p0.csv", index_col=0)
+    import pypsa
+    clus_network = pypsa.Network(path + "clustered")
     
     # find out foreign countries per DC link
-    bus_country = clus_bus["country"]
+    clus = clus_network.links[clus_network.links.carrier == "DC"].copy()
+    bus_country = clus_network.buses["country"]
     clus["country0"] = clus["bus0"].map(bus_country)
     clus["country1"] = clus["bus1"].map(bus_country)
+    
+    # direction-independent country pair per link
+    clus["pair"] = clus.apply(
+        lambda r: _country_pair(r["country0"], r["country1"]), axis=1
+    )
+    # sign convention: p0 is the flow from country0 -> country1.
+    # we define the "reference direction" as pair[0] -> pair[1].
+    # if country0 matches pair[0], keep the sign (+1),
+    # otherwise country0 == pair[1] -> flip direction (-1).
+    clus["sign"] = clus.apply(
+        lambda r: 1 if r["country0"] == r["pair"][0] else -1, axis=1
+    )
+    
+    # full p0 time series (all snapshots, irregular resolution)
+    full_ts = clus_network.links_t.p0.reindex(columns=clus.index, fill_value=0)
+    signed_ts = full_ts.mul(clus["sign"], axis=1)    
+    
+    # aggregate per country pair -> net flow pair[0] -> pair[1]
+    exchange_full = signed_ts.T.groupby(clus["pair"]).sum().T
 
-    # extract p0 for the chosen snapshot
-    row = clus_ts.loc[0].reindex(clus.index, fill_value=0)
+    # target snapshots are already the desired hourly snapshots
+    target_snapshots = etrago.network.snapshots
 
-    # calculate im- and exports for this snapshot
-    results = {}
-    for link, val in row.items():
-        c0 = clus.loc[link, "country0"]
-        c1 = clus.loc[link, "country1"]
+    # expand to hourly target snapshots: each target timestamp gets the
+    # value of the most recent preceding clustered snapshot
+    # (snapshot_weightings == 5 confirms this segmentation)
+    exchange_hourly = (
+        exchange_full.reindex(exchange_full.index.union(target_snapshots))
+        .sort_index()
+        .ffill()
+        .reindex(target_snapshots)
+    )
     
-        if c0 == "DE":
-            # export is negative
-            exchange = -val
-            partner = c1
-        else:
-            # import is positive
-            exchange = val
-            partner = c0
-    
-        results[partner] = results.get(partner, 0) + exchange
-    exchange = pd.Series(results)
-    
-    # overwrite p_set for corresponding results in etrago network
-    
-    # check DC links in etrago network
-    dc_links = etrago.network.links[etrago.network.links.carrier=='DC'].copy()
+    # DC links in the etrago network
+    dc_links = etrago.network.links[etrago.network.links.carrier == "DC"].copy()
     bus_country = etrago.network.buses["country"]
     dc_links["country0"] = dc_links["bus0"].map(bus_country)
     dc_links["country1"] = dc_links["bus1"].map(bus_country)
-    
-    # write power exchange as p_set in etrago network
-    dc_links["partner"] = dc_links.apply(
-    lambda r: r["country1"] if r["country0"] == "DE" else r["country0"], axis=1
+    dc_links["pair"] = dc_links.apply(
+        lambda r: _country_pair(r["country0"], r["country1"]), axis=1
     )
-    link_counts = dc_links["partner"].value_counts()
-    dc_links["exchange"] = dc_links["partner"].map(exchange) / dc_links["partner"].map(link_counts)
-    for link_id, val in dc_links["exchange"].items():
-        etrago.network.links_t.p_set[link_id] = val
+    dc_links["sign"] = dc_links.apply(
+        lambda r: 1 if r["country0"] == r["pair"][0] else -1, axis=1
+    )
+
+    # number of parallel links per country pair (for disaggregation)
+    link_counts = dc_links["pair"].value_counts()
+
+    
+    for link_id, row in dc_links.iterrows():
+        pair = row["pair"]
+        if pair not in exchange_hourly.columns:
+            continue
+        # flow in reference direction (pair[0]->pair[1]), flipped to match
+        # the actual direction of the etrago link, divided by the number
+        # of parallel links for that country pair
+        values = (
+            exchange_hourly[pair].to_numpy() * row["sign"] / link_counts[pair]
+        )
+        etrago.network.links_t.p_set.loc[target_snapshots, link_id] = values
     
     
     

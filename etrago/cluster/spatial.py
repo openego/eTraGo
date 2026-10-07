@@ -98,6 +98,16 @@ def nan_links(x):
     return np.nan
 
 
+def _make_country_string(x):
+    """
+    Verkettet alle eindeutigen (unique) Länder-Einträge einer Gruppe.
+    Reihenfolge = Reihenfolge des ersten Auftretens.
+    Duplikate werden entfernt, bevor verkettet wird.
+    """
+    unique_countries = pd.unique(x)
+    return "".join(unique_countries)
+
+
 def ext_sto(x):
     v = any(x[x])
     return v
@@ -199,7 +209,7 @@ def strategies_links():
         "type": nan_links,
         "geom": nan_links,
         "topo": nan_links,
-        "country": nan_links,
+        "country": _make_country_string,
         "terrain_factor": _make_consense_links,
         "build_year": "capacity_weighted_average",
         "lifetime": "capacity_weighted_average",
