@@ -12,27 +12,27 @@ import matplotlib.colors as mcolors
 focus_gdf = gpd.read_file("/home/dozeumesk/eTraGo/git-zooming/eTraGo/etrago/focus-region/hannover.gpkg")
 focus_gdf = focus_gdf.to_crs(epsg=4326)
 
-res=50
+res= 40
 
-vor_cluster = Etrago(csv_folder_name= 'Zooming-Tests/lokale_tests/AC-'+str(res)+'/01-vor-cluster')
+vor_cluster = Etrago(results_folder_name= 'Zooming-Tests/lokale_tests/AC-'+str(res)+'/01-vor-cluster/')
 n_vor_cluster = vor_cluster.network
 
-nach_cluster = Etrago(csv_folder_name= 'Zooming-Tests/lokale_tests/AC-'+str(res)+'/02-nach-cluster')
+nach_cluster = Etrago(results_folder_name= 'Zooming-Tests/lokale_tests/AC-'+str(res)+'/02-nach-cluster/')
 n_nach_cluster = nach_cluster.network
 
-dc_results = Etrago(csv_folder_name= 'Zooming-Tests/lokale_tests/AC-'+str(res)+'/03-mit-dc-results')
+dc_results = Etrago(results_folder_name= 'Zooming-Tests/lokale_tests/AC-'+str(res)+'/03-mit-dc-results/')
 n_dc_results = dc_results.network
 
-vor_lpf = Etrago(csv_folder_name= 'Zooming-Tests/lokale_tests/AC-'+str(res)+'/04-vor-lpf')
+vor_lpf = Etrago(results_folder_name= 'Zooming-Tests/lokale_tests/AC-'+str(res)+'/04-vor-lpf/')
 n_vor_lpf = vor_lpf.network
 
-nach_lpf = Etrago(csv_folder_name= 'Zooming-Tests/lokale_tests/AC-'+str(res)+'/05-nach-lpf')
+nach_lpf = Etrago(results_folder_name= 'Zooming-Tests/lokale_tests/AC-'+str(res)+'/05-nach-lpf/')
 n_nach_lpf = nach_lpf.network
 
-final = Etrago(csv_folder_name= 'Zooming-Tests/lokale_tests/AC-'+str(res)+'/06-final-results')
+final = Etrago(results_folder_name= 'Zooming-Tests/lokale_tests/AC-'+str(res)+'/06-final-results/')
 n_final = final.network
 
-dropped = Etrago(csv_folder_name= 'Zooming-Tests/lokale_tests/AC-'+str(res)+'/07-dropped-sectors')
+dropped = Etrago(results_folder_name= 'Zooming-Tests/lokale_tests/AC-'+str(res)+'/07-dropped-sectors/')
 n_dropped = dropped.network
 
 def validate_power_flow_pipeline(
@@ -152,7 +152,8 @@ def validate_power_flow_pipeline(
         # Bus-Carrier
         if comp_name == "Link" and "carrier" in df_comp.columns:
             is_dc_link = df_comp["carrier"] == "DC"
-            both_ac = both_ac | is_dc_link
+            #both_ac = both_ac | is_dc_link
+            both_ac = is_dc_link
     
         if scope == "all":
             mask = pd.Series(True, index=df_comp.index)
@@ -392,7 +393,7 @@ def validate_power_flow_pipeline(
     print()
     
     print("=" * 60)
-    print("Stufe 3: nach Clustering mit DC-Results)")
+    print("Stufe 3: nach Clustering mit DC-Results")
     print("=" * 60)
     detailed_scope_report(n_dc_results, check_mode="pset")
     print()
