@@ -73,7 +73,7 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 1,
+    "end_snapshot": 168,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -672,10 +672,11 @@ if __name__ == "__main__":
 
     print(datetime.datetime.now())
     
-    spatial_resolution = [50, 300, 1000, 5000, 8000, 10000]
+    spatial_resolution = [150] #[50, 300, 1000, 5000, 8000, 10000]
     
     for i in range (0, len(spatial_resolution)):
             
+        args['network_clustering']['electricity_grid']['active'] = True
         args['network_clustering']['electricity_grid']['n_clusters'] = spatial_resolution[i]
         
         #args['csv_export'] = 'Zooming-Tests/Server-Tests/no-AC-clustering'
@@ -689,12 +690,12 @@ if __name__ == "__main__":
         
         print(datetime.datetime.now())
         
-        #etrago = run_etrago(args, json_path=None)
+        etrago = run_etrago(args, json_path=None)
 
-        try:            
-            etrago = run_etrago(args, json_path=None)
-        except Exception as e:
-            print(f"❌ Error running AC {spatial_resolution[i]}: {e}")
+        # try:            
+        #     etrago = run_etrago(args, json_path=None)
+        # except Exception as e:
+        #     print(f"❌ Error running AC {spatial_resolution[i]}: {e}")
         
         print(datetime.datetime.now())
         
