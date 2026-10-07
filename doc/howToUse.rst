@@ -16,7 +16,7 @@ As an alternative approach, the ``args`` dictionary can be modified through the 
 
 The :mod:`etrago.appl` contains the function :meth:`etrago.appl.run_etrago` which uses the defined ``args`` dictionary to start the desired calculation.
 
-In order to enhance the efficiency of the optimization process using the selected solver, it may be beneficial to consider the utilisation of solver options (which form part of the ``args`` dictionary). For *Gurobi*, the some preferrable settings are outlined in Section :ref:`Functionalities_ref`.
+In order to enhance the efficiency of the optimization process using the selected solver, it may be beneficial to consider the utilisation of solver options (which form part of the ``args`` dictionary). For *Gurobi*, the some preferable settings are outlined in Section :ref:`Functionalities_ref`.
 
 For more specific or extensive changes you are kindly invited to write code and add new functionalities. Please see Section :ref:`Contributing_ref`.
 
