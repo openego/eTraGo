@@ -130,7 +130,7 @@ SWFL_ELECTRICITY_LOAD_CSV = (
 
 # "swfl_measured" = measured 2022 quarter-hourly profile
 # "egon_scaled"   = existing eGon profile scaled to measured annual demand
-SWFL_AC_PROFILE_SOURCE = "egon_scaled"
+SWFL_AC_PROFILE_SOURCE = "swfl_measured"
 
 # Annual energy of Mittelspannung (MS) in the 2022 SWFL file.
 SWFL_ANNUAL_DEMAND_MWH = 381_347.289
@@ -139,12 +139,12 @@ DEBUG_LOG_PATH = DATA_PATHS.DEBUG_LOG_PATH
 
 args = {
     # Setup and Configuration:
-    "db": "oep",  # database session: oep or local database (local_egon2035)
+    "db": "local_egon2035",  # database session: oep or local database (local_egon2035)
     "gridversion": None,  # None for model_draft or version number
 
     "method": {  # choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
-        "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        "n_iter": 2,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "formulation": "linopy",  # pyomo or linopy
         "market_optimization": {
             "active": True,
@@ -179,7 +179,8 @@ args = {
         "BarConvTol": 1e-5,
         "BarHomogeneous": 1,
         "Crossover": 0,
-        "Threads": 4,
+        "Threads": 8,  # was 4; servers here have 8 physical cores
+        "ScaleFlag": 2,  # aggressive scaling for wide coefficient ranges
     },
 
     # Numerical clean-up of the grid (redispatch) model. Defaults in
@@ -192,7 +193,7 @@ args = {
     # Size load shedding per bus instead of using the network-wide maximum
     # load (about 160 GW) on every bus.
     "load_shedding_sizing": {
-        "per_bus": True,
+        "per_bus": True, #set per_bus: False, the code falls back to the original behaviour.
         "peak_factor": 1.2,  # p_nom = factor * peak load at the bus
         "p_nom_floor": 1000.0,  # MW, also for buses without load
     },
