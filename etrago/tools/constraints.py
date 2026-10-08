@@ -23,6 +23,7 @@ Constraints.py includes additional constraints for eTraGo-optimizations
 """
 
 import logging
+import time
 import os
 
 from pyomo.environ import Constraint, ConstraintList
@@ -1890,10 +1891,18 @@ def _capacity_factor_per_gen_cntr_nmp(self, network, snapshots):
                 )
 
 
-def read_max_gas_generation(self):
+# The value is static scenario data, so it is read once per process and reused
+# by every later optimisation (pre-market model and each grid iteration).
+_MAX_GAS_GENERATION_CACHE = {}
+
+
+def read_max_gas_generation(self, retries=3, retry_wait_s=60):
     """Return values limiting annual gas production in Germany."""
 
     scn_name = self.args["scn_name"]
+    cache_key = (str(self.args["db"]), scn_name)
+    if cache_key in _MAX_GAS_GENERATION_CACHE:
+        return _MAX_GAS_GENERATION_CACHE[cache_key]
 
     arg_def = {
         "eGon2035": {
@@ -1921,6 +1930,38 @@ def read_max_gas_generation(self):
         },
     }
 
+    for attempt in range(1, retries + 1):
+        try:
+            arg = _query_max_gas_generation(self, scn_name)
+            break
+        except (sqlalchemy.exc.NoSuchTableError, LookupError) as error:
+            logging.warning(
+                "The database query for 'scenario.egon_scenario_parameters' "
+                f"failed. Fallback values are used. Error: {error}"
+            )
+            arg = arg_def[scn_name]
+            break
+        except Exception as error:  # e.g. HTTP 429 from the OEP API
+            if attempt < retries:
+                logging.warning(
+                    f"Reading max. gas generation failed (attempt {attempt}/"
+                    f"{retries}): {error}. Retrying in {retry_wait_s} s."
+                )
+                time.sleep(retry_wait_s)
+            else:
+                logging.warning(
+                    "Reading max. gas generation from the database failed "
+                    f"after {retries} attempts ({error}). Using the default "
+                    f"values for {scn_name}: {arg_def[scn_name]}."
+                )
+                arg = arg_def[scn_name]
+
+    _MAX_GAS_GENERATION_CACHE[cache_key] = arg
+    return arg
+
+
+def _query_max_gas_generation(self, scn_name):
+    """Query the gas-generation limits from the scenario parameters table."""
     engine = db.connection(section=self.args["db"])
     session = None
 
@@ -1948,25 +1989,14 @@ def read_max_gas_generation(self):
                 f"No gas parameters found for scenario {scn_name!r}."
             )
 
-        arg = df["gas_parameters"].iloc[0][
+        return df["gas_parameters"].iloc[0][
             "max_gas_generation_overtheyear"
         ]
-
-    except (sqlalchemy.exc.NoSuchTableError, LookupError) as error:
-        logging.warning(
-            "\n"
-            "The database query for "
-            "'scenario.egon_scenario_parameters' failed.\n"
-            f"Fallback values are used. Error: {error}"
-        )
-        arg = arg_def[scn_name]
 
     finally:
         if session is not None:
             session.close()
         engine.dispose()
-
-    return arg
 
 
 def add_ch4_constraints_linopy(self, network, snapshots):
