@@ -276,7 +276,7 @@ class MapFigure:
             self.data.append({
                 "type": "scatter", "mode": "markers", "x": [None], "y": [None],
                 "marker": {"size": s, "color": color, "line": {"color": "@surface", "width": 1}},
-                "name": f"{v:,.2g} {unit}", "showlegend": True,
+                "name": (f"{v:,.0f} {unit}" if v >= 100 else f"{v:,.2g} {unit}"), "showlegend": True,
                 "legendgroup": "size",
             })
 

@@ -17,12 +17,13 @@ from .config import DEFAULT_DATA_DIR, DEFAULT_RESULTS_DIR, SCENARIO_LABELS, disc
 from .metrics import ScenarioMetrics
 from .report import ComparisonReport, ScenarioReport
 from .side_by_side import SideBySideReport
+from .local_prices import LocalPricesReport
 
 logger = logging.getLogger("spread_sh_reports")
 
 
 def build(results_dir=DEFAULT_RESULTS_DIR, out_dir=None, data_dir=DEFAULT_DATA_DIR,
-          plotly_js=None, only=None):
+          plotly_js=None, only=None, nodal=None):
     results_dir = Path(results_dir)
     out_dir = Path(out_dir) if out_dir else results_dir / "html_reports"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -46,7 +47,8 @@ def build(results_dir=DEFAULT_RESULTS_DIR, out_dir=None, data_dir=DEFAULT_DATA_D
 
     def nav(current):
         items = ([("Comparison", "index.html", current == "index"),
-                  ("Side by side", "side_by_side.html", current == "sbs")] if multi else [])
+                  ("Side by side", "side_by_side.html", current == "sbs"),
+                  ("Local prices", "local_prices.html", current == "local")] if multi else [])
         items += [(k if k != "status_quo" else "Status quo", files[k], current == k) for k in metrics]
         return items
 
@@ -60,6 +62,11 @@ def build(results_dir=DEFAULT_RESULTS_DIR, out_dir=None, data_dir=DEFAULT_DATA_D
     if multi:
         page = ComparisonReport(metrics, nav("index"), files, js).build()
         path = out_dir / "index.html"
+        path.write_text(page, encoding="utf-8")
+        written.append(path)
+        logger.info("Wrote %s (%.1f MB)", path, path.stat().st_size / 1e6)
+        page = LocalPricesReport(metrics, nav("local"), files, data_dir, js, nodal_dir=nodal).build()
+        path = out_dir / "local_prices.html"
         path.write_text(page, encoding="utf-8")
         written.append(path)
         logger.info("Wrote %s (%.1f MB)", path, path.stat().st_size / 1e6)
@@ -80,13 +87,16 @@ def main(argv=None):
     p.add_argument("--plotly-js", default=None,
                    help="path to a local plotly.min.js to inline (offline use); default loads it from the CDN")
     p.add_argument("--only", nargs="*", choices=list(SCENARIO_LABELS), help="restrict to some configurations")
+    p.add_argument("--nodal", default=None,
+                   help="results of a nodal run (market_optimization.active = false) used as local-price "
+                        "benchmark; default: redispatch shadow prices of the status quo")
     p.add_argument("-q", "--quiet", action="store_true")
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.WARNING if a.quiet else logging.INFO,
                         format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
     warnings.filterwarnings("ignore", category=FutureWarning)
     warnings.filterwarnings("ignore", category=UserWarning)
-    for path in build(a.results, a.out, a.data, a.plotly_js, a.only):
+    for path in build(a.results, a.out, a.data, a.plotly_js, a.only, a.nodal):
         print(path)
 
 
