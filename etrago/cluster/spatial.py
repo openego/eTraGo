@@ -316,7 +316,11 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
                 )
                 new_pnl[attr].columns = new_pnl[attr].columns.map(cluster_id)
             else:
-                new_pnl[attr] = network.links_t[attr]
+                # Links are renamed above, so map the columns as well;
+                # otherwise their time series no longer match any link.
+                new_pnl[attr] = network.links_t[attr].rename(
+                    columns=cluster_id
+                )
     new_pnl = pypsa.descriptors.Dict(new_pnl)
 
     return new_df, new_pnl

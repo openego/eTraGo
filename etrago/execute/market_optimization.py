@@ -28,6 +28,7 @@ if "READTHEDOCS" not in os.environ:
     import logging
 
     from pypsa.components import component_attrs
+    import numpy as np
     import pandas as pd
 
     from etrago.cluster.electrical import postprocessing, preprocessing
@@ -263,6 +264,11 @@ def build_market_model(self, unit_commitment=False):
 
     net = clustering.network
 
+    # Keep the mapping grid bus -> market bus, e.g. to hand market
+    # investments over to the grid optimisation.
+    self.market_busmap = pd.Series(busmap).astype(str)
+    self.market_busmap.index = self.market_busmap.index.astype(str)
+
     # Adjust positions foreign buses
     foreign = self.network.buses[self.network.buses.country != "DE"].copy()
     foreign = foreign[foreign.index.isin(self.network.loads.bus)]
@@ -295,6 +301,8 @@ def build_market_model(self, unit_commitment=False):
     )
     # net.buses.loc[net.buses.carrier == 'AC', 'carrier'] = "DC"
 
+    set_interzonal_transfer_limits(self, net, busmap, ac.index)
+
     net.generators_t.p_max_pu = self.network_tsa.generators_t.p_max_pu
 
     # Set stores and storage_units to cyclic
@@ -308,7 +316,17 @@ def build_market_model(self, unit_commitment=False):
 
     self.pre_market_model = net
 
+    if self.args["method"]["market_optimization"].get(
+        "fix_interzonal_capacity_in_market", False
+    ):
+        fix_interzonal_capacity(net)
+
     gas_clustering_market_model(self)
+
+    if self.args["method"]["market_optimization"].get(
+        "split_h2_nodes_by_zone", False
+    ):
+        split_h2_nodes_by_zone(self.pre_market_model)
 
     if unit_commitment:
         set_unit_commitment(self, apply_on="pre_market_model")
@@ -467,6 +485,278 @@ def build_shortterm_market_model(self, unit_commitment=False):
     self.geolocation_buses(apply_on="market_model")
 
 
+def fix_interzonal_capacity(network):
+    """Make all links between two electricity market zones non-extendable.
+
+    The transshipment links between German zones and the interconnectors to
+    neighbouring zones inherit ``p_nom_extendable`` from the AC lines / DC
+    links. A market does not build transmission capacity, and expanding it in
+    the pre-market model removes exactly the congestion a zone split is meant
+    to price. Capacities are kept at their existing value (p_nom).
+    """
+    ac = network.buses.index[network.buses.carrier == "AC"]
+    sel = network.links.index[
+        network.links.bus0.isin(ac) & network.links.bus1.isin(ac)
+    ]
+    was = int(network.links.loc[sel, "p_nom_extendable"].sum())
+    network.links.loc[sel, "p_nom_extendable"] = False
+    logger.info(
+        "Inter-zonal and border links fixed to existing capacity in the "
+        "market model (%s links, %s of them were extendable, %.1f GW)",
+        len(sel),
+        was,
+        network.links.loc[sel, "p_nom"].sum() / 1e3,
+    )
+
+
+def scale_unit_commitment_to_step(unit_commitment, step):
+    """Convert hourly unit-commitment parameters to ``step``-hour snapshots.
+
+    * minimum up/down times are given in hours -> number of snapshots
+      (rounded up, at least one snapshot);
+    * ramp limits are given per hour -> per snapshot (capped at 1);
+    * start-up/shut-down limits cover the first hour plus the ramping in the
+      remaining ``step - 1`` hours of the snapshot.
+    """
+    uc = unit_commitment.copy().astype(float)
+    for attr in ["min_up_time", "min_down_time"]:
+        uc.loc[attr] = np.ceil(uc.loc[attr] / step)
+    ramp = uc.loc["ramp_limit_up"]
+    for attr in ["ramp_limit_start_up", "ramp_limit_shut_down"]:
+        uc.loc[attr] = (uc.loc[attr] + ramp * (step - 1)).clip(upper=1.0)
+    uc.loc["ramp_limit_up"] = (ramp * step).clip(upper=1.0)
+    return uc
+
+
+def set_interzonal_transfer_limits(self, net, busmap, line_names):
+    """Give the transshipment links the transfer limits of their lines.
+
+    The transshipment links between market zones aggregate the AC lines
+    crossing a zone border (p_nom = sum of s_nom). Their static
+    ``p_max_pu`` is copied from the aggregated lines, but the branch capacity
+    factor and dynamic line rating of the German lines only exist as time
+    series (``lines_t.s_max_pu``), which got lost. This sets
+
+        p_max_pu(t) = sum(s_nom * s_max_pu(t)) / sum(s_nom),  p_min_pu = -p_max_pu
+
+    per link from the underlying lines, so the market sees the same limits as
+    the grid model. Optionally an additional factor is applied to links
+    between two German market zones (``interzonal_capacity_factor``) as a
+    simple NTC-like reduction for loop flows.
+    """
+    settings = self.args["method"]["market_optimization"]
+    use_lines = settings.get("interzonal_line_limits", True)
+    factor = float(settings.get("interzonal_capacity_factor", 1.0))
+    if not use_lines and factor == 1.0:
+        return
+
+    names = pd.Index(line_names).astype(str)  # already "transshipment_<id>"
+    names = names[names.isin(net.links.index)]
+    if names.empty:
+        return
+    links = net.links.loc[names]
+
+    src = self.network_tsa
+    bm = pd.Series(busmap).astype(str)
+    lines = src.lines
+    zone0 = lines.bus0.astype(str).map(bm)
+    zone1 = lines.bus1.astype(str).map(bm)
+    s_max_pu = src.get_switchable_as_dense("Line", "s_max_pu")
+
+    p_max_pu = pd.DataFrame(index=net.snapshots, columns=names, dtype=float)
+    for name, link in links.iterrows():
+        a, b = str(link.bus0), str(link.bus1)
+        sel = lines.index[
+            ((zone0 == a) & (zone1 == b)) | ((zone0 == b) & (zone1 == a))
+        ]
+        s_nom = lines.loc[sel, "s_nom"]
+        if use_lines and len(sel) and s_nom.sum() > 0:
+            p_max_pu[name] = (
+                s_max_pu[sel].mul(s_nom, axis=1).sum(axis=1) / s_nom.sum()
+            ).reindex(net.snapshots).values
+        else:
+            p_max_pu[name] = float(link.p_max_pu)
+
+    if factor != 1.0:
+        german = set(
+            bm.reindex(
+                src.buses.index[
+                    (src.buses.carrier == "AC") & (src.buses.country == "DE")
+                ].astype(str)
+            ).dropna()
+        )
+        internal = links.index[
+            links.bus0.astype(str).isin(german)
+            & links.bus1.astype(str).isin(german)
+        ]
+        p_max_pu[internal] *= factor
+        logger.info(
+            "Interzonal capacity factor %.2f applied to %s German links",
+            factor,
+            len(internal),
+        )
+
+    p_max_pu = p_max_pu.clip(lower=0.0).fillna(1.0)
+    p_max_pu.columns.name = net.links_t.p_max_pu.columns.name
+    p_max_pu.index.name = net.links_t.p_max_pu.index.name
+    net.links_t.p_max_pu = _concat_keep_names(
+        [net.links_t.p_max_pu.drop(columns=names, errors="ignore"), p_max_pu],
+        axis=1,
+    )
+    net.links_t.p_min_pu = _concat_keep_names(
+        [net.links_t.p_min_pu.drop(columns=names, errors="ignore"), -p_max_pu],
+        axis=1,
+    )
+    summary = (p_max_pu.mean() * links.p_nom).sum() / links.p_nom.sum()
+    logger.info(
+        "Interzonal transfer limits set for %s links "
+        "(capacity-weighted mean p_max_pu %.3f, was %.3f)",
+        len(names),
+        summary,
+        (links.p_max_pu * links.p_nom).sum() / links.p_nom.sum(),
+    )
+
+
+def split_h2_nodes_by_zone(network, h2_carriers=("H2_grid",)):
+    """Give every market zone its own copy of a shared H2 node.
+
+    After the market clustering, electrolysers of several bidding zones can
+    feed the same H2 node. Whenever they run at partial load they then share
+    one H2 value and equalise the electricity prices of their zones. This
+    sensitivity splits such nodes: each zone gets its own H2 bus, its
+    electrolysers and H2-to-power plants are re-connected to it, and the
+    other components of the node (H2 demand, H2 stores, CH4<->H2 links, ...)
+    are distributed in proportion to the zones' electrolyser capacity
+    (p_nom_max, or p_nom where p_nom_max is not finite).
+    """
+    buses = network.buses
+    ac = set(buses.index[buses.carrier == "AC"])
+    links = network.links
+    ely = links[(links.carrier == "power_to_H2") & links.bus0.isin(ac)]
+
+    n_split = 0
+    for node, grp in ely.groupby("bus1"):
+        if buses.at[node, "carrier"] not in h2_carriers:
+            continue
+        cap = grp.p_nom_max.where(np.isfinite(grp.p_nom_max), grp.p_nom)
+        shares = cap.groupby(grp.bus0).sum()
+        if len(shares) < 2:
+            continue
+        shares = (
+            shares / shares.sum()
+            if shares.sum() > 0
+            else pd.Series(1.0 / len(shares), index=shares.index)
+        )
+        keep = shares.idxmax()
+        new_bus = {z: f"{node}_zone{z}" for z in shares.index if z != keep}
+
+        # Buses
+        copies = pd.concat(
+            [buses.loc[[node]].rename(index={node: b}) for b in new_bus.values()]
+        )
+        network.buses = _concat_keep_names([network.buses, copies])
+
+        _split_one_ports(network, "Load", node, shares, keep, new_bus,
+                         scale=["p_set", "q_set"], scale_t=["p_set", "q_set"])
+        _split_one_ports(network, "Store", node, shares, keep, new_bus,
+                         scale=["e_nom", "e_nom_min", "e_nom_max", "e_nom_opt",
+                                "e_initial"], scale_t=[])
+        _split_one_ports(network, "Generator", node, shares, keep, new_bus,
+                         scale=[], scale_t=[])
+        _split_links(network, node, shares, keep, new_bus)
+
+        # Electrolysers and H2-to-power plants follow their zone.
+        lk = network.links
+        for zone, bus in new_bus.items():
+            lk.loc[(lk.carrier == "power_to_H2") & (lk.bus1 == node)
+                   & (lk.bus0 == zone), "bus1"] = bus
+            lk.loc[(lk.carrier == "H2_to_power") & (lk.bus0 == node)
+                   & (lk.bus1 == zone), "bus0"] = bus
+        n_split += 1
+        logger.info(
+            "H2 node %s split by zone: %s",
+            node,
+            {z: round(v, 3) for z, v in shares.items()},
+        )
+
+    logger.info("Split %s shared H2 nodes by market zone", n_split)
+
+
+def _split_one_ports(network, cls, node, shares, keep, new_bus, scale, scale_t):
+    df = network.df(cls)
+    pnl = network.pnl(cls)
+    sel = df.index[df.bus == node]
+    if sel.empty:
+        return
+    copies = []
+    for zone, bus in new_bus.items():
+        part = df.loc[sel].copy()
+        part.index = [f"{i} zone{zone}" for i in sel]
+        part["bus"] = bus
+        for col in scale:
+            if col in part:
+                part[col] = part[col] * shares[zone]
+        copies.append(part)
+        for attr, ts in pnl.items():
+            cols = ts.columns.intersection(sel)
+            if cols.empty:
+                continue
+            factor = shares[zone] if attr in scale_t else 1.0
+            add = ts[cols] * factor
+            add.columns = [f"{i} zone{zone}" for i in cols]
+            pnl[attr] = _concat_keep_names([ts, add], axis=1)
+    for col in scale:
+        if col in df:
+            df.loc[sel, col] = df.loc[sel, col] * shares[keep]
+    for attr in scale_t:
+        if attr in pnl:
+            cols = pnl[attr].columns.intersection(sel)
+            pnl[attr][cols] = pnl[attr][cols] * shares[keep]
+    setattr(network, network.components[cls]["list_name"],
+            _concat_keep_names([df] + copies))
+
+
+def _split_links(network, node, shares, keep, new_bus):
+    df = network.links
+    pnl = network.links_t
+    sel = df.index[
+        ((df.bus0 == node) | (df.bus1 == node))
+        & ~df.carrier.isin(["power_to_H2", "H2_to_power"])
+    ]
+    if sel.empty:
+        return
+    scale = ["p_nom", "p_nom_min", "p_nom_max", "p_nom_opt"]
+    copies = []
+    for zone, bus in new_bus.items():
+        part = df.loc[sel].copy()
+        part.index = [f"{i} zone{zone}" for i in sel]
+        part.loc[part.bus0 == node, "bus0"] = bus
+        part.loc[part.bus1 == node, "bus1"] = bus
+        for col in scale:
+            if col in part:
+                part[col] = part[col] * shares[zone]
+        copies.append(part)
+        for attr, ts in pnl.items():
+            cols = ts.columns.intersection(sel)
+            if cols.empty:
+                continue
+            add = ts[cols].copy()
+            add.columns = [f"{i} zone{zone}" for i in cols]
+            pnl[attr] = _concat_keep_names([ts, add], axis=1)
+    for col in scale:
+        if col in df:
+            df.loc[sel, col] = df.loc[sel, col] * shares[keep]
+    network.links = _concat_keep_names([df] + copies)
+
+
+def _concat_keep_names(frames, axis=0):
+    """pd.concat that keeps the index/column names PyPSA relies on."""
+    out = pd.concat(frames, axis=axis)
+    out.index.name = frames[0].index.name
+    out.columns.name = frames[0].columns.name
+    return out
+
+
 def set_unit_commitment(self, apply_on):
 
     if apply_on == "market_model":
@@ -498,6 +788,17 @@ def set_unit_commitment(self, apply_on):
     )
 
     unit_commitment.index.name = "attribute"
+
+    # The UC parameters above are given per hour. With a reduced market
+    # resolution (snapshot_step > 1) PyPSA interprets them per snapshot, so
+    # convert them to the snapshot length.
+    market_args = self.args["method"]["market_optimization"]
+    step = int(market_args.get("snapshot_step", 1) or 1)
+    if step > 1 and market_args.get("scale_uc_to_snapshot_step", True):
+        unit_commitment = scale_unit_commitment_to_step(unit_commitment, step)
+        logger.info(
+            "Unit-commitment parameters converted to %s-hour snapshots", step
+        )
 
     committable_attrs = network.generators.carrier.isin(
         unit_commitment

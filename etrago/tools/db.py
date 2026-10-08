@@ -169,7 +169,19 @@ def connection(filepath=None, section="oep"):
     """
 
     if section == "oep":
-        conn = create_engine("postgresql+oedialect://oep.iks.cs.ovgu.de")
+        # Anonymous clients share a small connection limit on the OEP API.
+        # With OEP_USER and OEP_TOKEN set (token from your OEP profile page),
+        # the connection is authenticated and gets a limit of its own.
+        user = os.environ.get("OEP_USER")
+        token = os.environ.get("OEP_TOKEN")
+        if user and token:
+            conn = create_engine(
+                "postgresql+oedialect://{user}:{token}@oep.iks.cs.ovgu.de".format(
+                    user=user, token=token
+                )
+            )
+        else:
+            conn = create_engine("postgresql+oedialect://oep.iks.cs.ovgu.de")
 
     else:
         # define default filepath if not provided

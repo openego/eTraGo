@@ -75,6 +75,11 @@ def grid_optimization(
     if fix_electrolyzer_investments:
         fix_market_electrolyzer_investments(self)
 
+    if self.args["method"]["market_optimization"].get(
+        "fix_storage_investments_in_grid", False
+    ):
+        fix_market_storage_investments(self)
+
 
     fix_chp_generation(self)
 
@@ -269,6 +274,132 @@ def fix_market_electrolyzer_investments(self):
         "Extendable power_to_H2 links after fixing: %s",
         grid_links.loc[market_idx, "p_nom_extendable"].sum(),
     )
+
+
+# Market investments in these components are handed to the grid model.
+STORAGE_UNIT_CARRIERS = ["battery"]
+STORE_CARRIERS = [
+    "central_heat_store",
+    "rural_heat_store",
+    "H2_overground",
+    "H2_underground",
+]
+STORE_LINK_CARRIERS = [
+    "central_heat_store_charger",
+    "central_heat_store_discharger",
+    "rural_heat_store_charger",
+    "rural_heat_store_discharger",
+]
+
+
+def _market_bus(self, buses):
+    """Map grid buses to market buses (shared H2 nodes may have been split
+    into '<node>_zone<z>' copies in the market model; those are merged)."""
+    return pd.Series(buses, index=buses.index).astype(str).map(
+        self.market_busmap
+    )
+
+
+def _distribute(target, cap_min, cap_max):
+    """eTraGo's disaggregation rule: every unit keeps its minimum and the
+    additional capacity is shared in proportion to the maximum."""
+    cap_min = cap_min.fillna(0.0).clip(lower=0.0)
+    weight = cap_max.replace(np.inf, 1e7).fillna(1e7).clip(lower=0.0)
+    extra = max(float(target) - cap_min.sum(), 0.0)
+    if weight.sum() <= 0:
+        weight = pd.Series(1.0, index=cap_min.index)
+    return cap_min + extra * weight / weight.sum()
+
+
+def _fix_component(self, grid_df, market_df, carriers, cap, keys):
+    """Fix extendable grid components to the market capacity of their group.
+
+    A group is (market bus of each key column, carrier). Returns the number
+    of fixed components, the fixed market capacity and the number of grid
+    groups without a market counterpart (these stay extendable).
+    """
+    ext = grid_df[
+        grid_df.carrier.isin(carriers)
+        & grid_df[f"{cap}_extendable"].fillna(False).astype(bool)
+    ]
+    if ext.empty:
+        return 0, 0.0, 0
+    grid_key = pd.Series(
+        list(zip(*[_market_bus(self, ext[k]) for k in keys], ext.carrier)),
+        index=ext.index,
+    )
+
+    mkt = market_df[market_df.carrier.isin(carriers)]
+    mkt_key = pd.Series(
+        list(
+            zip(
+                *[
+                    mkt[k].astype(str).str.replace(r"_zone.*$", "", regex=True)
+                    for k in keys
+                ],
+                mkt.carrier,
+            )
+        ),
+        index=mkt.index,
+    )
+    mkt_cap = mkt[cap].groupby(mkt_key).sum()
+
+    fixed, total, unmatched = 0, 0.0, 0
+    for key, idx in grid_key.groupby(grid_key).groups.items():
+        if key not in mkt_cap.index:
+            unmatched += 1
+            continue
+        new = _distribute(
+            mkt_cap[key],
+            grid_df.loc[idx, f"{cap}_min"],
+            grid_df.loc[idx, f"{cap}_max"],
+        )
+        grid_df.loc[idx, cap] = new
+        grid_df.loc[idx, f"{cap}_min"] = new
+        grid_df.loc[idx, f"{cap}_extendable"] = False
+        fixed += len(idx)
+        total += mkt_cap[key]
+    return fixed, total, unmatched
+
+
+def fix_market_storage_investments(self):
+    """Carry battery and store investments of the market model into the grid
+    model, as is done for electrolysers.
+
+    The market model holds zonal capacities; they are distributed to the
+    grid nodes of the same zone and carrier with eTraGo's disaggregation rule
+    (p_nom_min + additional capacity in proportion to p_nom_max) and then
+    fixed, so the grid optimisation can no longer relocate or resize them.
+    Dispatch stays free.
+    """
+    if not hasattr(self, "market_busmap"):
+        logger.warning(
+            "No market busmap available, storage investments are not fixed."
+        )
+        return
+
+    jobs = [
+        ("battery", self.network.storage_units,
+         self.market_model.storage_units, STORAGE_UNIT_CARRIERS, "p_nom",
+         ["bus"]),
+        ("stores", self.network.stores, self.market_model.stores,
+         STORE_CARRIERS, "e_nom", ["bus"]),
+        ("store links", self.network.links, self.market_model.links,
+         STORE_LINK_CARRIERS, "p_nom", ["bus0", "bus1"]),
+    ]
+    for name, grid_df, market_df, carriers, cap, keys in jobs:
+        n, total, unmatched = _fix_component(
+            self, grid_df, market_df, carriers, cap, keys
+        )
+        logger.info(
+            "Fixed %s %s to the market investment (%.1f %s in total); "
+            "%s groups without market counterpart stay extendable.",
+            n,
+            name,
+            total / 1e3,
+            "GWh" if cap == "e_nom" else "GW",
+            unmatched,
+        )
 
 
 def add_redispatch_generators(

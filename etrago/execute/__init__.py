@@ -540,6 +540,23 @@ def optimize_with_rolling_horizon(
     # Make sure that quadratic costs as zero and not NaN
     n.links.marginal_cost_quadratic = 0.0
 
+    # Relative tolerance around the pre-market state of charge that seasonal
+    # stores must reach at the end of each window. Default 1e-6 (practically
+    # the pre-market value); 0.01 gives the +-1 % target of the #708 branch.
+    store_tolerance = 1e-6
+    if args is not None:
+        store_tolerance = float(
+            args["method"]["market_optimization"].get(
+                "seasonal_store_tolerance", 1e-6
+            )
+        )
+        if store_tolerance != 1e-6:
+            logger.info(
+                "Seasonal stores must end each rolling-horizon window within "
+                "+-%.1f %% of the pre-market state of charge",
+                store_tolerance * 100,
+            )
+
     starting_points = range(0, len(snapshots), horizon - overlap)
     for i, start in enumerate(starting_points):
         end = min(len(snapshots), start + horizon)
@@ -601,7 +618,7 @@ def optimize_with_rolling_horizon(
             ).clip(
                 lower=0.0
             ) * (
-                1 + 1e-6
+                1 + store_tolerance
             )
             n.stores_t.e_min_pu.loc[
                 snapshots[end - 1], seasonal_stores
@@ -612,7 +629,7 @@ def optimize_with_rolling_horizon(
             ).clip(
                 lower=0.0
             ) * (
-                1 - 1e-6
+                1 - store_tolerance
             )
             n.stores_t.e_min_pu.fillna(0.0, inplace=True)
             n.stores_t.e_max_pu.fillna(1.0, inplace=True)
