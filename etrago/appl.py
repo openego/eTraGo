@@ -1815,6 +1815,7 @@ def run_etrago(args, json_path):
 
         remove_known_legacy_swfl_heat_pump_before_clustering(
             etrago.network,
+            settings=args.get("swfl_real_system", {}),
         )
 
     etrago.spatial_clustering()

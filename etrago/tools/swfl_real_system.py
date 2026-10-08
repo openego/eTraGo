@@ -3957,13 +3957,17 @@ SWFL_REAL_SYSTEM_EXAMPLE = {
 
 def remove_known_legacy_swfl_heat_pump_before_clustering(
     network,
+    settings: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
     Remove the known small legacy eGon heat pump before spatial
     clustering.
 
     Similar-capacity central heat pumps elsewhere in the network
-    are preserved.
+    are preserved. When ``settings`` (args["swfl_real_system"]) are
+    given, only candidates connected to the SWFL area buses are
+    eligible; if none remains, nothing is removed, because
+    apply_swfl_real_system() already removed the in-area heat pumps.
     """
     import numpy as np
 
@@ -4010,6 +4014,27 @@ def remove_known_legacy_swfl_heat_pump_before_clustering(
         ]
         if column in candidates.columns
     ]
+
+    if settings is not None:
+        area_buses = {str(b) for b in get_swfl_area_buses(network, settings)}
+        in_area = (
+            candidates["bus0"].astype(str).isin(area_buses)
+            | candidates["bus1"].astype(str).isin(area_buses)
+        )
+        if (~in_area).any():
+            print(
+                "\nIgnoring similar-capacity heat pumps outside the "
+                "SWFL area:"
+            )
+            print(candidates.loc[~in_area, display_columns].to_string())
+        candidates = candidates.loc[in_area].copy()
+        if candidates.empty:
+            print(
+                "No legacy heat pump inside the SWFL area remains "
+                "(already removed by apply_swfl_real_system); "
+                "nothing removed."
+            )
+            return
 
     if candidates.empty:
         raise RuntimeError(
