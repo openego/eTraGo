@@ -412,7 +412,7 @@ co2_sale_cases:
     sale_price_eur_per_t: 0.0
     additional_cost_eur_per_t: 0.0
     marketable_fraction: 1.0
-    co2_yield_t_per_mwh_biomethane: 0.14981
+    co2_yield_t_per_mwh_biomethane: 0.18941  # 55,000 tCO2/a / 290,373 MWh_Hs/a
 
   low_50:
     description: >
@@ -421,7 +421,7 @@ co2_sale_cases:
     sale_price_eur_per_t: 50.0
     additional_cost_eur_per_t: 0.0
     marketable_fraction: 1.0
-    co2_yield_t_per_mwh_biomethane: 0.14981
+    co2_yield_t_per_mwh_biomethane: 0.18941  # 55,000 tCO2/a / 290,373 MWh_Hs/a
 
   medium_60:
     description: >
@@ -430,7 +430,7 @@ co2_sale_cases:
     sale_price_eur_per_t: 60.0
     additional_cost_eur_per_t: 0.0
     marketable_fraction: 1.0
-    co2_yield_t_per_mwh_biomethane: 0.14981
+    co2_yield_t_per_mwh_biomethane: 0.18941  # 55,000 tCO2/a / 290,373 MWh_Hs/a
 
   high_144:
     description: >
@@ -439,7 +439,7 @@ co2_sale_cases:
     sale_price_eur_per_t: 144.0
     additional_cost_eur_per_t: 0.0
     marketable_fraction: 1.0
-    co2_yield_t_per_mwh_biomethane: 0.14981
+    co2_yield_t_per_mwh_biomethane: 0.18941  # 55,000 tCO2/a / 290,373 MWh_Hs/a
 
 # -----------------------------------------------------------------------------
 # BIOGAS.SH SUPPORT CASES
@@ -833,12 +833,12 @@ technical:
 
       swfl_gwp_1:
         heat_capacity_mw: 60.0
-        cop: 3.0
+        cop: 2.86  # 60 MWth / 21 MWel (Johnson Controls / SWFL, 60 -> 95 degC)
         planned_year: 2028
 
       swfl_gwp_2:
         heat_capacity_mw: 60.0
-        cop: 3.0
+        cop: 2.86  # provisional: same as GWP 1, no separate public COP found
         planned_year: null
 
 

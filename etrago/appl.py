@@ -785,7 +785,7 @@ args = {
             ],
 
             # Do not define a shared central_heat_pump carrier here.
-            "default_cop": 3.0,
+            "default_cop": 2.86,
 
             "extendable": False,
 
@@ -810,8 +810,8 @@ args = {
                     # Useful heat-output capacity.
                     "heat_capacity_mw": 60.0,
 
-                    # p_nom = 60 MWth / 3 = 20 MWel.
-                    "cop": 3.0,
+                    # p_nom = 60 MWth / 2.86 ≈ 21 MWel.
+                    "cop": 2.86,
 
                     "planned_year": 2028,
 
@@ -827,7 +827,7 @@ args = {
                     "active": True,
 
                     "heat_capacity_mw": 60.0,
-                    "cop": 3.0,
+                    "cop": 2.86,
 
                     "planned_year": None,
 
