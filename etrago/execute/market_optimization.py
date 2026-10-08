@@ -54,8 +54,25 @@ def market_optimization(self):
 
     unit_commitment = True
 
+    # Optional pre-market simplifications. The defaults keep the original
+    # behaviour; the short-term market model always keeps unit commitment.
+    pre_market_cfg = (
+        self.args["method"]["market_optimization"].get("pre_market") or {}
+    )
+    pre_market_uc = bool(pre_market_cfg.get("unit_commitment", True))
+    pre_market_step = int(pre_market_cfg.get("resolution_hours", 1))
+
     build_market_model(self, unit_commitment)
     self.pre_market_model.determine_network_topology()
+
+    if not pre_market_uc:
+        relax_pre_market_unit_commitment(self.pre_market_model)
+
+    full_snapshots = None
+    if pre_market_step > 1:
+        full_snapshots = coarsen_pre_market_snapshots(
+            self.pre_market_model, pre_market_step
+        )
 
     logger.info("Start solving pre market model")
 
@@ -80,7 +97,7 @@ def market_optimization(self):
                 False,
                 apply_on="pre_market_model",
             ).functionality,
-            linearized_unit_commitment=True,
+            linearized_unit_commitment=pre_market_uc,
         )
 
         if status != "ok":
@@ -96,6 +113,13 @@ def market_optimization(self):
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
         self.pre_market_model.export_to_csv_folder(path + "/pre_market")
+
+    # The rolling horizon reads storage levels at hourly snapshots.
+    if full_snapshots is not None:
+        restore_pre_market_storage_resolution(
+            self.pre_market_model, full_snapshots, pre_market_step
+        )
+
     logger.info("Preparing short-term UC market model")
 
     build_shortterm_market_model(self, unit_commitment)
@@ -133,6 +157,89 @@ def market_optimization(self):
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
         self.market_model.export_to_csv_folder(path + "/market")
+
+
+def relax_pre_market_unit_commitment(network):
+    """Solve the pre-market model without unit commitment.
+
+    The short-term market model is copied from the pre-market model before
+    this is called, so it keeps its unit-commitment settings.
+    """
+    import numpy as np
+
+    for component in (network.generators, network.links):
+        if "committable" not in component.columns:
+            continue
+        mask = component.committable.fillna(False).astype(bool)
+        if not mask.any():
+            continue
+        component.loc[mask, "committable"] = False
+        component.loc[mask, "p_min_pu"] = 0.0
+        for attr in (
+            "ramp_limit_up",
+            "ramp_limit_down",
+            "ramp_limit_start_up",
+            "ramp_limit_shut_down",
+        ):
+            if attr in component.columns:
+                component.loc[mask, attr] = np.nan
+        for attr in ("start_up_cost", "shut_down_cost"):
+            if attr in component.columns:
+                component.loc[mask, attr] = 0.0
+        for attr in ("min_up_time", "min_down_time"):
+            if attr in component.columns:
+                component.loc[mask, attr] = 0
+
+    logger.info("Pre-market model: unit commitment disabled.")
+
+
+def coarsen_pre_market_snapshots(network, step):
+    """Keep every ``step``-th snapshot and carry the weights of the dropped
+    snapshots, as eTraGo's skip_snapshots does. Returns the full index."""
+    import numpy as np
+
+    full = network.snapshots
+    groups = np.arange(len(full)) // step
+    weights = network.snapshot_weightings.loc[full].groupby(groups).sum()
+    keep = full[::step]
+    weights.index = keep
+
+    network.set_snapshots(keep)
+    network.snapshot_weightings = weights
+
+    logger.info(
+        "Pre-market model: %d of %d snapshots kept (every %d h).",
+        len(keep),
+        len(full),
+        step,
+    )
+    return full
+
+
+def restore_pre_market_storage_resolution(network, full_snapshots, step):
+    """Interpolate pre-market storage levels back to hourly snapshots.
+
+    A coarse snapshot's level is the level after its whole block, so it is
+    assigned to the last hourly snapshot of that block before interpolating.
+    """
+    import numpy as np
+
+    n_full = len(full_snapshots)
+    for pnl, attr in (
+        (network.stores_t, "e"),
+        (network.storage_units_t, "state_of_charge"),
+    ):
+        coarse = pnl[attr]
+        if coarse.empty:
+            continue
+        block_end = np.minimum(
+            (np.arange(len(coarse)) + 1) * step - 1, n_full - 1
+        )
+        coarse = coarse.copy()
+        coarse.index = full_snapshots[block_end]
+        pnl[attr] = coarse.reindex(full_snapshots).interpolate(
+            method="time", limit_direction="both"
+        )
 
 
 def build_market_model(self, unit_commitment=False):

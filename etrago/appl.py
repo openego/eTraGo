@@ -154,6 +154,12 @@ args = {
                 "overlap": 120,  # number of overlapping hours
             },
             "redispatch": True,
+            # Pre-market (full-year storage plan) simplifications.
+            # Defaults reproduce the original eTraGo behaviour.
+            "pre_market": {
+                "unit_commitment": False,  # False: solve without UC
+                "resolution_hours": 3,  # >1: keep every n-th hour
+            },
         },
         "distribution_grids": False,  # False or path to file with edisgo results
     },
