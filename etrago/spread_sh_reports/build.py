@@ -18,6 +18,7 @@ from .metrics import ScenarioMetrics
 from .report import ComparisonReport, ScenarioReport
 from .side_by_side import SideBySideReport
 from .local_prices import LocalPricesReport
+from .market_dynamics import MarketDynamicsReport
 
 logger = logging.getLogger("spread_sh_reports")
 
@@ -48,6 +49,7 @@ def build(results_dir=DEFAULT_RESULTS_DIR, out_dir=None, data_dir=DEFAULT_DATA_D
     def nav(current):
         items = ([("Comparison", "index.html", current == "index"),
                   ("Side by side", "side_by_side.html", current == "sbs"),
+                  ("Market dynamics", "market_dynamics.html", current == "dyn"),
                   ("Local prices", "local_prices.html", current == "local")] if multi else [])
         items += [(k if k != "status_quo" else "Status quo", files[k], current == k) for k in metrics]
         return items
@@ -62,6 +64,11 @@ def build(results_dir=DEFAULT_RESULTS_DIR, out_dir=None, data_dir=DEFAULT_DATA_D
     if multi:
         page = ComparisonReport(metrics, nav("index"), files, js).build()
         path = out_dir / "index.html"
+        path.write_text(page, encoding="utf-8")
+        written.append(path)
+        logger.info("Wrote %s (%.1f MB)", path, path.stat().st_size / 1e6)
+        page = MarketDynamicsReport(metrics, nav("dyn"), files, data_dir, js).build()
+        path = out_dir / "market_dynamics.html"
         path.write_text(page, encoding="utf-8")
         written.append(path)
         logger.info("Wrote %s (%.1f MB)", path, path.stat().st_size / 1e6)
