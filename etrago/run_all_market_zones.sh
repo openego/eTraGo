@@ -52,6 +52,15 @@ AC_CLUSTERS="150"
 FOCUS_CLUSTERS="100"
 SNAPSHOTS="10"
 
+# Transfer capacity between bidding zones in the market model
+# LINE_LIMITS: "true"  = hourly limits of the underlying lines (branch
+#                        capacity factor + dynamic line rating)
+#              "false" = old eTraGo behaviour (sum of line ratings)
+# CAPACITY_FACTOR: extra factor on links between two German zones
+#              (1.0 = off, e.g. 0.7 = 70 % of the line limit tradable)
+LINE_LIMITS="true"
+CAPACITY_FACTOR="0.7"
+
 # Preserve the original configuration
 CONFIG_BACKUP="$(mktemp)"
 cp "$CONFIG" "$CONFIG_BACKUP"
@@ -88,6 +97,8 @@ for ZONE in "${ZONES[@]}"; do
     AC_CLUSTERS="$AC_CLUSTERS" \
     FOCUS_CLUSTERS="$FOCUS_CLUSTERS" \
     SNAPSHOTS="$SNAPSHOTS" \
+    LINE_LIMITS="$LINE_LIMITS" \
+    CAPACITY_FACTOR="$CAPACITY_FACTOR" \
     CONFIG="$CONFIG" \
     python - <<'PY'
 import json
@@ -129,6 +140,19 @@ electricity = clustering["electricity_grid"]
 # Bidding-zone and temporal configuration
 market["market_zones"] = zone
 market["snapshot_step"] = 5
+
+# Transfer capacity between bidding zones
+line_limits = os.environ["LINE_LIMITS"].strip().lower()
+if line_limits not in ("true", "false"):
+    raise SystemExit(f"ERROR: LINE_LIMITS must be true or false, found {line_limits!r}.")
+market["interzonal_line_limits"] = line_limits == "true"
+try:
+    capacity_factor = float(os.environ["CAPACITY_FACTOR"])
+except ValueError:
+    raise SystemExit("ERROR: CAPACITY_FACTOR must be a number.")
+if not 0.0 < capacity_factor <= 1.0:
+    raise SystemExit(f"ERROR: CAPACITY_FACTOR must be in (0, 1], found {capacity_factor}.")
+market["interzonal_capacity_factor"] = capacity_factor
 
 args["start_snapshot"] = 1
 args["end_snapshot"] = int(os.environ["SNAPSHOTS"])
@@ -225,6 +249,8 @@ print("  total AC clusters:", electricity["n_clusters"])
 print("  focus AC clusters:", n_clusters_focus)
 print("  snapshots:", args["start_snapshot"], "-", args["end_snapshot"])
 print("  snapshot_step:", market["snapshot_step"])
+print("  interzonal_line_limits:", market["interzonal_line_limits"])
+print("  interzonal_capacity_factor:", market["interzonal_capacity_factor"])
 print("  skip_snapshots:", args["skip_snapshots"])
 print("  focus districts:", len(focus_region))
 print("  cluster_within_focus:", cluster_within_focus)
