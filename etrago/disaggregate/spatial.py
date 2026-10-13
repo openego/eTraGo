@@ -35,6 +35,7 @@ from pypsa import Network
 import pandas as pd
 
 if "READTHEDOCS" not in os.environ:
+    from etrago.execute.grid_optimization import merge_redispatch_components
     from etrago.tools import noops
     from etrago.tools.utilities import residual_load
 
@@ -886,55 +887,6 @@ def filter_on_buses(connecitve, buses):
 
 def update_constraints(network, externals):
     pass
-
-
-def merge_redispatch_components(network):
-    """Merge redispatch components into their original component
-
-    The time series of '<name> ramp_up' and '<name> ramp_down' generators and
-    links are added to the component '<name>' and the redispatch components
-    are removed afterwards. This is needed for the spatial disaggregation,
-    which expects only one component per carrier at each clustered bus.
-
-    Parameters
-    ----------
-    network : pypsa.Network
-        Network including redispatch components
-
-    Returns
-    -------
-    network : pypsa.Network
-        Copy of the network without redispatch components
-
-    """
-    network = network.copy()
-
-    for component, series in [("Generator", ["p", "q"]), ("Link", ["p0", "p1"])]:
-        df = network.df(component)
-        pnl = network.pnl(component)
-
-        ramps = df.index[df.index.str.endswith((" ramp_up", " ramp_down"))]
-        if ramps.empty:
-            continue
-
-        origin = pd.Series(
-            ramps.str.replace(r" ramp_(up|down)$", "", regex=True),
-            index=ramps,
-        )
-
-        for s in series:
-            cols = ramps.intersection(pnl[s].columns)
-            if cols.empty:
-                continue
-            ramp_sum = pnl[s][cols].T.groupby(origin[cols].values).sum().T
-            pnl[s][ramp_sum.columns] = (
-                pnl[s].reindex(columns=ramp_sum.columns, fill_value=0.0)
-                + ramp_sum
-            )
-
-        network.mremove(component, ramps)
-
-    return network
 
 
 def run_disaggregation(self):

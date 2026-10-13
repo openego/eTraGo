@@ -179,6 +179,8 @@ class Etrago:
 
         self.network_tsa = Network()
 
+        self.network_redispatch = Network()
+
         self.disaggregated_network = Network()
 
         self.__re_carriers = [

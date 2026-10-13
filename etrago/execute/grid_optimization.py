@@ -616,5 +616,64 @@ def add_redispatch_generators(
     #                                        ])].index, inplace=True)
 
 
+def merge_redispatch_components(network):
+    """Merge redispatch components into their original component
+
+    The time series of '<name> ramp_up' and '<name> ramp_down' generators and
+    links are added to the component '<name>' and the redispatch components
+    are removed afterwards. This is needed for the non-linear power flow and
+    the spatial disaggregation, which expect one component per power plant.
+
+    Parameters
+    ----------
+    network : pypsa.Network
+        Network including redispatch components
+
+    Returns
+    -------
+    network : pypsa.Network
+        Copy of the network without redispatch components. If the network
+        does not include redispatch components, it is returned unchanged.
+
+    """
+    if not (
+        network.generators.index.str.endswith((" ramp_up", " ramp_down")).any()
+        or network.links.index.str.endswith((" ramp_up", " ramp_down")).any()
+    ):
+        return network
+
+    network = network.copy()
+
+    for component, series in [
+        ("Generator", ["p", "q"]),
+        ("Link", ["p0", "p1"]),
+    ]:
+        df = network.df(component)
+        pnl = network.pnl(component)
+
+        ramps = df.index[df.index.str.endswith((" ramp_up", " ramp_down"))]
+        if ramps.empty:
+            continue
+
+        origin = pd.Series(
+            ramps.str.replace(r" ramp_(up|down)$", "", regex=True),
+            index=ramps,
+        )
+
+        for s in series:
+            cols = ramps.intersection(pnl[s].columns)
+            if cols.empty:
+                continue
+            ramp_sum = pnl[s][cols].T.groupby(origin[cols].values).sum().T
+            pnl[s][ramp_sum.columns] = (
+                pnl[s].reindex(columns=ramp_sum.columns, fill_value=0.0)
+                + ramp_sum
+            )
+
+        network.mremove(component, ramps)
+
+    return network
+
+
 def extra_functionality():
     return None
