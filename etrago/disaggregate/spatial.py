@@ -35,6 +35,7 @@ from pypsa import Network
 import pandas as pd
 
 if "READTHEDOCS" not in os.environ:
+    from etrago.execute.grid_optimization import merge_redispatch_components
     from etrago.tools import noops
     from etrago.tools.utilities import residual_load
 
@@ -919,17 +920,21 @@ def run_disaggregation(self):
         )
 
         if disagg:
+            # Keep redispatch components in self.network for the results,
+            # disaggregate the net dispatch of each component
+            clustered_network = merge_redispatch_components(self.network)
+
             if disagg == "mini":
                 disaggregation = MiniSolverDisaggregation(
                     self.disaggregated_network,
-                    self.network,
+                    clustered_network,
                     self.busmap,
                     skip=skip,
                 )
             elif disagg == "uniform":
                 disaggregation = UniformDisaggregation(
                     original_network=self.disaggregated_network,
-                    clustered_network=self.network,
+                    clustered_network=clustered_network,
                     busmap=pd.Series(self.busmap["busmap"]),
                     skip=skip,
                 )
