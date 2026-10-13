@@ -38,6 +38,7 @@ if "READTHEDOCS" not in os.environ:
         Constraints,
         _get_crossborder_components,
     )
+    from etrago.tools.utilities import adjust_e_initial_emob
 
     logger = logging.getLogger(__name__)
 
@@ -135,6 +136,8 @@ def run_lopf(etrago, extra_functionality, method):
     """
 
     x = time.time()
+
+    adjust_e_initial_emob(etrago.network)
 
     if method["formulation"] == "pyomo":
         etrago.network.lopf(
@@ -467,6 +470,18 @@ def optimize_with_rolling_horizon(
                         snapshots[start - 1], stores_no_dsm
                     ]
                 )
+
+            # Set e_initial of e-mobility stores from the previous horizon,
+            # the first horizon keeps the e_initial from the data model.
+            # Make sure that it is within the SoC band of the first snapshot
+            emob_stores = n.stores.index[
+                n.stores.carrier == "battery_storage"
+            ]
+            if start != 0:
+                n.stores.loc[emob_stores, "e_initial"] = n.stores_t.e.loc[
+                    snapshots[start - 1], emob_stores
+                ]
+            adjust_e_initial_emob(n, sns[0])
 
             # Select seasonal stores
             seasonal_stores = n.stores.index[

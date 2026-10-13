@@ -49,6 +49,7 @@ from etrago.execute import (
 )
 
 from etrago.tools.constraints import Constraints
+from etrago.tools.utilities import adjust_e_initial_emob
 
 
 logger = logging.getLogger(__name__)
@@ -858,6 +859,8 @@ def iterate_sclopf(
 
     network = split_parallel_lines(network)
     network.lines.s_max_pu = pd.Series(index=network.lines.index, data=1.0)
+
+    adjust_e_initial_emob(network)
 
     args = etrago.args
 
