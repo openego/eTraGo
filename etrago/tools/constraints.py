@@ -3659,12 +3659,18 @@ def fixed_storage_unit_soc_at_horizon_end(self, n, sns):
     # SOC last hour of the year
     soc_pre_market = self.args["pre_market_seasonal_soc"]
 
+    # Allowed relative deviation from the pre-market SOC. A retry of a
+    # failed rolling-horizon window can widen it or drop it (None).
+    band = self.args.get("pre_market_seasonal_soc_band", 0.05)
+    if band is None:
+        return
+
     lhs = [
         (1, soc_market),
     ]
 
-    rhs_upper = DataArray(1.05 * soc_pre_market)
-    rhs_lower = DataArray(0.95 * soc_pre_market)
+    rhs_upper = DataArray((1 + band) * soc_pre_market)
+    rhs_lower = DataArray((1 - band) * soc_pre_market)
 
     m.add_constraints(lhs, "<", rhs_upper, name=f"{c}-soc_horizon_end_upper")
     m.add_constraints(lhs, ">", rhs_lower, name=f"{c}-soc_horizon_end_lower")

@@ -154,13 +154,38 @@ def run_lopf(etrago, extra_functionality, method):
             solver_options=etrago.args["solver_options"],
             extra_functionality=extra_functionality,
         )
+        # Numerical failures of the large grid model: retry with safer
+        # Gurobi settings instead of stopping.
+        for extra_options in (
+            {"NumericFocus": 2, "ScaleFlag": -1},
+            {"NumericFocus": 3, "ScaleFlag": -1, "BarHomogeneous": 1},
+        ):
+            if status == "ok":
+                break
+            logger.warning(
+                "Grid optimisation failed (%s, %s); retrying with solver "
+                "options %s.", status, condition, extra_options,
+            )
+            status, condition = etrago.network.optimize(
+                solver_name=etrago.args["solver"],
+                solver_options={**etrago.args["solver_options"],
+                                **extra_options},
+                extra_functionality=extra_functionality,
+            )
         if status != "ok":
             logger.warning(f"""Optimization failed with status {status}
                 and condition {condition}""")
-            etrago.network.model.print_infeasibilities()
-            import pdb
-
-            pdb.set_trace()
+            # An IIS of the full grid model takes many hours; only compute
+            # it on request and only for a genuine infeasibility.
+            if (
+                "infeasible" in str(condition).lower()
+                and os.environ.get("ETRAGO_COMPUTE_IIS")
+            ):
+                etrago.network.model.print_infeasibilities()
+            raise RuntimeError(
+                f"Grid optimisation failed: status={status}, "
+                f"condition={condition}"
+            )
     else:
         status, termination_condition = network_lopf(
             etrago.network,
@@ -389,6 +414,44 @@ def optimize(self):
         print("Method not defined")
 
 
+def clean_committable_history(n, snapshots, start, tolerance=1.0e-3):
+    """Remove solver noise from the history the next window starts from.
+
+    For committable assets PyPSA reads the dispatch of the hour before a
+    window (ramp limits) and the earlier on/off status (up/down times).
+    Barrier results without crossover leave values like -4e-4 MW or a status
+    of -0.0, which can make the next window infeasible by a tiny margin.
+    """
+    if start == 0:
+        return
+    previous = snapshots[:start]
+    for component, attrs in (("Generator", ("p",)), ("Link", ("p0", "p1"))):
+        df = n.df(component)
+        if "committable" not in df or not df.committable.any():
+            continue
+        committable = df.index[df.committable]
+        pnl = n.pnl(component)
+        status = pnl.get("status")
+        if status is not None and not status.empty:
+            cols = committable.intersection(status.columns)
+            rows = previous.intersection(status.index)
+            if len(cols) and len(rows):
+                block = status.loc[rows, cols].clip(lower=0.0, upper=1.0)
+                rounded = block.round()
+                status.loc[rows, cols] = block.where(
+                    (block - rounded).abs() > tolerance, rounded
+                )
+        for attr in attrs:
+            values = pnl.get(attr)
+            if values is None or values.empty:
+                continue
+            cols = committable.intersection(values.columns)
+            last = snapshots[start - 1]
+            if len(cols) and last in values.index:
+                row = values.loc[last, cols]
+                values.loc[last, cols] = row.where(row.abs() >= tolerance, 0.0)
+
+
 def optimize_with_rolling_horizon(
     n,
     pre_market,
@@ -427,6 +490,20 @@ def optimize_with_rolling_horizon(
 
     # Make sure that quadratic costs as zero and not NaN
     n.links.marginal_cost_quadratic = 0.0
+
+    rh_cfg = (
+        args["method"].get("market_optimization", {}).get("rolling_horizon")
+        or {}
+    )
+    # Retries for windows that fail: (terminal SOC tolerance, extra solver
+    # options). Tolerance None removes the terminal target for that window.
+    # Each retry: (seasonal-store SOC tolerance, reservoir SOC band, extra
+    # solver options). None removes that end-of-window target.
+    retry_plan = [
+        (1.0e-2, 0.25, {"NumericFocus": 2}),
+        (None, None, {"NumericFocus": 3, "ScaleFlag": -1}),
+    ] if rh_cfg.get("retry_failed_windows", True) else []
+    market_ef_args = None
 
     starting_points = range(0, len(snapshots), horizon - overlap)
     for i, start in enumerate(starting_points):
@@ -488,7 +565,13 @@ def optimize_with_rolling_horizon(
             # bounds, which causes severe LP scaling problems.
             # --------------------------------------------------------------
 
-            terminal_soc_tolerance = 1.0e-6
+            # Tolerance (per unit of store capacity) around the pre-market
+            # target. The pre-market solution comes from a barrier run
+            # without crossover and is not exact, so a very tight band can
+            # make a window infeasible. Retries below widen it further.
+            terminal_soc_tolerance = float(
+                rh_cfg.get("terminal_soc_tolerance", 1.0e-3)
+            )
 
             target_soc_pu = (
                 pre_market.stores_t.e.loc[
@@ -507,21 +590,19 @@ def optimize_with_rolling_horizon(
                 )
             )
 
-            n.stores_t.e_min_pu.loc[
-                snapshots[end - 1],
-                seasonal_stores,
-            ] = (target_soc_pu - terminal_soc_tolerance).clip(
-                lower=0.0,
-                upper=1.0,
-            )
+            def set_terminal_targets(tolerance, _t=snapshots[end - 1],
+                                     _stores=seasonal_stores,
+                                     _target=target_soc_pu):
+                """Bound seasonal stores at the window end; None frees them."""
+                if tolerance is None:
+                    lower, upper = 0.0, 1.0
+                else:
+                    lower = (_target - tolerance).clip(lower=0.0, upper=1.0)
+                    upper = (_target + tolerance).clip(lower=0.0, upper=1.0)
+                n.stores_t.e_min_pu.loc[_t, _stores] = lower
+                n.stores_t.e_max_pu.loc[_t, _stores] = upper
 
-            n.stores_t.e_max_pu.loc[
-                snapshots[end - 1],
-                seasonal_stores,
-            ] = (target_soc_pu + terminal_soc_tolerance).clip(
-                lower=0.0,
-                upper=1.0,
-            )
+            set_terminal_targets(terminal_soc_tolerance)
 
             n.stores_t.e_min_pu.fillna(
                 0.0,
@@ -558,11 +639,13 @@ def optimize_with_rolling_horizon(
                     "pre_market_seasonal_soc": soc_value,
                 }
 
+                market_ef_args = {**args, **args_addition}
                 extra_functionality = Constraints(
-                    {**args, **args_addition}, False, apply_on="market_model"
+                    market_ef_args, False, apply_on="market_model"
                 ).functionality
 
             elif i == len(starting_points) - 1:
+                market_ef_args = None
                 if len(snapshots) > 1000:
                     extra_functionality = Constraints(
                         args, False, apply_on="last_market_model"
@@ -580,14 +663,17 @@ def optimize_with_rolling_horizon(
                     "pre_market_seasonal_soc": soc_value,
                 }
 
+                market_ef_args = {**args, **args_addition}
                 extra_functionality = Constraints(
-                    {**args, **args_addition}, False, apply_on="market_model"
+                    market_ef_args, False, apply_on="market_model"
                 ).functionality
 
         if temporal_disaggregation:
             args = update_extra_functionality_temporal_disaggregation(
                 n, pre_market, args, sns
             )
+
+        clean_committable_history(n, snapshots, start)
 
         if args["method"]["formulation"] == "linopy":
             status, condition = n.optimize(
@@ -598,6 +684,38 @@ def optimize_with_rolling_horizon(
                 solver_options=args["solver_options"],
                 linearized_unit_commitment=True,
             )
+
+            for tolerance, band, extra_options in retry_plan:
+                if status == "ok":
+                    break
+                logger.warning(
+                    "Window [%s:%s] failed (%s, %s); retrying with store SOC "
+                    "tolerance %s, reservoir SOC band %s and solver options %s.",
+                    sns[0], sns[-1], status, condition,
+                    "none" if tolerance is None else tolerance,
+                    "none" if band is None else band, extra_options,
+                )
+                if not n.stores.empty and len(seasonal_stores):
+                    set_terminal_targets(tolerance)
+                if market_ef_args is not None:
+                    extra_functionality = Constraints(
+                        {**market_ef_args,
+                         "pre_market_seasonal_soc_band": band},
+                        False,
+                        apply_on="market_model",
+                    ).functionality
+                status, condition = n.optimize(
+                    sns,
+                    solver_name=solver_name,
+                    extra_functionality=extra_functionality,
+                    assign_all_duals=True,
+                    solver_options={**args["solver_options"], **extra_options},
+                    linearized_unit_commitment=True,
+                )
+                if status == "ok":
+                    logger.warning(
+                        "Window [%s:%s] solved on retry.", sns[0], sns[-1]
+                    )
 
             if status != "ok":
 
@@ -633,6 +751,23 @@ def optimize_with_rolling_horizon(
                         "an infeasibility result. The failure is "
                         "most likely numerical."
                     )
+
+                # Debug aid: save the failing window for offline analysis.
+                dump_dir = os.environ.get("ETRAGO_DUMP_FAILED_WINDOW")
+                if dump_dir:
+                    os.makedirs(dump_dir, exist_ok=True)
+                    try:
+                        n.model.to_file(os.path.join(dump_dir, "window.lp"))
+                    except Exception as exc:
+                        logger.warning("Could not write window LP: %s", exc)
+                    n.export_to_netcdf(os.path.join(dump_dir, "market.nc"))
+                    pre_market.export_to_netcdf(
+                        os.path.join(dump_dir, "pre_market.nc")
+                    )
+                    pd.Series(
+                        {"window": i, "start": start, "end": end}
+                    ).to_csv(os.path.join(dump_dir, "window.csv"))
+                    logger.info("Failed window saved to %s", dump_dir)
 
                 raise RuntimeError(
                     "Rolling-horizon optimization failed for "
