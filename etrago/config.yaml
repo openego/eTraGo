@@ -296,6 +296,9 @@ selection:
 batch:
   enabled: true
   stop_on_error: false
+  # Skip scenarios whose result folder already has resolved_config.yaml
+  # (written at the end of a successful run).
+  skip_completed: true
   scenarios:
     #- fossil_gas_price_case: "low_2035"
     - fossil_gas_price_case: "legacy_egon"

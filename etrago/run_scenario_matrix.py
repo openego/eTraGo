@@ -37,6 +37,22 @@ ENVIRONMENT_VARIABLES = {
 }
 
 
+def completed_marker(config, scenario_name):
+    """Path of the file a finished run writes last, or None if unknown."""
+    run = config.get("run", {}) or {}
+    template = run.get("result_name_template")
+    start, end = run.get("start_snapshot"), run.get("end_snapshot")
+    clusters = run.get("ac_clusters")
+    if not template or start is None or end is None or clusters is None:
+        return None
+    name = template.format(
+        scenario=scenario_name,
+        hours=int(end) - int(start) + 1,
+        ac_clusters=clusters,
+    )
+    return ROOT / name / "resolved_config.yaml"
+
+
 def run_scenario(record, index, total):
     scenario_name = record["scenario_name"]
 
@@ -117,8 +133,11 @@ def main():
         )
     )
 
+    skip_completed = bool(batch_config.get("skip_completed", False))
+
     completed = []
     failed = []
+    skipped = []
 
     print(f"Sequential scenario batch contains {len(scenarios)} runs.")
 
@@ -126,6 +145,12 @@ def main():
         scenarios,
         start=1,
     ):
+        marker = completed_marker(config, scenario["scenario_name"])
+        if skip_completed and marker is not None and marker.exists():
+            skipped.append(scenario["scenario_name"])
+            print(f"SKIPPED (already completed): {scenario['scenario_name']}")
+            continue
+
         return_code = run_scenario(
             scenario,
             index,
@@ -159,6 +184,7 @@ def main():
     print("=" * 100)
     print(f"Completed: {len(completed)}")
     print(f"Failed:    {len(failed)}")
+    print(f"Skipped:   {len(skipped)} (already completed)")
 
     for scenario_name, return_code in failed:
         print(
