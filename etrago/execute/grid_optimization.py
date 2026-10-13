@@ -295,9 +295,7 @@ def add_redispatch_generators(
         for i in network.snapshots:
             management_cost_per_generator.loc[i, :] = (
                 management_cost_carrier.loc[
-                    network.generators.loc[
-                        gens_redispatch, "carrier"
-                    ].values
+                    network.generators.loc[gens_redispatch, "carrier"].values
                 ].values
             )
 
@@ -377,11 +375,9 @@ def add_redispatch_generators(
             columns=gens_redispatch,
         )
         for i in ramp_up_costs.index:
-            ramp_up_costs.loc[i, gens_redispatch] = (
-                network.generators.loc[
-                    gens_redispatch, "marginal_cost"
-                ].values
-            )
+            ramp_up_costs.loc[i, gens_redispatch] = network.generators.loc[
+                gens_redispatch, "marginal_cost"
+            ].values
 
     else:
         ramp_up_costs = network.generators.loc[
@@ -413,17 +409,13 @@ def add_redispatch_generators(
     if time_depended_cost:
         ramp_down_costs = (
             market_price_per_generator
-            - network.generators.loc[
-                gens_redispatch, "marginal_cost"
-            ].values
+            - network.generators.loc[gens_redispatch, "marginal_cost"].values
         )
         ramp_down_costs.columns = gens_redispatch + " ramp_down"
     else:
         ramp_down_costs = (
             market_price_per_generator
-            - network.generators.loc[
-                gens_redispatch, "marginal_cost"
-            ].values
+            - network.generators.loc[gens_redispatch, "marginal_cost"].values
         )
     ramp_down_costs = ramp_down_costs + management_cost_per_generator.values
     # Add ramp up generators to the network for the grid optimization
@@ -474,15 +466,12 @@ def add_redispatch_generators(
             columns=links_redispatch,
         )
         for i in ramp_up_costs.index:
-            ramp_up_costs_links.loc[i, links_redispatch] = (
-                network.links.loc[
-                    links_redispatch, "marginal_cost"
-                ].values
-            )
+            ramp_up_costs_links.loc[i, links_redispatch] = network.links.loc[
+                links_redispatch, "marginal_cost"
+            ].values
 
         ramp_up_costs_links[
-            market_price_per_link.loc[network.snapshots]
-            > ramp_up_costs_links
+            market_price_per_link.loc[network.snapshots] > ramp_up_costs_links
         ] = market_price_per_link
 
     else:
@@ -504,9 +493,7 @@ def add_redispatch_generators(
         bus1=network.links.loc[links_redispatch, "bus1"].values,
         p_nom=network.links.loc[links_redispatch, "p_nom"].values,
         carrier=network.links.loc[links_redispatch, "carrier"].values,
-        efficiency=network.links.loc[
-            links_redispatch, "efficiency"
-        ].values,
+        efficiency=network.links.loc[links_redispatch, "efficiency"].values,
     )
 
     if time_depended_cost:
@@ -515,9 +502,9 @@ def add_redispatch_generators(
             [network.links_t.marginal_cost, ramp_up_costs_links], axis=1
         )
     else:
-        network.links.loc[
-            links_redispatch + " ramp_up", "marginal_cost"
-        ] = ramp_up_costs_links
+        network.links.loc[links_redispatch + " ramp_up", "marginal_cost"] = (
+            ramp_up_costs_links
+        )
 
     # Set maximum feed-in limit for ramp up links based on feed-in of
     # (disaggregated) links from the market optimization
@@ -556,14 +543,10 @@ def add_redispatch_generators(
         ] = -(ramp_down_costs.values)
 
     # Ramp down generators can not feed-in addtional energy
-    network.generators_t.p_max_pu.loc[
-        :, gens_redispatch + " ramp_down"
-    ] = 0.0
+    network.generators_t.p_max_pu.loc[:, gens_redispatch + " ramp_down"] = 0.0
     # Ramp down can be at maximum as high as the feed-in of the
     # (disaggregated) generators in the market model
-    network.generators_t.p_min_pu.loc[
-        :, gens_redispatch + " ramp_down"
-    ] = (
+    network.generators_t.p_min_pu.loc[:, gens_redispatch + " ramp_down"] = (
         -(
             self.market_model.generators_t.p.loc[
                 network.snapshots, gens_redispatch
@@ -585,9 +568,7 @@ def add_redispatch_generators(
         p_nom=network.links.loc[links_redispatch, "p_nom"].values,
         marginal_cost=-(management_cost),
         carrier=network.links.loc[links_redispatch, "carrier"].values,
-        efficiency=network.links.loc[
-            links_redispatch, "efficiency"
-        ].values,
+        efficiency=network.links.loc[links_redispatch, "efficiency"].values,
     )
 
     # Ramp down links can not feed-in addtional energy
