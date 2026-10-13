@@ -742,7 +742,10 @@ def import_gen_from_links(network, drop_small_capacities=True):
     df = pd.DataFrame()
     df["p_nom"] = gas_to_add.groupby(["bus", "carrier"]).p_nom.sum()
     df["p_nom_opt"] = gas_to_add.groupby(["bus", "carrier"]).p_nom_opt.sum()
-    df["p_nom_max"] = gas_to_add.groupby(["bus", "carrier"]).p_nom_max.sum()
+    # groupby().sum() returns NaN when more than one value is infinite
+    df["p_nom_max"] = gas_to_add.groupby(["bus", "carrier"]).p_nom_max.apply(
+        lambda x: x.to_numpy().sum()
+    )
     df["p_nom_min"] = gas_to_add.groupby(["bus", "carrier"]).p_nom_min.sum()
     df["p_nom_extendable"] = gas_to_add.groupby(
         ["bus", "carrier"]
