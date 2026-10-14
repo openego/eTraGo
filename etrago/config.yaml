@@ -1019,21 +1019,34 @@ technical:
       # THG quota
       # --------------------------------------------------------------
       #
-      # Treurat reference:
-      # advanced biomethane quota price = 280 EUR/tCO2.
+      # Treurat reference: advanced biomethane quota price = 280 EUR/tCO2.
       #
-      # For the first physical/economic validation run keep this off,
-      # because the documents do not give us a sufficiently explicit
-      # certified tCO2-saving/MWh value for conversion to EUR/MWh.
-      thg_quota_active: false
+      # TO SWITCH THE THG CREDIT ON: enter ONE of the two values below once
+      # Treurat & Partner confirm it. Nothing else has to be changed.
+      #
+      #   Option 1  thg_credit_override_eur_per_mwh_hs
+      #             = credit directly in EUR per MWh_Hs of biomethane
+      #               delivered to trucks (HGV).
+      #   Option 2  ghg_saving_tco2_per_mwh_hs
+      #             = certified tCO2 saved per MWh_Hs;
+      #               credit = thg_quota_price_eur_per_tco2 x saving.
+      #
+      # If both are filled, Option 1 is used. The credit reduces the
+      # cost of the biomethane -> HGV link only (not gas-grid injection).
+      #
+      # Reference only (not certified): Treurat's P&L 2029 shows THG revenue
+      # of 266 kEUR/a (81/19 mix) or 425 kEUR/a (70/30 mix), i.e. about
+      # 0.9 or 1.5 EUR/MWh_Hs spread over all biomethane.
+      thg_credit_override_eur_per_mwh_hs: null
+
+      ghg_saving_tco2_per_mwh_hs: null
 
       thg_quota_price_eur_per_tco2: 280.0
 
-      # Fill later when a certified RED/Nabisy lifecycle value is selected.
-      ghg_saving_tco2_per_mwh_hs: null
-
-      # Optional direct override for future sensitivity runs.
-      thg_credit_override_eur_per_mwh_hs: null
+      # auto  = on as soon as one of the two values above is filled (default)
+      # true  = force on (error if no value is filled)
+      # false = force off, even if a value is filled
+      thg_quota_active: auto
 
       # --------------------------------------------------------------
       # Reporting/reference values from Treurat

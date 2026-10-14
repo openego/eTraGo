@@ -1935,13 +1935,21 @@ def _apply_biomethane_transport_config(
         )
 
 
-    quota_active = bool(
-        technical_transport.get(
-            "thg_quota_active",
-            False,
-        )
-    )
-
+    # ---------------------------------------------------------------------
+    # THG quota (RED II/III) credit for biomethane -> HGV transport
+    # ---------------------------------------------------------------------
+    #
+    # Enter ONE of the two values in config.yaml when Treurat & Partner
+    # confirm it:
+    #
+    #   thg_credit_override_eur_per_mwh_hs   direct credit, EUR/MWh_Hs
+    #   ghg_saving_tco2_per_mwh_hs           certified saving; the credit is
+    #                                        thg_quota_price_eur_per_tco2 x saving
+    #
+    # thg_quota_active: auto (default) switches the credit on as soon as one
+    # of them is filled. true forces it on (error if no value), false forces
+    # it off even if a value is filled.
+    # ---------------------------------------------------------------------
 
     quota_price = float(
         technical_transport.get(
@@ -1950,16 +1958,13 @@ def _apply_biomethane_transport_config(
         )
     )
 
-
     saving_value = technical_transport.get(
         "ghg_saving_tco2_per_mwh_hs"
     )
 
-
     override = technical_transport.get(
         "thg_credit_override_eur_per_mwh_hs"
     )
-
 
     if quota_price < 0.0:
 
@@ -1968,55 +1973,81 @@ def _apply_biomethane_transport_config(
             "must be non-negative."
         )
 
+    has_value = (
+        override is not None
+        or saving_value is not None
+    )
 
-    if override is not None:
+    active_setting = technical_transport.get(
+        "thg_quota_active",
+        "auto",
+    )
 
-        thg_credit = float(
-            override
+    if isinstance(active_setting, str):
+
+        active_setting = active_setting.strip().lower()
+
+        if active_setting == "auto":
+            quota_active = has_value
+        elif active_setting in {"true", "yes", "on"}:
+            quota_active = True
+        elif active_setting in {"false", "no", "off"}:
+            quota_active = False
+        else:
+            raise ScenarioConfigError(
+                "thg_quota_active must be auto, true or false, got "
+                f"{active_setting!r}."
+            )
+
+    else:
+
+        quota_active = bool(active_setting)
+
+    if quota_active and not has_value:
+
+        raise ScenarioConfigError(
+            "THG quota is switched on, but neither "
+            "thg_credit_override_eur_per_mwh_hs nor "
+            "ghg_saving_tco2_per_mwh_hs is filled in config.yaml."
         )
 
+    if has_value and not quota_active:
+
+        print(
+            "WARNING: a THG value is filled in config.yaml but "
+            "thg_quota_active is false: the THG credit is NOT applied."
+        )
+
+    thg_credit = 0.0
+
+    if quota_active:
+
+        if override is not None:
+
+            thg_credit = float(
+                override
+            )
+
+        else:
+
+            thg_credit = (
+                quota_price
+                * float(
+                    saving_value
+                )
+            )
 
         if thg_credit < 0.0:
 
             raise ScenarioConfigError(
-                "thg_credit_override_eur_per_mwh_hs "
+                "The THG credit (override, or price x saving) "
                 "must be non-negative."
             )
 
-
-    elif quota_active:
-
-        if saving_value is None:
-
-            raise ScenarioConfigError(
-                "THG quota is active, but neither "
-                "ghg_saving_tco2_per_mwh_hs nor a "
-                "THG-credit override is configured."
-            )
-
-
-        ghg_saving = float(
-            saving_value
+        print(
+            f"THG credit applied: {thg_credit:.3f} EUR/MWh_Hs "
+            "on biomethane delivered to HGV transport."
         )
-
-
-        if ghg_saving < 0.0:
-
-            raise ScenarioConfigError(
-                "ghg_saving_tco2_per_mwh_hs "
-                "must be non-negative."
-            )
-
-
-        thg_credit = (
-            quota_price
-            * ghg_saving
-        )
-
-
-    else:
-
-        thg_credit = 0.0
 
 
     transport_args[
@@ -2032,6 +2063,22 @@ def _apply_biomethane_transport_config(
     transport_args[
         "thg_quota_price_eur_per_tco2"
     ] = quota_price
+
+    transport_args[
+        "ghg_saving_tco2_per_mwh_hs"
+    ] = (
+        float(saving_value)
+        if quota_active and saving_value is not None
+        else None
+    )
+
+    transport_args[
+        "thg_credit_override_eur_per_mwh_hs"
+    ] = (
+        float(override)
+        if quota_active and override is not None
+        else None
+    )
 
 
     transport_args[
