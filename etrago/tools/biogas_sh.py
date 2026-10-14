@@ -723,7 +723,21 @@ def _get_heat_p_nom(row, settings) -> float:
 
 
 def _get_ch4_p_nom(row, settings) -> float:
-    """Return CH4_biogas p_nom in MW_CH4."""
+    """Return CH4_biogas p_nom in MW_CH4.
+
+    With upgrading_efficiency_override (upgrading accounting from the T+P
+    documents) the capacity is recomputed from the raw-biogas energy,
+    E_biomethane = efficiency x E_raw, instead of using the columns of the
+    plant file that were computed with an efficiency of 0.96.
+    """
+    override = settings.get("upgrading_efficiency_override")
+    if override is not None:
+        raw_mwh_a = _safe_float(row, "raw_biogas_mwh_hs_a", default=0.0)
+        hours = float(settings.get("hours_for_gas_capacity", 8760.0))
+        if hours <= 0:
+            return 0.0
+        return max(raw_mwh_a * float(override) / hours, 0.0)
+
     if "p_nom_ch4_mw" in row.index and not _is_missing(row["p_nom_ch4_mw"]):
         return max(_safe_float(row, "p_nom_ch4_mw"), 0.0)
 

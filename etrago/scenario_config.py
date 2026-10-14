@@ -359,10 +359,138 @@ def load_config(path: str | Path) -> Dict[str, Any]:
     return config
 
 
+def _apply_upgrading_accounting(
+    config: Mapping[str, Any],
+) -> Tuple[Mapping[str, Any], Dict[str, Any] | None]:
+    """
+    Apply technical.biogas_sh.upgrading_accounting (T+P project documents).
+
+    Returns the unchanged config and None when the block is inactive.
+    Otherwise returns a modified deep copy and a summary of the values that
+    were applied. See the comments in config.yaml for the meaning.
+    """
+
+    technical_biogas = (
+        (config.get("technical") or {}).get("biogas_sh") or {}
+    )
+
+    accounting = technical_biogas.get("upgrading_accounting") or {}
+
+    if not bool(accounting.get("active", False)):
+        return config, None
+
+    cases = accounting.get("cases") or {}
+    case_name = str(accounting.get("case"))
+
+    if case_name not in cases:
+        raise ScenarioConfigError(
+            f"upgrading_accounting.case {case_name!r} is not one of "
+            f"{sorted(cases)}."
+        )
+
+    efficiency = float(cases[case_name]["efficiency"])
+    raw_cost = float(accounting["raw_biogas_cost_eur_per_mwh_hs"])
+    electricity = float(
+        accounting["upgrading_electricity_cost_eur_per_mwh_biomethane"]
+    )
+    other = float(accounting["other_upgrading_cost_eur_per_mwh_biomethane"])
+    collection = float(accounting["collection_cost_eur_per_mwh_biomethane"])
+    raw_energy = float(accounting["raw_biogas_energy_mwh_hs_a"])
+
+    if not 0.0 < efficiency <= 1.0:
+        raise ScenarioConfigError(
+            "upgrading_accounting efficiency must be in (0, 1]."
+        )
+
+    if min(raw_cost, electricity, other, collection, raw_energy) < 0.0:
+        raise ScenarioConfigError(
+            "upgrading_accounting costs and energy must be non-negative."
+        )
+
+    # Biomethane cost per MWh_Hs of biomethane (before any CO2 credit).
+    biomethane_cost = raw_cost / efficiency + electricity + other + collection
+
+    # CO2 at the actual project flow, per MWh of biomethane.
+    co2 = accounting["co2"]
+    co2_t_per_year = (
+        float(co2["flow_nm3_per_h"])
+        * float(co2["density_kg_per_nm3"])
+        * float(co2["operating_hours"])
+        / 1000.0
+    )
+    co2_yield = co2_t_per_year / (raw_energy * efficiency)
+
+    # Direct raw-biogas route to SWFL.
+    direct = accounting["direct_raw_biogas_to_swfl"]
+    direct_collection = float(direct["collection_cost_eur_per_mwh_hs"])
+    connection = direct_collection * (
+        float(direct["connection_length_km"])
+        / float(direct["reference_length_km"])
+    )
+    direct_transport = direct_collection + connection
+
+    modified = copy.deepcopy(dict(config))
+
+    modified["technical"]["biogas_sh"]["efficiencies"][
+        "upgrading"
+    ] = efficiency
+
+    modified["technical"]["biogas_sh"]["direct_raw_biogas_to_swfl"][
+        "transport_cost_eur_per_mwh_hs"
+    ] = direct_transport
+
+    for case in (modified.get("co2_sale_cases") or {}).values():
+        case["co2_yield_t_per_mwh_biomethane"] = co2_yield
+
+    selection = _selection_with_environment_overrides(config)
+    biomethane_case = selection["biomethane_price_case"]
+
+    if str(biomethane_case).startswith("debug"):
+        raise ScenarioConfigError(
+            "upgrading_accounting cannot be combined with the debug "
+            "biomethane price case."
+        )
+
+    modified["price_cases"]["biomethane"][biomethane_case][
+        "marginal_cost_eur_per_mwh_hs"
+    ] = biomethane_cost
+
+    summary = {
+        "case": case_name,
+        "efficiency": efficiency,
+        "raw_biogas_energy_mwh_hs_a": raw_energy,
+        "biomethane_energy_mwh_hs_a": raw_energy * efficiency,
+        "biomethane_cost_eur_per_mwh_hs": biomethane_cost,
+        "co2_t_per_year": co2_t_per_year,
+        "co2_yield_t_per_mwh_biomethane": co2_yield,
+        "direct_collection_cost_eur_per_mwh_hs": direct_collection,
+        "direct_connection_cost_eur_per_mwh_hs": connection,
+        "direct_delivered_raw_biogas_cost_eur_per_mwh_hs": (
+            raw_cost + direct_transport
+        ),
+    }
+
+    return modified, summary
+
+
 def resolve_config(
     config: Mapping[str, Any],
 ) -> Dict[str, Any]:
     """Resolve one selected scenario into a reproducibility record."""
+
+    config, upgrading_summary = _apply_upgrading_accounting(config)
+
+    resolved = _resolve_config_core(config)
+
+    resolved["upgrading_accounting"] = upgrading_summary
+
+    return resolved
+
+
+def _resolve_config_core(
+    config: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """Resolve one selected scenario (core, without upgrading accounting)."""
 
     selection = _selection_with_environment_overrides(
         config
@@ -2393,6 +2521,97 @@ def apply_config_to_args(
     biogas[
         "default_biomethane_cost"
     ] = effective_biomethane_cost
+
+
+    # ---------------------------------------------------------------------
+    # Upgrading accounting (T+P project documents; off by default)
+    #
+    # The plant file holds biomethane capacities computed with an upgrading
+    # efficiency of 0.96 (columns *_at_96pct). When the accounting is active,
+    # the capacities are recomputed from the raw-biogas energy with the
+    # selected efficiency (tools/biogas_sh.py::_get_ch4_p_nom).
+    # ---------------------------------------------------------------------
+
+    biogas.pop(
+        "upgrading_efficiency_override",
+        None,
+    )
+
+    upgrading = resolved.get(
+        "upgrading_accounting"
+    )
+
+    if upgrading:
+
+        biogas[
+            "upgrading_efficiency_override"
+        ] = float(
+            upgrading[
+                "efficiency"
+            ]
+        )
+
+        plant_csv = biogas.get(
+            "csv_path"
+        )
+
+        if plant_csv and Path(str(plant_csv)).exists():
+
+            with open(
+                plant_csv,
+                newline="",
+                encoding="utf-8-sig",
+            ) as handle:
+
+                file_energy = sum(
+                    float(row["raw_biogas_mwh_hs_a"])
+                    for row in csv.DictReader(handle)
+                    if row.get("raw_biogas_mwh_hs_a")
+                )
+
+            configured_energy = float(
+                upgrading["raw_biogas_energy_mwh_hs_a"]
+            )
+
+            if abs(file_energy - configured_energy) > 0.005 * file_energy:
+
+                raise ScenarioConfigError(
+                    "upgrading_accounting.raw_biogas_energy_mwh_hs_a "
+                    f"({configured_energy:.0f} MWh) differs by more than "
+                    "0.5 % from the plant file "
+                    f"({file_energy:.0f} MWh)."
+                )
+
+        print(
+            "\n"
+            + "=" * 60
+            + "\nUPGRADING ACCOUNTING (T+P project documents)\n"
+            + "=" * 60
+            + f"\nCase:                         {upgrading['case']}"
+            + f"\nUpgrading efficiency:         "
+            f"{upgrading['efficiency']:.3f}"
+            + f"\nRaw-biogas energy:            "
+            f"{upgrading['raw_biogas_energy_mwh_hs_a']:.0f} MWh_Hs/a"
+            + f"\nBiomethane energy:            "
+            f"{upgrading['biomethane_energy_mwh_hs_a']:.0f} MWh_Hs/a"
+            + f"\nBiomethane cost (gross):      "
+            f"{upgrading['biomethane_cost_eur_per_mwh_hs']:.2f} EUR/MWh_Hs"
+            + f"\nSeparated CO2:                "
+            f"{upgrading['co2_t_per_year']:.0f} t/a"
+            + f"\nCO2 yield:                    "
+            f"{upgrading['co2_yield_t_per_mwh_biomethane']:.5f} t/MWh"
+            + f"\nDirect route, collection:     "
+            f"{upgrading['direct_collection_cost_eur_per_mwh_hs']:.2f} "
+            "EUR/MWh_Hs"
+            + f"\nDirect route, Ellund-SWFL:    "
+            f"{upgrading['direct_connection_cost_eur_per_mwh_hs']:.2f} "
+            "EUR/MWh_Hs (proxy, not a T+P value)"
+            + f"\nDelivered raw biogas at SWFL: "
+            f"{upgrading['direct_delivered_raw_biogas_cost_eur_per_mwh_hs']:.2f}"
+            " EUR/MWh_Hs"
+            + "\n"
+            + "=" * 60
+        )
 
 
     # ---------------------------------------------------------------------

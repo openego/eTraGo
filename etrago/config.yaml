@@ -935,6 +935,85 @@ technical:
 
 
     # -------------------------------------------------------------------------
+    # Upgrading accounting from the Treurat & Partner (T+P) project documents
+    # -------------------------------------------------------------------------
+    #
+    # active: false  -> the model keeps its current values (efficiency 0.96,
+    #                   biomethane cost 92.9 EUR/MWh_Hs, CO2 yield and
+    #                   direct-route cost as configured elsewhere in this
+    #                   file). Existing results stay reproducible.
+    # active: true   -> the selected case below replaces, consistently:
+    #                   - technical.biogas_sh.efficiencies.upgrading
+    #                   - the biomethane cost of the selected biomethane
+    #                     price case
+    #                   - co2_yield_t_per_mwh_biomethane of all CO2 cases
+    #                   - direct_raw_biogas_to_swfl.transport_cost_eur_per_mwh_hs
+    #                   - the biomethane plant capacities (recomputed from the
+    #                     raw-biogas energy: E_biomethane = efficiency x E_raw)
+    #
+    # Biomethane cost per MWh_Hs of biomethane:
+    #     raw biogas / efficiency + electricity + other upgrading + collection
+    #
+    # Upgrading electricity is represented as the fixed T+P cost component
+    # (EUR/MWh), NOT as an electricity demand in the power system.
+    #
+    upgrading_accounting:
+
+      active: false
+
+      case: "project_documents_central"
+
+      cases:
+
+        # ETW design flows reported by T+P (07/2026): 7,500 Nm3/h raw biogas
+        # at 49.5 % CH4 -> 3,777 Nm3/h biomethane at 97 % CH4, i.e. 98.7 %
+        # methane recovery.
+        project_documents_central:
+          efficiency: 0.987
+
+        # T+P (07/2026, p. 25): methane slip 0.2 %. Possibly the slip after
+        # the oxidiser (RTO), in which case the energy loss is larger; ask
+        # ETW / T+P. Treat as optimistic end.
+        tp_methane_slip:
+          efficiency: 0.998
+
+        # Current model assumption (conservative).
+        current_model_efficiency:
+          efficiency: 0.96
+
+      # Annual raw-biogas energy of the 22/21 plants. Must equal the sum of
+      # raw_biogas_mwh_hs_a in the plant file (checked at run time).
+      raw_biogas_energy_mwh_hs_a: 302472.0
+
+      # T+P (07/2026): p. 25 raw biogas price; p. 26 upgrading cost
+      # 1.37 ct/kWh_Hs = 13.70 EUR/MWh, of which 0.60 ct is own electricity;
+      # p. 27 collection pipeline 0.42 ct/kWh_Hs.
+      raw_biogas_cost_eur_per_mwh_hs: 75.0
+      upgrading_electricity_cost_eur_per_mwh_biomethane: 6.0
+      other_upgrading_cost_eur_per_mwh_biomethane: 7.7
+      collection_cost_eur_per_mwh_biomethane: 4.2
+
+      # Separated CO2 at the ACTUAL project flow (T+P p. 28: 2,700 m3/h).
+      # The 55,000 t/a derived from ETW's design flow of 7,500 Nm3/h is NOT
+      # used: it would be divided by the energy of the smaller real flow.
+      # yield [t/MWh biomethane] = annual CO2 / (raw energy x efficiency)
+      co2:
+        flow_nm3_per_h: 2700.0
+        density_kg_per_nm3: 1.96
+        operating_hours: 8760.0
+
+      # Direct raw-biogas route to SWFL: collection pipeline plus a
+      # PROVISIONAL proxy for a dedicated Ellund-SWFL raw-gas line, scaled
+      # from T+P's collection cost by length (12 km / 50 km). This is a
+      # model estimate, not a T+P value. The 12 km is unverified, and the
+      # per-MWh cost holds only if all raw biogas flows through the line.
+      direct_raw_biogas_to_swfl:
+        collection_cost_eur_per_mwh_hs: 4.2
+        connection_length_km: 12.0
+        reference_length_km: 50.0
+
+
+    # -------------------------------------------------------------------------
     # Direct raw-biogas delivery to Stadtwerke Flensburg
     # -------------------------------------------------------------------------
     #
