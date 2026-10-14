@@ -164,12 +164,17 @@ def run_lopf(etrago, extra_functionality, method):
                 break
             logger.warning(
                 "Grid optimisation failed (%s, %s); retrying with solver "
-                "options %s.", status, condition, extra_options,
+                "options %s.",
+                status,
+                condition,
+                extra_options,
             )
             status, condition = etrago.network.optimize(
                 solver_name=etrago.args["solver"],
-                solver_options={**etrago.args["solver_options"],
-                                **extra_options},
+                solver_options={
+                    **etrago.args["solver_options"],
+                    **extra_options,
+                },
                 extra_functionality=extra_functionality,
             )
         if status != "ok":
@@ -177,9 +182,8 @@ def run_lopf(etrago, extra_functionality, method):
                 and condition {condition}""")
             # An IIS of the full grid model takes many hours; only compute
             # it on request and only for a genuine infeasibility.
-            if (
-                "infeasible" in str(condition).lower()
-                and os.environ.get("ETRAGO_COMPUTE_IIS")
+            if "infeasible" in str(condition).lower() and os.environ.get(
+                "ETRAGO_COMPUTE_IIS"
             ):
                 etrago.network.model.print_infeasibilities()
             raise RuntimeError(
@@ -499,10 +503,14 @@ def optimize_with_rolling_horizon(
     # options). Tolerance None removes the terminal target for that window.
     # Each retry: (seasonal-store SOC tolerance, reservoir SOC band, extra
     # solver options). None removes that end-of-window target.
-    retry_plan = [
-        (1.0e-2, 0.25, {"NumericFocus": 2}),
-        (None, None, {"NumericFocus": 3, "ScaleFlag": -1}),
-    ] if rh_cfg.get("retry_failed_windows", True) else []
+    retry_plan = (
+        [
+            (1.0e-2, 0.25, {"NumericFocus": 2}),
+            (None, None, {"NumericFocus": 3, "ScaleFlag": -1}),
+        ]
+        if rh_cfg.get("retry_failed_windows", True)
+        else []
+    )
     market_ef_args = None
 
     starting_points = range(0, len(snapshots), horizon - overlap)
@@ -590,9 +598,12 @@ def optimize_with_rolling_horizon(
                 )
             )
 
-            def set_terminal_targets(tolerance, _t=snapshots[end - 1],
-                                     _stores=seasonal_stores,
-                                     _target=target_soc_pu):
+            def set_terminal_targets(
+                tolerance,
+                _t=snapshots[end - 1],
+                _stores=seasonal_stores,
+                _target=target_soc_pu,
+            ):
                 """Bound seasonal stores at the window end; None frees them."""
                 if tolerance is None:
                     lower, upper = 0.0, 1.0
@@ -691,16 +702,22 @@ def optimize_with_rolling_horizon(
                 logger.warning(
                     "Window [%s:%s] failed (%s, %s); retrying with store SOC "
                     "tolerance %s, reservoir SOC band %s and solver options %s.",
-                    sns[0], sns[-1], status, condition,
+                    sns[0],
+                    sns[-1],
+                    status,
+                    condition,
                     "none" if tolerance is None else tolerance,
-                    "none" if band is None else band, extra_options,
+                    "none" if band is None else band,
+                    extra_options,
                 )
                 if not n.stores.empty and len(seasonal_stores):
                     set_terminal_targets(tolerance)
                 if market_ef_args is not None:
                     extra_functionality = Constraints(
-                        {**market_ef_args,
-                         "pre_market_seasonal_soc_band": band},
+                        {
+                            **market_ef_args,
+                            "pre_market_seasonal_soc_band": band,
+                        },
                         False,
                         apply_on="market_model",
                     ).functionality
