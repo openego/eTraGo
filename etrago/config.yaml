@@ -686,6 +686,24 @@ biogas_route_cases:
     add_biomethane_transport_supply: false
 
 
+  # T+P central biomethane-project configuration: the plants' CHP capacity is
+  # decommissioned (T+P 04/2026, "Stilllegung von BHKW-Kapazitäten"), so no
+  # onsite generation. Biomethane goes to the public grid and to trucks, raw
+  # biogas goes to SWFL. The EEG continuation and flexibilisation scenarios
+  # keep onsite CHP and use hybrid_raw_swfl_transport instead.
+  tp_project_no_onsite:
+    description: >
+      T+P central project configuration without onsite CHP: upgraded
+      biomethane to the public CH4 grid and to trucks, direct raw biogas
+      to SWFL.
+
+    add_local_generation: false
+    add_gas_grid_generation: true
+    add_swfl_direct_supply: false
+    add_swfl_raw_biogas_supply: true
+    add_biomethane_transport_supply: true
+
+
   hybrid_raw_swfl_transport:
     description: >
       Main project route. Enable onsite electricity and heat,
@@ -915,6 +933,23 @@ technical:
   # ===========================================================================
   biogas_sh:
 
+    # -------------------------------------------------------------------------
+    # MODEL BOUNDARY: raw-biogas availability
+    # -------------------------------------------------------------------------
+    #
+    # The 52.01 million Nm3/a (302.5 GWh_Hs/a, 5,940 m3/h) of the plant file
+    # is treated as NET raw biogas available for delivery to the collection
+    # pipeline (survey item "Liefermenge Biogas"). No deduction is made for
+    # fermenter heating, and any raw-gas burner for fermenter heat is assumed
+    # to be upstream of the model boundary, i.e. reflected in the raw-biogas
+    # price and the available quantity. T+P does not quantify the fermenter
+    # heat demand or a burner efficiency, so no defensible deduction can be
+    # calculated. To be confirmed with T+P whether 52.01 Mm3 is net or gross.
+    #
+    # Onsite CHP is NOT removed globally: it stays in the EEG continuation
+    # and flexibilisation scenarios. The route case tp_project_no_onsite
+    # (see biogas_route_cases) is the T+P configuration without onsite CHP.
+    #
     # -------------------------------------------------------------------------
     # Conversion efficiencies
     # -------------------------------------------------------------------------
