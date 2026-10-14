@@ -412,12 +412,22 @@ def _apply_upgrading_accounting(
 
     # CO2 at the actual project flow, per MWh of biomethane.
     co2 = accounting["co2"]
-    co2_t_per_year = (
-        float(co2["flow_nm3_per_h"])
-        * float(co2["density_kg_per_nm3"])
-        * float(co2["operating_hours"])
-        / 1000.0
-    )
+    co2_basis = str(co2.get("basis", "annual")).strip().lower()
+
+    if co2_basis == "annual":
+        co2_t_per_year = float(co2["annual_t_per_year"])
+    elif co2_basis == "flow":
+        co2_t_per_year = (
+            float(co2["flow_nm3_per_h"])
+            * float(co2["density_kg_per_nm3"])
+            * float(co2["operating_hours"])
+            / 1000.0
+        )
+    else:
+        raise ScenarioConfigError(
+            "upgrading_accounting.co2.basis must be 'annual' or 'flow', "
+            f"got {co2_basis!r}."
+        )
     co2_yield = co2_t_per_year / (raw_energy * efficiency)
 
     # Direct raw-biogas route to SWFL.
@@ -461,6 +471,7 @@ def _apply_upgrading_accounting(
         "raw_biogas_energy_mwh_hs_a": raw_energy,
         "biomethane_energy_mwh_hs_a": raw_energy * efficiency,
         "biomethane_cost_eur_per_mwh_hs": biomethane_cost,
+        "co2_basis": co2_basis,
         "co2_t_per_year": co2_t_per_year,
         "co2_yield_t_per_mwh_biomethane": co2_yield,
         "direct_collection_cost_eur_per_mwh_hs": direct_collection,

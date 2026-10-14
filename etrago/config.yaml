@@ -993,11 +993,20 @@ technical:
       other_upgrading_cost_eur_per_mwh_biomethane: 7.7
       collection_cost_eur_per_mwh_biomethane: 4.2
 
-      # Separated CO2 at the ACTUAL project flow (T+P p. 28: 2,700 m3/h).
-      # The 55,000 t/a derived from ETW's design flow of 7,500 Nm3/h is NOT
-      # used: it would be divided by the energy of the smaller real flow.
-      # yield [t/MWh biomethane] = annual CO2 / (raw energy x efficiency)
+      # Separated CO2.  yield [t/MWh biomethane] = annual CO2 /
+      # (raw energy x efficiency), so it follows the selected efficiency.
+      #
+      #   basis: "annual"  -> annual_t_per_year (T+P / ETW figure, used by T+P)
+      #   basis: "flow"    -> flow x density x hours
+      #
+      # NOTE: 55,000 t/a is the CO2 of ETW's design flow of 7,500 Nm3/h
+      # (3,222.63 Nm3/h x 1.96 kg x 8,760 h). The raw-biogas energy above
+      # (302,472 MWh) comes from the smaller real flow of 5,940 m3/h, so this
+      # yield (about 0.184 t/MWh) is about 20 % higher than the one at the
+      # real flow (about 0.155 t/MWh, basis "flow" with 2,700 m3/h, T+P p. 28).
       co2:
+        basis: "annual"
+        annual_t_per_year: 55000.0
         flow_nm3_per_h: 2700.0
         density_kg_per_nm3: 1.96
         operating_hours: 8760.0
