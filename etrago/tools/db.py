@@ -146,6 +146,38 @@ def create_oedb_config_file(filepath, section="oep"):
     return cfg
 
 
+def check_oep_token():
+    """
+    Checks if token for OEP exists in environment variables or file.
+
+    Returns
+    -------
+    token : str or None
+        Token string or none.
+
+    """
+    if "OEP_TOKEN" in os.environ:
+        token = os.environ["OEP_TOKEN"]
+    else:
+
+        from pathlib import Path
+
+        token = (
+            Path(os.path.expanduser("~"))
+            / ".etrago_database"
+            / "OEP_TOKEN.txt"
+        )
+
+        if token.is_file():
+            with open(token) as file:
+                token = file.read().strip()
+
+        else:
+            token = None
+
+    return token
+
+
 def connection(filepath=None, section="oep"):
     """
     Instantiate a database connection (for the use with SQLAlchemy).
@@ -169,8 +201,22 @@ def connection(filepath=None, section="oep"):
     """
 
     if section == "oep":
-        conn = create_engine("postgresql+oedialect://oep.iks.cs.ovgu.de")
 
+        token = check_oep_token()
+
+        if token:
+            conn = create_engine(
+                f"postgresql+oedialect://:{token}@oep.iks.cs.ovgu.de",
+                echo=False,
+            )
+            print("Connected to OEP with token.")
+        else:
+            conn = create_engine("postgresql+oedialect://oep.iks.cs.ovgu.de")
+            print(
+                "Connected to OEP without token. The acces might be limited. "
+                "Create an account on the OEP and add your token to the "
+                "environment variables or store it in OEP_TOKEN.txt"
+            )
     else:
         # define default filepath if not provided
         if filepath is None:
