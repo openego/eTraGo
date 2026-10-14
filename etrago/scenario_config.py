@@ -2680,6 +2680,42 @@ def apply_config_to_args(
         )
 
     # ---------------------------------------------------------------------
+    # Optional hourly limit on raw-biogas use (off by default; see
+    # technical.biogas_sh.resource_hourly_limit in config.yaml)
+    # ---------------------------------------------------------------------
+
+    extra_functionality.pop(
+        "biogas_sh_resource_hourly",
+        None,
+    )
+
+    hourly_limit = technical_biogas.get("resource_hourly_limit") or {}
+
+    if bool(hourly_limit.get("active", False)):
+
+        hourly_fraction = float(
+            hourly_limit.get("max_fraction_of_mean_supply", 1.0)
+        )
+
+        if hourly_fraction <= 0.0:
+
+            raise ScenarioConfigError(
+                "resource_hourly_limit.max_fraction_of_mean_supply "
+                "must be > 0."
+            )
+
+        extra_functionality[
+            "biogas_sh_resource_hourly"
+        ] = {
+            "max_fraction_of_mean_supply": hourly_fraction,
+        }
+
+        print(
+            "RAW-BIOGAS HOURLY LIMIT: total use <= "
+            f"{hourly_fraction:.2f} x mean supply in every snapshot."
+        )
+
+    # ---------------------------------------------------------------------
     # Onsite Biogas.SH costs
     # ---------------------------------------------------------------------
 

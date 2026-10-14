@@ -4294,6 +4294,109 @@ def add_chp_constraints_linopy(network, snapshots):
                 )
 
 
+def _biogas_sh_resource_hourly(self, network, snapshots):
+    """Only the linopy formulation is implemented for the hourly limit."""
+    raise NotImplementedError(
+        "The hourly raw-biogas limit (technical.biogas_sh."
+        "resource_hourly_limit) is only implemented for linopy."
+    )
+
+
+def _biogas_sh_resource_hourly_linopy(self, network, snapshots):
+    """
+    Hourly limit on the raw-biogas use of all Biogas.SH routes.
+
+    Complements the annual constraint _biogas_sh_resource_linopy: in every
+    snapshot the total raw-biogas use must not exceed
+
+        max_fraction_of_mean_supply x annual raw energy / 8760
+
+    where raw use = onsite electricity / eta_el + onsite heat / eta_heat
+    + biomethane / eta_upgrade + direct raw biogas to SWFL / eta_raw_swfl.
+    It uses the same efficiencies, CSV and generator groups as the annual
+    constraint and needs it to be registered. Aggregate over all plants.
+    """
+
+    import pandas as pd
+
+    extra = self.args["extra_functionality"]
+    fraction = float(
+        extra["biogas_sh_resource_hourly"]["max_fraction_of_mean_supply"]
+    )
+    resource = extra.get("biogas_sh_resource")
+
+    if not resource:
+        raise ValueError(
+            "biogas_sh_resource_hourly needs the shared raw-biogas "
+            "resource constraint (biogas_sh_resource) to be active."
+        )
+
+    frame = pd.read_csv(resource["csv_path"])
+    annual_mwh = float(
+        pd.to_numeric(frame["raw_biogas_mwh_hs_a"], errors="coerce")
+        .fillna(0.0)
+        .clip(lower=0.0)
+        .sum()
+    )
+    limit_mw = fraction * annual_mwh / 8760.0
+
+    eta_el = float(resource.get("eta_el", 0.38))
+    eta_heat = float(resource.get("eta_heat", 0.45))
+    eta_upgrade = float(resource.get("eta_upgrade", 0.96))
+    eta_raw = float(resource.get("eta_raw_swfl", 1.0))
+
+    (
+        electricity,
+        heat,
+        ch4,
+        raw_swfl,
+    ) = _get_clustered_biogas_sh_generators(
+        network=network,
+        raw_swfl_carrier=str(
+            resource.get(
+                "raw_swfl_generator_carrier",
+                "biogas_sh_raw_biogas_swfl",
+            )
+        ).strip(),
+    )
+
+    if not (electricity or heat or ch4 or raw_swfl):
+        raise ValueError(
+            "biogas_sh_resource_hourly: no Biogas.SH generators found."
+        )
+
+    gen_p = get_var(network, "Generator", "p")
+
+    for snapshot in snapshots:
+
+        use = 0
+
+        if electricity:
+            use = use + gen_p.loc[snapshot, electricity].sum() / eta_el
+
+        if heat:
+            use = use + gen_p.loc[snapshot, heat].sum() / eta_heat
+
+        if ch4:
+            use = use + gen_p.loc[snapshot, ch4].sum() / eta_upgrade
+
+        if raw_swfl:
+            use = use + gen_p.loc[snapshot, raw_swfl].sum() / eta_raw
+
+        define_constraints(
+            network,
+            use,
+            "<=",
+            limit_mw,
+            "Generator",
+            "biogas_sh_resource_hourly_" + str(snapshot),
+        )
+
+    logger.info(
+        f"Added the hourly raw-biogas limit of {limit_mw:.2f} MW_Hs."
+    )
+
+
 def _biogas_sh_upgrading_min_load(self, network, snapshots):
     """Only the linopy formulation is implemented for the min-load floor."""
     raise NotImplementedError(

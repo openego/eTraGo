@@ -1057,6 +1057,35 @@ technical:
 
 
     # -------------------------------------------------------------------------
+    # Hourly limit on raw-biogas use (continuous supply)  -- OFF by default
+    # -------------------------------------------------------------------------
+    #
+    # T+P's pipeline calculation assumes continuous, uniform feed-in of all
+    # plants: 302.5 GWh/a = 34.53 MW_Hs = about 5,937 Nm3/h. The shared
+    # resource constraint above only limits the ANNUAL (or window) total, so
+    # the optimisation may bunch the gas into a few hours. In the quarter-year
+    # runs with the crisis gas price the raw-biogas use reaches up to about
+    # 100 MW (3x the supply rate) in 700-850 of 2,160 hours. The model has no
+    # raw-gas storage that would allow this.
+    #
+    # active: true  -> in every snapshot the total raw-biogas use of all
+    #                  routes (onsite electricity, onsite heat, biomethane /
+    #                  eta_upgrade, direct raw biogas to SWFL) must not exceed
+    #                  max_fraction_of_mean_supply x annual raw energy / 8760.
+    #                  Downstream allocation between routes stays free, and
+    #                  gas may still be left unused.
+    #
+    # The limit is an AGGREGATE over all plants (the direct SWFL route is
+    # not plant-specific). The +-1 mbar figure for T+P's pipeline variant A
+    # is a pressure-control result and does not prove that all flow
+    # variation is technically impossible.
+    #
+    resource_hourly_limit:
+      active: false
+      max_fraction_of_mean_supply: 1.0
+
+
+    # -------------------------------------------------------------------------
     # Direct raw-biogas delivery to Stadtwerke Flensburg
     # -------------------------------------------------------------------------
     #
