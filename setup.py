@@ -77,6 +77,7 @@ setup(
         ],
         "gurobipy": ["gurobipy"],
         "cartopy": ["cartopy", "requests"],
+        "test": ["pytest"],
     },
     package_data={"etrago": [join("tools", "*.json")]},
 )

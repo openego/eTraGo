@@ -85,6 +85,22 @@ def build(session):
 
 
 @nox.session(python=["3", "3.9", "3.10", "3.11"])
+def test(session):
+    """Run the test suite."""
+    current_version = session.python if session.python else "unknown"
+    current_os = platform.system()
+    print(f"Running test on Python {current_version} and OS {current_os}")
+
+    if current_version == "3.9" and current_os == "Darwin":
+        session.skip("Skipping tests for Python 3.9 on macOS")
+
+    setdefaults(session)
+    session.env["SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL"] = "False"
+    session.install("-e", ".[test]")
+    session.run("pytest", "tests", "-v")
+
+
+@nox.session(python=["3", "3.9", "3.10", "3.11"])
 def install(session):
     """Install the package."""
     # Get the current Python version and OS
