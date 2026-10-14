@@ -340,7 +340,7 @@ def sector_coupled_clustering_strategy(etrago):
         if etrago.args["method"]["distribution_grids"]:
             strategy = {
                 "central_heat": {
-                    "base": ["CH4", "AC"],
+                    "base": ["CH4", "distribution_grid"],
                     "strategy": "simultaneous",
                 },
                 "H2_grid": {"base": ["CH4"], "strategy": "consecutive"},
