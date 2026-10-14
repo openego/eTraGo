@@ -701,7 +701,8 @@ def optimize_with_rolling_horizon(
                     break
                 logger.warning(
                     "Window [%s:%s] failed (%s, %s); retrying with store SOC "
-                    "tolerance %s, reservoir SOC band %s and solver options %s.",
+                    "tolerance %s, reservoir SOC band %s and solver "
+                    "options %s.",
                     sns[0],
                     sns[-1],
                     status,
