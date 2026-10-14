@@ -4294,6 +4294,108 @@ def add_chp_constraints_linopy(network, snapshots):
                 )
 
 
+def _biogas_sh_swfl_chp(self, network, snapshots):
+    """Only the linopy formulation is implemented for the SWFL CHP coupling."""
+    raise NotImplementedError(
+        "The coupled SWFL CHP representation (technical.swfl.chp_coupling) "
+        "is only implemented for the linopy formulation."
+    )
+
+
+def _biogas_sh_swfl_chp_linopy(self, network, snapshots):
+    """
+    Couple heat and electricity of the SWFL CHP units (K12, K13).
+
+    The units are modelled like the CHP plants in eTraGo: one electricity
+    Link and one heat Link, both fed from the same fuel bus (which receives
+    natural gas, biomethane and raw biogas), coupled by two constraints per
+    snapshot (Brown et al. 2018, as in add_chp_constraints_linopy):
+
+        back-pressure :  c_m * Q_heat  <=  P_el
+        iso-fuel line :  fuel_heat + fuel_el  <=  p_nom of the electric Link
+
+    with  Q_heat = eta_heat * fuel_heat  and  P_el = eta_el * fuel_el.
+    The heat-Link efficiency eta_heat = eta_el / c_v is set when the Link is
+    created (tools/swfl_real_system.py), not overwritten here.
+
+    The Links are found by carrier and fuel bus because Link names change
+    during network clustering. Registered through
+    args["extra_functionality"]["biogas_sh_swfl_chp"], filled by
+    scenario_config.apply_config_to_args from technical.swfl.chp_coupling.
+    """
+
+    arg = self.args["extra_functionality"]["biogas_sh_swfl_chp"]
+
+    units = arg.get("units") or []
+
+    if not units:
+        raise ValueError(
+            "biogas_sh_swfl_chp is registered without any CHP unit."
+        )
+
+    links = network.links
+    link_p = get_var(network, "Link", "p")
+
+    for unit in units:
+
+        name = str(unit["name"])
+        fuel_bus = str(unit["fuel_bus"])
+        c_m = float(unit["c_m"])
+
+        electric = links.index[
+            (links.carrier == unit["carrier_el"]) & (links.bus0 == fuel_bus)
+        ]
+        heat = links.index[
+            (links.carrier == unit["carrier_heat"]) & (links.bus0 == fuel_bus)
+        ]
+
+        if len(electric) == 0 or len(heat) == 0:
+            raise ValueError(
+                f"SWFL CHP unit {name!r}: electricity Link "
+                f"({unit['carrier_el']}) or heat Link "
+                f"({unit['carrier_heat']}) not found on bus {fuel_bus!r}."
+            )
+
+        fuel_capacity = float(links.loc[electric, "p_nom"].sum())
+
+        for snapshot in snapshots:
+
+            dispatch_heat = (
+                c_m
+                * link_p.loc[snapshot, heat]
+                * links.loc[heat, "efficiency"]
+            ).sum()
+
+            dispatch_elec = (
+                link_p.loc[snapshot, electric]
+                * links.loc[electric, "efficiency"]
+            ).sum()
+
+            define_constraints(
+                network,
+                (dispatch_heat - dispatch_elec),
+                "<=",
+                0,
+                "Link",
+                "swfl_chp_backpressure_" + name + "_" + str(snapshot),
+            )
+
+            define_constraints(
+                network,
+                link_p.loc[snapshot, heat].sum()
+                + link_p.loc[snapshot, electric].sum(),
+                "<=",
+                fuel_capacity,
+                "Link",
+                "swfl_chp_fuel_" + name + "_" + str(snapshot),
+            )
+
+    logger.info(
+        "Added SWFL CHP coupling for units: "
+        + ", ".join(str(u["name"]) for u in units)
+    )
+
+
 def couple_distribution_links(self, n, snapshots):
     """
     Couple bidirectional distribution grid links such that

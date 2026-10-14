@@ -2628,6 +2628,153 @@ def apply_config_to_args(
     )
 
 
+    # =====================================================================
+    # 7b. OPTIONAL COUPLED CHP REPRESENTATION OF K12 / K13
+    # =====================================================================
+    #
+    # technical.swfl.chp_coupling.mode == "coupled" replaces the heat-only
+    # boiler Link of the listed units by an electricity Link and a heat Link
+    # on the same fuel bus, coupled by the extra_functionality entry
+    # "biogas_sh_swfl_chp" (see tools/constraints.py).
+    # =====================================================================
+
+    chp_coupling = technical_swfl.get("chp_coupling") or {}
+
+    chp_mode = str(
+        chp_coupling.get("mode", "off")
+    ).strip().lower()
+
+    if chp_mode not in {"off", "coupled"}:
+
+        raise ScenarioConfigError(
+            "technical.swfl.chp_coupling.mode must be 'off' or "
+            f"'coupled', got {chp_mode!r}."
+        )
+
+    for asset in central_heat["boilers"]:
+
+        if isinstance(asset, MutableMapping):
+            asset.pop("chp", None)
+
+    extra_functionality.pop(
+        "biogas_sh_swfl_chp",
+        None,
+    )
+
+    if chp_mode == "coupled":
+
+        chp_units_cfg = chp_coupling.get("units") or {}
+
+        if not chp_units_cfg:
+
+            raise ScenarioConfigError(
+                "technical.swfl.chp_coupling.units is empty while "
+                "mode is 'coupled'."
+            )
+
+        assets_by_name = {
+            str(asset.get("name")): asset
+            for asset in central_heat["boilers"]
+            if isinstance(asset, MutableMapping)
+        }
+
+        coupled_units = []
+
+        coupled_el_total = 0.0
+
+        for unit_name, unit_cfg in chp_units_cfg.items():
+
+            unit_name = str(unit_name)
+
+            # Units that are not operational in the selected case stay off.
+            if unit_name not in selected_boilers:
+                continue
+
+            if unit_name not in assets_by_name:
+
+                raise ScenarioConfigError(
+                    f"CHP unit {unit_name!r} is not a SWFL boiler "
+                    "in the eTraGo args."
+                )
+
+            el_capacity = float(unit_cfg["electric_capacity_mw"])
+            el_efficiency = float(unit_cfg.get("electric_efficiency", 0.40))
+            c_m = float(unit_cfg.get("c_m", 0.75))
+            c_v = float(unit_cfg.get("c_v", 0.15))
+
+            if min(el_capacity, el_efficiency, c_m, c_v) <= 0:
+
+                raise ScenarioConfigError(
+                    f"CHP unit {unit_name!r}: electric_capacity_mw, "
+                    "electric_efficiency, c_m and c_v must be > 0."
+                )
+
+            fuel_bus = str(
+                assets_by_name[unit_name].get(
+                    "fuel_bus",
+                    f"{unit_name}_fuel_bus",
+                )
+            )
+
+            carrier_el = f"{unit_name}_chp_el"
+            carrier_heat = f"{unit_name}_chp_heat"
+
+            assets_by_name[unit_name]["chp"] = {
+                "active": True,
+                "electric_capacity_mw": el_capacity,
+                "electric_efficiency": el_efficiency,
+                "c_m": c_m,
+                "c_v": c_v,
+                "carrier_el": carrier_el,
+                "carrier_heat": carrier_heat,
+            }
+
+            coupled_units.append(
+                {
+                    "name": unit_name,
+                    "fuel_bus": fuel_bus,
+                    "carrier_el": carrier_el,
+                    "carrier_heat": carrier_heat,
+                    "c_m": c_m,
+                    "c_v": c_v,
+                }
+            )
+
+            coupled_el_total += el_capacity
+
+        if coupled_units:
+
+            configured_el = float(
+                technical_swfl[
+                    "central_gas_to_power"
+                ][
+                    "electric_capacity_mw"
+                ]
+            )
+
+            if (
+                gas_to_power_active
+                and abs(coupled_el_total - configured_el)
+                > 0.01 * configured_el
+            ):
+
+                raise ScenarioConfigError(
+                    "Coupled CHP units sum to "
+                    f"{coupled_el_total:.1f} MW_el but "
+                    "central_gas_to_power.electric_capacity_mw is "
+                    f"{configured_el:.1f} MW_el. Both would describe the "
+                    "same plant; make them equal."
+                )
+
+            # The CHP units now provide the electricity. Switch the
+            # separate gas-to-power Link off to avoid double counting.
+            central_gas_to_power["active"] = False
+            central_gas_to_power["add_electric_link"] = False
+
+            extra_functionality["biogas_sh_swfl_chp"] = {
+                "units": coupled_units,
+            }
+
     central_heat[
         "active"
     ] = bool(

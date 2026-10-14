@@ -2520,6 +2520,10 @@ def add_central_heat_units(
             f"{name}_hel_supply"
         )
 
+        # Coupled CHP representation (technical.swfl.chp_coupling).
+        chp_el_link = f"{name}_chp_el"
+        chp_heat_link = f"{name}_chp_heat"
+
 
         # --------------------------------------------------------------
         # Remove stale versions before rebuilding this unit.
@@ -2530,6 +2534,8 @@ def add_central_heat_units(
             "Link",
             [
                 boiler_link,
+                chp_el_link,
+                chp_heat_link,
                 natural_gas_link,
                 biomethane_link,
                 raw_biogas_link,
@@ -2585,6 +2591,64 @@ def add_central_heat_units(
             heat_capacity
             / efficiency
         )
+
+
+        # --------------------------------------------------------------
+        # Optional coupled CHP representation of this unit.
+        #
+        # The fuel bus then feeds an electricity Link and a heat Link
+        # instead of one heat-only boiler Link. All fuels still compete
+        # for the same turbine capacity. The two Links are coupled by the
+        # extra_functionality constraint "biogas_sh_swfl_chp".
+        # --------------------------------------------------------------
+
+        chp = unit.get("chp") or {}
+
+        chp_active = _as_bool(
+            chp.get(
+                "active",
+                False,
+            ),
+            False,
+        )
+
+        if chp_active:
+
+            chp_el_capacity = float(
+                chp["electric_capacity_mw"]
+            )
+
+            chp_el_efficiency = float(
+                chp["electric_efficiency"]
+            )
+
+            chp_c_v = float(
+                chp["c_v"]
+            )
+
+            if min(
+                chp_el_capacity,
+                chp_el_efficiency,
+                chp_c_v,
+            ) <= 0:
+
+                raise ValueError(
+                    f"CHP unit {name!r} needs positive electric "
+                    "capacity, electric efficiency and c_v."
+                )
+
+            # Heat-Link efficiency as in eTraGo's CHP model:
+            # eta_heat = eta_el / c_v.
+            chp_heat_efficiency = (
+                chp_el_efficiency
+                / chp_c_v
+            )
+
+            # Fuel-side capacity of the turbine (iso-fuel line).
+            fuel_input_capacity = (
+                chp_el_capacity
+                / chp_el_efficiency
+            )
 
 
         # --------------------------------------------------------------
@@ -2740,6 +2804,85 @@ def add_central_heat_units(
         #
         # common fuel bus -> SWFL heat bus
         # --------------------------------------------------------------
+
+        if chp_active:
+
+            carrier_el = str(
+                chp["carrier_el"]
+            )
+
+            carrier_heat = str(
+                chp["carrier_heat"]
+            )
+
+            ensure_carrier(
+                network,
+                carrier_el,
+            )
+
+            ensure_carrier(
+                network,
+                carrier_heat,
+            )
+
+            # Electricity Link: p_nom is fuel-input capacity.
+            network.add(
+                "Link",
+                chp_el_link,
+                bus0=fuel_bus,
+                bus1=ac_bus,
+                carrier=carrier_el,
+                p_nom=chp_el_capacity / chp_el_efficiency,
+                p_nom_extendable=False,
+                p_min_pu=0.0,
+                p_max_pu=1.0,
+                efficiency=chp_el_efficiency,
+                marginal_cost=float(
+                    unit.get("marginal_cost", 0.0)
+                ),
+                capital_cost=0.0,
+            )
+
+            # Heat Link: p_nom is fuel-input capacity such that the
+            # useful heat output equals the unit's heat capacity.
+            network.add(
+                "Link",
+                chp_heat_link,
+                bus0=fuel_bus,
+                bus1=heat_bus,
+                carrier=carrier_heat,
+                p_nom=heat_capacity / chp_heat_efficiency,
+                p_nom_extendable=False,
+                p_min_pu=0.0,
+                p_max_pu=1.0,
+                efficiency=chp_heat_efficiency,
+                marginal_cost=float(
+                    unit.get("marginal_cost", 0.0)
+                ),
+                capital_cost=0.0,
+            )
+
+            try:
+
+                network.links.loc[
+                    chp_heat_link,
+                    "heat_capacity_mw",
+                ] = heat_capacity
+
+                network.links.loc[
+                    chp_el_link,
+                    "electric_capacity_mw",
+                ] = chp_el_capacity
+
+            except Exception:
+                pass
+
+            total_boiler_heat_capacity += (
+                heat_capacity
+            )
+
+            continue
+
 
         boiler_carrier = str(
             unit.get(

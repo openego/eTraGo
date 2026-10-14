@@ -791,6 +791,61 @@ technical:
 
 
     # -------------------------------------------------------------------------
+    # Coupled CHP representation of K12 / K13 (SWFL combined-cycle plant)
+    # -------------------------------------------------------------------------
+    #
+    # SWFL describes K12 and K13 as the gas-turbine CHP units of the CCGT.
+    #
+    #   mode: "off"
+    #       Current representation: K12/K13 are heat-only boilers and the
+    #       241 MW_el gas-to-power Link above is a separate, uncoupled unit.
+    #
+    #   mode: "coupled"
+    #       K12 and K13 become CHP units in the same way as the CHP plants in
+    #       eTraGo (separate electricity and heat Links, coupled by
+    #       constraints; Brown et al. 2018):
+    #
+    #           fuel bus (K12) -> electricity Link   (carrier <unit>_chp_el)
+    #           fuel bus (K12) -> heat Link          (carrier <unit>_chp_heat)
+    #
+    #       The fuel bus is the same one the boiler used, so natural gas,
+    #       biomethane and raw biogas still compete for the same turbine.
+    #       The separate 241 MW_el gas-to-power Link is then switched off
+    #       (the sum of the unit electric capacities must equal it).
+    #
+    # Coupling constraints per snapshot and unit
+    #
+    #   back-pressure :  c_m * Q_heat  <=  P_el
+    #   iso-fuel line :  fuel_heat + fuel_el  <=  electric-Link p_nom
+    #
+    # with heat-Link efficiency  eta_heat = eta_el / c_v.
+    #
+    # PROVISIONAL VALUES: c_m = 0.75 and c_v = 0.15 are the literature
+    # defaults used by eTraGo. The per-unit electric split (241 MW_el in the
+    # ratio of the thermal capacities 80 : 90) and eta_el = 0.40 are
+    # assumptions until SWFL provides electrical/thermal output, efficiency
+    # and back-pressure data per unit.
+    #
+    chp_coupling:
+
+      mode: "off"
+
+      units:
+
+        swfl_real_k12:
+          electric_capacity_mw: 113.4
+          electric_efficiency: 0.40
+          c_m: 0.75
+          c_v: 0.15
+
+        swfl_real_k13:
+          electric_capacity_mw: 127.6
+          electric_efficiency: 0.40
+          c_m: 0.75
+          c_v: 0.15
+
+
+    # -------------------------------------------------------------------------
     # SWFL fuel-fired heat units
     # -------------------------------------------------------------------------
     #
