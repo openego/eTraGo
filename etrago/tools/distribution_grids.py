@@ -774,6 +774,19 @@ def seperate_demands(
     )
 
     self.network.links.loc[
+        (self.network.links.carrier == "central_heat_pump")
+        & (self.network.links.p_nom <= 20),
+        "bus0",
+    ] = (
+        self.network.links.loc[
+            (self.network.links.carrier == "central_heat_pump")
+            & (self.network.links.p_nom <= 20),
+            "bus0",
+        ]
+        + "_distribution_grid"
+    )
+
+    self.network.links.loc[
         self.network.links.carrier == "BEV_charger", "bus0"
     ] = (
         self.network.links.loc[
