@@ -1032,6 +1032,31 @@ technical:
 
 
     # -------------------------------------------------------------------------
+    # Minimum load of the central upgrading plant (PSA)  -- OFF by default
+    # -------------------------------------------------------------------------
+    #
+    # ETW (reported by T+P): nominal raw-biogas input 7,500 Nm3/h, minimum
+    # load 30 % (2,250 Nm3/h). Nominal biomethane output 3,777 Nm3/h x 0.97 x
+    # 11.06 kWh/Nm3 = 40.5 MW_Hs; minimum 0.30 x 40.5 = 12.2 MW_Hs.
+    # Zero output means the plant is off and is valid; only outputs between
+    # 0 and 12.2 MW are technically invalid.
+    #
+    # active: true enforces, in EVERY snapshot, that the summed biomethane
+    # dispatch of all Biogas.SH plants is at least min_load_fraction x
+    # nominal_biomethane_mw_hs. This is a MUST-RUN condition (the plant can
+    # not be switched off), not a neutral technical limit: it forces about
+    # 107 GWh/a of upgrading and about 36 % of the shared raw-biogas resource
+    # into the upgrading route. Use it only for a "continuous operation"
+    # scenario. The exact "off or at least 30 %" logic would need binary
+    # variables and is deliberately not implemented.
+    #
+    upgrading_min_load:
+      active: false
+      min_load_fraction: 0.30
+      nominal_biomethane_mw_hs: 40.5
+
+
+    # -------------------------------------------------------------------------
     # Direct raw-biogas delivery to Stadtwerke Flensburg
     # -------------------------------------------------------------------------
     #

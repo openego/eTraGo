@@ -4294,6 +4294,69 @@ def add_chp_constraints_linopy(network, snapshots):
                 )
 
 
+def _biogas_sh_upgrading_min_load(self, network, snapshots):
+    """Only the linopy formulation is implemented for the min-load floor."""
+    raise NotImplementedError(
+        "The upgrading minimum load (technical.biogas_sh.upgrading_min_load) "
+        "is only implemented for the linopy formulation."
+    )
+
+
+def _biogas_sh_upgrading_min_load_linopy(self, network, snapshots):
+    """
+    Must-run floor for the central upgrading plant (PSA).
+
+    The summed dispatch of all Biogas.SH biomethane generators (carrier
+    CH4_biogas, names starting with biogas_sh_) must be at least
+    min_power_mw_hs in every snapshot. It is applied to the aggregate, not
+    to single plants. Registered through
+    args["extra_functionality"]["biogas_sh_upgrading_min_load"].
+    """
+
+    min_power = float(
+        self.args["extra_functionality"][
+            "biogas_sh_upgrading_min_load"
+        ]["min_power_mw_hs"]
+    )
+
+    generators = network.generators
+    selected = generators.index[
+        (generators.carrier == "CH4_biogas")
+        & generators.index.str.startswith("biogas_sh_")
+    ]
+
+    if len(selected) == 0:
+        raise ValueError(
+            "biogas_sh_upgrading_min_load: no Biogas.SH biomethane "
+            "generators found."
+        )
+
+    capacity = float(generators.loc[selected, "p_nom"].sum())
+
+    if capacity < min_power:
+        raise ValueError(
+            "biogas_sh_upgrading_min_load: the biomethane capacity "
+            f"({capacity:.2f} MW) is below the required minimum "
+            f"({min_power:.2f} MW)."
+        )
+
+    gen_p = get_var(network, "Generator", "p")
+
+    for snapshot in snapshots:
+        define_constraints(
+            network,
+            gen_p.loc[snapshot, selected].sum(),
+            ">=",
+            min_power,
+            "Generator",
+            "biogas_sh_upgrading_min_load_" + str(snapshot),
+        )
+
+    logger.info(
+        f"Added the upgrading minimum load of {min_power:.2f} MW_Hs."
+    )
+
+
 def _biogas_sh_swfl_chp(self, network, snapshots):
     """Only the linopy formulation is implemented for the SWFL CHP coupling."""
     raise NotImplementedError(

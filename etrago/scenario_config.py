@@ -2639,6 +2639,47 @@ def apply_config_to_args(
 
 
     # ---------------------------------------------------------------------
+    # Optional must-run floor for the central upgrading plant (off by
+    # default; see technical.biogas_sh.upgrading_min_load in config.yaml)
+    # ---------------------------------------------------------------------
+
+    extra_functionality.pop(
+        "biogas_sh_upgrading_min_load",
+        None,
+    )
+
+    min_load = technical_biogas.get("upgrading_min_load") or {}
+
+    if bool(min_load.get("active", False)):
+
+        min_load_fraction = float(
+            min_load["min_load_fraction"]
+        )
+
+        nominal_mw = float(
+            min_load["nominal_biomethane_mw_hs"]
+        )
+
+        if not 0.0 < min_load_fraction <= 1.0 or nominal_mw <= 0.0:
+
+            raise ScenarioConfigError(
+                "upgrading_min_load needs 0 < min_load_fraction <= 1 "
+                "and nominal_biomethane_mw_hs > 0."
+            )
+
+        extra_functionality[
+            "biogas_sh_upgrading_min_load"
+        ] = {
+            "min_power_mw_hs": min_load_fraction * nominal_mw,
+        }
+
+        print(
+            "UPGRADING MIN LOAD (must-run): at least "
+            f"{min_load_fraction * nominal_mw:.2f} MW_Hs of biomethane "
+            "in every snapshot."
+        )
+
+    # ---------------------------------------------------------------------
     # Onsite Biogas.SH costs
     # ---------------------------------------------------------------------
 
