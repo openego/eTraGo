@@ -950,6 +950,7 @@ technical:
     #                   - direct_raw_biogas_to_swfl.transport_cost_eur_per_mwh_hs
     #                   - the biomethane plant capacities (recomputed from the
     #                     raw-biogas energy: E_biomethane = efficiency x E_raw)
+    #                   - storage.energy_capacity_mwh (see below)
     #
     # Biomethane cost per MWh_Hs of biomethane:
     #     raw biogas / efficiency + electricity + other upgrading + collection
@@ -1010,6 +1011,14 @@ technical:
         flow_nm3_per_h: 2700.0
         density_kg_per_nm3: 1.96
         operating_hours: 8760.0
+
+      # Central gas storage. T+P's investment plan has a 5,000 m3 store
+      # (250 kEUR) but gives neither gas type nor pressure; the 3-6 bar is
+      # the grid handover pressure, not the storage pressure. 250 kEUR per
+      # 5,000 m3 = 50 EUR/m3 points to a low-pressure balloon/membrane store.
+      # 5,000 m3 x 0.97 x 11.06 kWh/Nm3 = 53.6 MWh as biomethane (as raw
+      # biogas it would be only about 29 MWh).
+      storage_energy_capacity_mwh: 54.0
 
       # Direct raw-biogas route to SWFL: collection pipeline plus a
       # PROVISIONAL proxy for a dedicated Ellund-SWFL raw-gas line, scaled
@@ -1258,11 +1267,12 @@ technical:
       # Storage energy capacity
       # -----------------------------------------------------------------------
 
+      # 500 MWh is the earlier baseline assumption (about 15 hours of
+      # average biomethane production). T+P's documented store is 5,000 m3,
+      # about 54 MWh (1.6 hours): with upgrading_accounting.active = true
+      # this value is replaced by
+      # upgrading_accounting.storage_energy_capacity_mwh.
       energy_capacity_mwh: 500.0
-
-      # TODO:
-      # Verify this value against the documented physical storage volume
-      # of approximately 5,000 m3.
 
       initial_energy_mwh: 0.0
 

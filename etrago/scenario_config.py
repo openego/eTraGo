@@ -396,6 +396,12 @@ def _apply_upgrading_accounting(
     other = float(accounting["other_upgrading_cost_eur_per_mwh_biomethane"])
     collection = float(accounting["collection_cost_eur_per_mwh_biomethane"])
     raw_energy = float(accounting["raw_biogas_energy_mwh_hs_a"])
+    storage_capacity = float(accounting["storage_energy_capacity_mwh"])
+
+    if storage_capacity <= 0.0:
+        raise ScenarioConfigError(
+            "upgrading_accounting.storage_energy_capacity_mwh must be > 0."
+        )
 
     if not 0.0 < efficiency <= 1.0:
         raise ScenarioConfigError(
@@ -449,6 +455,10 @@ def _apply_upgrading_accounting(
         "transport_cost_eur_per_mwh_hs"
     ] = direct_transport
 
+    modified["technical"]["biogas_sh"]["storage"][
+        "energy_capacity_mwh"
+    ] = storage_capacity
+
     for case in (modified.get("co2_sale_cases") or {}).values():
         case["co2_yield_t_per_mwh_biomethane"] = co2_yield
 
@@ -471,6 +481,7 @@ def _apply_upgrading_accounting(
         "raw_biogas_energy_mwh_hs_a": raw_energy,
         "biomethane_energy_mwh_hs_a": raw_energy * efficiency,
         "biomethane_cost_eur_per_mwh_hs": biomethane_cost,
+        "storage_energy_capacity_mwh": storage_capacity,
         "co2_basis": co2_basis,
         "co2_t_per_year": co2_t_per_year,
         "co2_yield_t_per_mwh_biomethane": co2_yield,
@@ -2607,6 +2618,8 @@ def apply_config_to_args(
             f"{upgrading['biomethane_energy_mwh_hs_a']:.0f} MWh_Hs/a"
             + f"\nBiomethane cost (gross):      "
             f"{upgrading['biomethane_cost_eur_per_mwh_hs']:.2f} EUR/MWh_Hs"
+            + f"\nCentral gas storage:          "
+            f"{upgrading['storage_energy_capacity_mwh']:.1f} MWh"
             + f"\nSeparated CO2:                "
             f"{upgrading['co2_t_per_year']:.0f} t/a"
             + f"\nCO2 yield:                    "
