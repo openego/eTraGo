@@ -640,6 +640,23 @@ def apply_swfl_real_system(
 
 
     # ==================================================================
+    # 10b. OPTIONAL EXTENDABLE HEAT STORE AT THE SWFL HEAT BUS
+    # ==================================================================
+
+    heat_store_cfg = settings.get("heat_store", {}) or {}
+
+    if _as_bool(heat_store_cfg.get("active", False), False):
+
+        add_swfl_heat_store(
+            network=network,
+            cfg=heat_store_cfg,
+            heat_bus=swfl_heat_bus,
+            x=x,
+            y=y,
+        )
+
+
+    # ==================================================================
     # 11. OPTIONAL RESERVE GAS BOILER
     # ==================================================================
 
@@ -1859,6 +1876,108 @@ def add_or_replace_load(network, name: str, bus: str, carrier: str, p_set: pd.Se
     network.add("Load", name, bus=bus, carrier=carrier)
     _ensure_timeseries_tables(network)
     network.loads_t.p_set[name] = p_set.reindex(network.snapshots).astype(float).fillna(0.0)
+
+
+def add_swfl_heat_store(
+    network,
+    cfg: Dict[str, Any],
+    heat_bus: str,
+    x: float,
+    y: float,
+) -> None:
+    """
+    Add an extendable heat store at the SWFL central heat bus.
+
+    Built like the standard eGon/eTraGo central heat store: a store bus,
+    a charger Link (heat bus -> store bus), a discharger Link (store bus ->
+    heat bus) and a cyclic Store with extendable energy capacity. The
+    defaults are the values of the existing eGon2035 central heat stores
+    (charger/discharger efficiency 0.84, store capital cost 9.097 EUR/MWh,
+    cyclic state of charge, no standing loss). Carriers are SWFL-specific so
+    that the clustering does not merge the store with other heat stores.
+    """
+
+    heat_bus = str(heat_bus)
+
+    if heat_bus not in network.buses.index.astype(str):
+        raise ValueError(
+            f"SWFL heat store: heat bus {heat_bus!r} does not exist."
+        )
+
+    carrier = str(cfg.get("carrier", "swfl_real_heat_store"))
+    name = str(cfg.get("name", "swfl_real_heat_store"))
+    store_bus = f"{name}_bus"
+    charger = f"{name}_charger"
+    discharger = f"{name}_discharger"
+
+    eff_charge = float(cfg.get("charger_efficiency", 0.84))
+    eff_discharge = float(cfg.get("discharger_efficiency", 0.84))
+    capital_cost = float(cfg.get("capital_cost_eur_per_mwh", 9.097466))
+    e_nom = float(cfg.get("e_nom_mwh", 0.0))
+    extendable = _as_bool(cfg.get("extendable", True), True)
+    e_nom_max = cfg.get("e_nom_max_mwh", None)
+    e_nom_max = float("inf") if e_nom_max is None else float(e_nom_max)
+    standing_loss = float(cfg.get("standing_loss_per_hour", 0.0))
+
+    if not (0.0 < eff_charge <= 1.0 and 0.0 < eff_discharge <= 1.0):
+        raise ValueError(
+            "SWFL heat store: charger/discharger efficiency must be in (0, 1]."
+        )
+
+    if capital_cost < 0.0 or e_nom < 0.0 or e_nom_max < e_nom:
+        raise ValueError(
+            "SWFL heat store: capital cost and capacities must be "
+            "non-negative and e_nom_max_mwh >= e_nom_mwh."
+        )
+
+    ensure_carrier(network, carrier)
+    ensure_carrier(network, f"{carrier}_charger")
+    ensure_carrier(network, f"{carrier}_discharger")
+
+    remove_components(network, "Store", [name])
+    remove_components(network, "Link", [charger, discharger])
+    remove_components(network, "Bus", [store_bus])
+
+    ensure_bus(network, store_bus, carrier, x, y)
+
+    network.add(
+        "Link",
+        charger,
+        bus0=heat_bus,
+        bus1=store_bus,
+        carrier=f"{carrier}_charger",
+        p_nom_extendable=True,
+        p_nom=0.0,
+        efficiency=eff_charge,
+        capital_cost=0.0,
+        marginal_cost=0.0,
+    )
+
+    network.add(
+        "Link",
+        discharger,
+        bus0=store_bus,
+        bus1=heat_bus,
+        carrier=f"{carrier}_discharger",
+        p_nom_extendable=True,
+        p_nom=0.0,
+        efficiency=eff_discharge,
+        capital_cost=0.0,
+        marginal_cost=0.0,
+    )
+
+    network.add(
+        "Store",
+        name,
+        bus=store_bus,
+        carrier=carrier,
+        e_nom=e_nom,
+        e_nom_extendable=extendable,
+        e_nom_max=e_nom_max,
+        e_cyclic=True,
+        capital_cost=capital_cost,
+        standing_loss=standing_loss,
+    )
 
 
 def add_central_gas_chp_links(

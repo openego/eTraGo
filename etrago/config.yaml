@@ -898,6 +898,34 @@ technical:
 
 
     # -------------------------------------------------------------------------
+    # Extendable heat store at the SWFL heat bus  -- OFF by default
+    # -------------------------------------------------------------------------
+    #
+    # The SWFL heat bus has no store in the standard model (the eGon heat
+    # stores sit on neighbouring heat buses). SWFL does operate heat storage
+    # but capacity, power and losses are not documented (workbook S8d).
+    #
+    # active: true adds a store like the standard eGon/eTraGo central heat
+    # store: charger Link, discharger Link and a cyclic, extendable Store.
+    # The defaults are the values of the eGon2035 central heat stores:
+    # charger and discharger efficiency 0.84 (round trip 0.71), store capital
+    # cost 9.097 EUR/MWh, no standing loss. Unbounded size (e_nom_max_mwh:
+    # null) is the eGon standard but unrealistic; SWFL's planned decentralised
+    # concept has 130 MWh in total (45 + 60 + 25 MWh), which could serve as a
+    # first bound. The charger/discharger power is extendable at no cost.
+    #
+    heat_store:
+      active: false
+      extendable: true
+      e_nom_mwh: 0.0
+      e_nom_max_mwh: null
+      capital_cost_eur_per_mwh: 9.097466
+      charger_efficiency: 0.84
+      discharger_efficiency: 0.84
+      standing_loss_per_hour: 0.0
+
+
+    # -------------------------------------------------------------------------
     # Regulatory / funding framework of the SWFL heat supply  -- ALL OFF
     # -------------------------------------------------------------------------
     #

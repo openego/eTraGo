@@ -3294,6 +3294,29 @@ def apply_config_to_args(
 
 
     # =====================================================================
+    # 10a. OPTIONAL EXTENDABLE HEAT STORE AT THE SWFL HEAT BUS (off by
+    # default; see technical.swfl.heat_store in config.yaml)
+    # =====================================================================
+
+    heat_store_cfg = technical_swfl.get("heat_store") or {}
+
+    swfl["heat_store"] = {
+        "active": bool(heat_store_cfg.get("active", False)),
+        **{k: v for k, v in heat_store_cfg.items() if k != "active"},
+    }
+
+    if swfl["heat_store"]["active"]:
+
+        print(
+            "SWFL HEAT STORE: extendable store at the SWFL heat bus "
+            f"(capital cost "
+            f"{heat_store_cfg.get('capital_cost_eur_per_mwh', 9.097466)} "
+            "EUR/MWh, max "
+            f"{heat_store_cfg.get('e_nom_max_mwh')} MWh)."
+        )
+
+
+    # =====================================================================
     # 10b. OPTIONAL OPERATING FRAMEWORK (all off by default; see
     # technical.swfl.operating_framework in config.yaml)
     # =====================================================================
