@@ -1383,6 +1383,17 @@ technical:
       # -----------------------------------------------------------------------
       # Central storage -> public CH4 grid
       # -----------------------------------------------------------------------
+      #
+      # 50 MW_Hs does not constrain Cluster I: average biomethane output is
+      # about 34.1 MW_Hs, the ETW nominal maximum about 40.5 MW_Hs.
+      #
+      # T+P's Gasunie connection request (not confirmed Gasunie limits; the
+      # network assessment decides) names 7,328 Nm3/h biomethane at 97 % CH4
+      # and 3-6 bar handover pressure, 64.2 million Nm3/a. That flow is about
+      # 78.7 MW_Hs and probably includes a possible Cluster II connection
+      # (or two PSA lines). Gas composition and pressure are external
+      # technical conditions and are not modelled in eTraGo. Revisit this
+      # capacity only if Cluster II is added.
       storage_to_public_grid:
 
         power_capacity_mw: 50.0
