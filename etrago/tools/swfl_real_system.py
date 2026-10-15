@@ -2385,11 +2385,13 @@ def add_central_heat_units(
         p_nom: float,
         carrier: str,
         marginal_cost: float = 0.0,
+        efficiency: float = 1.0,
     ) -> None:
         """
         Connect one external fuel bus to one boiler's internal fuel bus.
 
-        p_nom is on the fuel-input side.
+        p_nom is on the fuel-input side. efficiency < 1 models fuel
+        conditioning / derating losses.
         """
 
         if source_bus not in network.buses.index.astype(str):
@@ -2443,7 +2445,7 @@ def add_central_heat_units(
             p_nom_extendable=False,
             p_min_pu=0.0,
             p_max_pu=1.0,
-            efficiency=1.0,
+            efficiency=float(efficiency),
             marginal_cost=float(
                 marginal_cost
             ),
@@ -2758,6 +2760,12 @@ def add_central_heat_units(
                     unit.get(
                         "raw_biogas_transport_cost",
                         0.0,
+                    )
+                ),
+                efficiency=float(
+                    cfg.get(
+                        "raw_biogas_supply_efficiency",
+                        1.0,
                     )
                 ),
             )

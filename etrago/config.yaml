@@ -1339,6 +1339,32 @@ technical:
         - "swfl_real_k12"
         - "swfl_real_k13"
 
+      # Fuel conditioning for the SGT-800 gas turbines (K12/K13) -- OFF.
+      #
+      # Direct use of raw biogas (about 50-53 % CH4) in the gas turbines is
+      # NOT confirmed (workbook S10). Siemens mentions contaminant removal,
+      # compression (SGT-800 gas supply about 27-31 bar(a) vs 1.35 / 4 bar(a)
+      # collection) and possibly blending. While off, the route behaves as
+      # natural-gas-equivalent fuel without these effects, i.e. it is an
+      # optimistic upper-bound sensitivity. All values below are PLACEHOLDERS
+      # (0 / 1) until SWFL or Siemens provide numbers.
+      #
+      #   active: true ->
+      #     marginal cost of the delivered raw gas rises by
+      #       conditioning_cost_eur_per_mwh_hs
+      #       + auxiliary_electricity_mwh_el_per_mwh_hs
+      #         x auxiliary_electricity_price_eur_per_mwh
+      #     (auxiliary electricity is monetised, not a model load), and
+      #     the raw-gas -> boiler Link gets efficiency
+      #     fuel_efficiency (< 1 = conditioning loss / turbine derating).
+      #     The route is then the "conditioned raw biogas to SWFL" case.
+      conditioning:
+        active: false
+        conditioning_cost_eur_per_mwh_hs: 0.0
+        auxiliary_electricity_mwh_el_per_mwh_hs: 0.0
+        auxiliary_electricity_price_eur_per_mwh: 100.0
+        fuel_efficiency: 1.0
+
 
     # -------------------------------------------------------------------------
     # Shared regional raw-biogas resource constraint

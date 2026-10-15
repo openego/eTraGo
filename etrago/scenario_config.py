@@ -3723,11 +3723,54 @@ def apply_config_to_args(
     #     = 83.78 EUR/MWh_Hs
     # ---------------------------------------------------------------------
 
+    # Optional fuel conditioning for the gas turbines (off by default; see
+    # direct_raw_biogas_to_swfl.conditioning in config.yaml)
+    conditioning = direct_raw_swfl.get("conditioning") or {}
+    conditioning_cost = 0.0
+    fuel_efficiency = 1.0
+
+    if add_swfl_raw_biogas_supply and bool(conditioning.get("active", False)):
+
+        fuel_efficiency = float(conditioning.get("fuel_efficiency", 1.0))
+        aux_mwh = float(
+            conditioning.get("auxiliary_electricity_mwh_el_per_mwh_hs", 0.0)
+        )
+        aux_price = float(
+            conditioning.get("auxiliary_electricity_price_eur_per_mwh", 0.0)
+        )
+        conditioning_cost = (
+            float(conditioning.get("conditioning_cost_eur_per_mwh_hs", 0.0))
+            + aux_mwh * aux_price
+        )
+
+        if conditioning_cost < 0.0 or aux_mwh < 0.0 or not (
+            0.0 < fuel_efficiency <= 1.0
+        ):
+            raise ScenarioConfigError(
+                "direct_raw_biogas_to_swfl.conditioning needs non-negative "
+                "costs and 0 < fuel_efficiency <= 1."
+            )
+
+        print(
+            "RAW-BIOGAS CONDITIONING (SGT-800): +"
+            f"{conditioning_cost:.2f} EUR/MWh_Hs, fuel efficiency "
+            f"{fuel_efficiency:.3f}. Conditioned raw biogas to SWFL."
+        )
+
+    raw_swfl_args[
+        "conditioning_cost_eur_per_mwh_hs"
+    ] = conditioning_cost
+
+    central_heat[
+        "raw_biogas_supply_efficiency"
+    ] = fuel_efficiency
+
     raw_swfl_args[
         "marginal_cost_eur_per_mwh_hs"
     ] = (
         raw_biogas_cost
         + raw_swfl_transport_cost
+        + conditioning_cost
     )
 
 
