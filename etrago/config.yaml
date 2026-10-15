@@ -864,6 +864,62 @@ technical:
 
 
     # -------------------------------------------------------------------------
+    # Regulatory / funding framework of the SWFL heat supply  -- ALL OFF
+    # -------------------------------------------------------------------------
+    #
+    # Three optional elements of the real framework (workbook items S8a-S8c).
+    # All are switched off, so the standard runs are unchanged. Heat storage
+    # (S8d) is deliberately not included: it needs capacity, power, efficiency
+    # and loss data from SWFL first.
+    #
+    operating_framework:
+
+      # S8a - BEW operating support for the large heat pump(s).
+      # PROVISIONAL: 135 MEUR / 10 a does not by itself give 10 EUR/MWh_th
+      # (that would imply 1.35 TWh/a of eligible heat) and depends on the
+      # real grant formula and funding period. The support is applied as a
+      # negative marginal cost per MWh of useful heat (support / COP per
+      # MWh of electricity input) only if model_year lies in the funding
+      # window. Note: with a negative cost a heat pump may run to produce
+      # heat that is not needed if the model can discard heat; check the
+      # heat balance before using it.
+      bew_heat_pump_support:
+        active: false
+        provisional: true
+        support_eur_per_mwh_th: 10.0
+        units: ["swfl_gwp_1"]
+        funding_start_year: 2028
+        funding_years: 10
+        model_year: 2035
+
+      # S8b - biomass limit in district heat. CONDITIONAL: for existing
+      # networks longer than 50 km the statutory 15 % limit applies from
+      # 2045, not generally in 2035. Activate only if SWFL's approved
+      # transformation plan requires it earlier. Biomethane and raw biogas
+      # count as biomass. Implemented as an ANNUAL (period) constraint on
+      # useful heat: heat_efficiency x fuel drawn from the biomethane and
+      # raw-biogas buses <= max_share x heat demand. Approximation: one
+      # heat efficiency for all biogenic fuel; biomethane used for
+      # electricity is counted too (conservative).
+      biomass_heat_limit:
+        active: false
+        max_share: 0.15
+        heat_efficiency: 0.90
+
+      # S8c - cap on direct fossil CO2 of SWFL. A 'transformation-plan
+      # compliant' 2035 case uses max_tco2_per_year: 0 (or a documented
+      # residual). Fossil CO2 = natural gas drawn from the SWFL natural-gas
+      # bus (boilers, gas-to-power, reserve boiler) x emission factor;
+      # biomethane and raw biogas are counted as zero. The cap is scaled by
+      # the modelled share of the year when fewer than 8760 h are run.
+      fossil_co2_cap:
+        active: false
+        max_tco2_per_year: 0.0
+        emission_factor_tco2_per_mwh_fuel: 0.201
+        scale_to_modelled_hours: true
+
+
+    # -------------------------------------------------------------------------
     # SWFL fuel-fired heat units
     # -------------------------------------------------------------------------
     #

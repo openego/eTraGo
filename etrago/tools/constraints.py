@@ -4460,6 +4460,135 @@ def _biogas_sh_upgrading_min_load_linopy(self, network, snapshots):
     )
 
 
+def _biogas_sh_swfl_co2_cap(self, network, snapshots):
+    """Only the linopy formulation is implemented for the CO2 cap."""
+    raise NotImplementedError(
+        "The SWFL fossil CO2 cap (technical.swfl.operating_framework."
+        "fossil_co2_cap) is only implemented for linopy."
+    )
+
+
+def _biogas_sh_swfl_co2_cap_linopy(self, network, snapshots):
+    """
+    Cap on the direct fossil CO2 of SWFL.
+
+    Fossil gas is all fuel drawn from the SWFL natural-gas bus by Links
+    (gas boilers, gas-to-power, reserve boiler). Biomethane and raw biogas
+    sit on their own buses and count as zero. The cap in tCO2/a is scaled by
+    modelled hours / 8760 if requested, so partial-year runs stay
+    comparable.
+    """
+
+    arg = self.args["extra_functionality"]["biogas_sh_swfl_co2_cap"]
+    links = network.links
+    gas_links = links.index[links.bus0 == arg["gas_bus"]]
+
+    if len(gas_links) == 0:
+        raise ValueError(
+            f"biogas_sh_swfl_co2_cap: no Link draws from the natural-gas "
+            f"bus {arg['gas_bus']!r}."
+        )
+
+    weights = network.snapshot_weightings.generators
+    hours = float(weights.loc[snapshots].sum())
+    cap = float(arg["max_tco2_per_year"])
+
+    if arg["scale_to_modelled_hours"]:
+        cap = cap * hours / 8760.0
+
+    link_p = get_var(network, "Link", "p")
+    emissions = 0
+
+    for snapshot in snapshots:
+        emissions = emissions + (
+            link_p.loc[snapshot, gas_links].sum()
+            * float(weights.loc[snapshot])
+            * float(arg["emission_factor"])
+        )
+
+    define_constraints(
+        network,
+        emissions,
+        "<=",
+        cap,
+        "Global",
+        "biogas_sh_swfl_co2_cap",
+    )
+
+    logger.info(
+        f"Added the SWFL fossil CO2 cap of {cap:,.0f} t "
+        f"over {hours:.0f} h."
+    )
+
+
+def _biogas_sh_swfl_biomass_limit(self, network, snapshots):
+    """Only the linopy formulation is implemented for the biomass limit."""
+    raise NotImplementedError(
+        "The SWFL biomass heat limit (technical.swfl.operating_framework."
+        "biomass_heat_limit) is only implemented for linopy."
+    )
+
+
+def _biogas_sh_swfl_biomass_limit_linopy(self, network, snapshots):
+    """
+    Annual limit on the biomass share of the SWFL district heat.
+
+    heat_efficiency x (fuel drawn by Links from the biomethane and
+    raw-biogas buses) <= max_share x heat demand at the SWFL heat bus,
+    both summed over the modelled snapshots.
+    """
+
+    arg = self.args["extra_functionality"]["biogas_sh_swfl_biomass_limit"]
+    links = network.links
+    biogenic = links.index[links.bus0.isin(arg["biogenic_buses"])]
+
+    if len(biogenic) == 0:
+        logger.warning(
+            "biogas_sh_swfl_biomass_limit: no Link draws biomethane or "
+            "raw biogas; the limit is not needed."
+        )
+        return
+
+    weights = network.snapshot_weightings.generators
+    loads = network.loads.index[network.loads.bus == arg["heat_bus"]]
+
+    if len(loads) == 0:
+        raise ValueError(
+            f"biogas_sh_swfl_biomass_limit: no load on heat bus "
+            f"{arg['heat_bus']!r}."
+        )
+
+    p_set = network.loads_t.p_set.reindex(columns=loads)
+    static = network.loads.loc[loads, "p_set"]
+    demand = (
+        p_set.loc[snapshots].fillna(static).mul(weights.loc[snapshots], axis=0)
+    ).sum().sum()
+
+    link_p = get_var(network, "Link", "p")
+    biogenic_heat = 0
+
+    for snapshot in snapshots:
+        biogenic_heat = biogenic_heat + (
+            link_p.loc[snapshot, biogenic].sum()
+            * float(weights.loc[snapshot])
+            * float(arg["heat_efficiency"])
+        )
+
+    define_constraints(
+        network,
+        biogenic_heat,
+        "<=",
+        float(arg["max_share"]) * float(demand),
+        "Global",
+        "biogas_sh_swfl_biomass_limit",
+    )
+
+    logger.info(
+        f"Added the SWFL biomass heat limit of {arg['max_share']:.0%} "
+        f"of {demand:,.0f} MWh heat."
+    )
+
+
 def _biogas_sh_swfl_chp(self, network, snapshots):
     """Only the linopy formulation is implemented for the SWFL CHP coupling."""
     raise NotImplementedError(

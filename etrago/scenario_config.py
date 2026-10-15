@@ -3276,6 +3276,132 @@ def apply_config_to_args(
 
 
     # =====================================================================
+    # 10b. OPTIONAL OPERATING FRAMEWORK (all off by default; see
+    # technical.swfl.operating_framework in config.yaml)
+    # =====================================================================
+
+    framework = technical_swfl.get("operating_framework") or {}
+    framework_buses = technical_swfl["buses"]
+
+    for key in (
+        "biogas_sh_swfl_biomass_limit",
+        "biogas_sh_swfl_co2_cap",
+    ):
+        extra_functionality.pop(key, None)
+
+    # --- S8a: BEW support as a negative marginal cost of the heat pump ---
+    bew = framework.get("bew_heat_pump_support") or {}
+
+    if bool(bew.get("active", False)):
+
+        support = float(bew.get("support_eur_per_mwh_th", 0.0))
+        start = int(bew["funding_start_year"])
+        years = int(bew["funding_years"])
+        model_year = int(bew["model_year"])
+        in_window = start <= model_year < start + years
+        supported = set(map(str, bew.get("units", [])))
+
+        if support < 0.0:
+            raise ScenarioConfigError(
+                "bew_heat_pump_support.support_eur_per_mwh_th must be >= 0."
+            )
+
+        if in_window:
+
+            applied = []
+
+            for unit in future_heat_pumps["units"]:
+
+                if not isinstance(unit, MutableMapping):
+                    continue
+
+                name = str(unit.get("name"))
+
+                if name not in supported or not unit.get("active", True):
+                    continue
+
+                cop = float(unit["cop"])
+                unit["marginal_cost"] = (
+                    float(unit.get("marginal_cost", 0.0)) - support / cop
+                )
+                applied.append(name)
+
+            print(
+                f"BEW SUPPORT: {support:.2f} EUR/MWh_th"
+                + (" (PROVISIONAL)" if bew.get("provisional", True) else "")
+                + f" applied to {applied or 'no active unit'} "
+                f"(model year {model_year}, window {start}-{start + years - 1})."
+            )
+
+        else:
+
+            print(
+                f"BEW SUPPORT: model year {model_year} is outside the "
+                f"funding window {start}-{start + years - 1}; not applied."
+            )
+
+    # --- S8b: biomass share of the district heat ---
+    biomass = framework.get("biomass_heat_limit") or {}
+
+    if bool(biomass.get("active", False)):
+
+        max_share = float(biomass.get("max_share", 0.15))
+        heat_eff = float(biomass.get("heat_efficiency", 0.90))
+
+        if not 0.0 <= max_share <= 1.0 or not 0.0 < heat_eff <= 1.0:
+            raise ScenarioConfigError(
+                "biomass_heat_limit needs 0 <= max_share <= 1 and "
+                "0 < heat_efficiency <= 1."
+            )
+
+        biogenic_buses = [
+            str(framework_buses[key])
+            for key in ("biomethane", "raw_biogas")
+            if framework_buses.get(key)
+        ]
+
+        extra_functionality["biogas_sh_swfl_biomass_limit"] = {
+            "max_share": max_share,
+            "heat_efficiency": heat_eff,
+            "biogenic_buses": biogenic_buses,
+            "heat_bus": str(framework_buses["heat"]),
+        }
+
+        print(
+            f"BIOMASS HEAT LIMIT: <= {max_share:.0%} of the SWFL heat "
+            "demand (conditional, annual)."
+        )
+
+    # --- S8c: cap on direct fossil CO2 ---
+    co2_cap = framework.get("fossil_co2_cap") or {}
+
+    if bool(co2_cap.get("active", False)):
+
+        cap = float(co2_cap.get("max_tco2_per_year", 0.0))
+        factor = float(co2_cap.get("emission_factor_tco2_per_mwh_fuel", 0.201))
+
+        if cap < 0.0 or factor <= 0.0:
+            raise ScenarioConfigError(
+                "fossil_co2_cap needs max_tco2_per_year >= 0 and a "
+                "positive emission factor."
+            )
+
+        extra_functionality["biogas_sh_swfl_co2_cap"] = {
+            "max_tco2_per_year": cap,
+            "emission_factor": factor,
+            "gas_bus": str(framework_buses["natural_gas"]),
+            "scale_to_modelled_hours": bool(
+                co2_cap.get("scale_to_modelled_hours", True)
+            ),
+        }
+
+        print(
+            f"SWFL FOSSIL CO2 CAP: {cap:,.0f} tCO2/a "
+            f"({factor:.3f} tCO2/MWh_fuel)."
+        )
+
+
+    # =====================================================================
     # 11. SWFL BUS CONFIGURATION
     # =====================================================================
 
