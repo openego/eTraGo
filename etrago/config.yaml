@@ -848,6 +848,10 @@ technical:
 
       mode: "off"
 
+      # "default" uses `units` below; any other name selects an entry of
+      # `parameter_sets`. Only used when mode is "coupled".
+      parameter_set: "default"
+
       units:
 
         swfl_real_k12:
@@ -861,6 +865,36 @@ technical:
           electric_efficiency: 0.40
           c_m: 0.75
           c_v: 0.15
+
+      # Calibration sensitivity (workbook S12) -- select with
+      # parameter_set: "k13_calibrated" and mode: "coupled".
+      #
+      # Derived from SWFL's K13 data (97 MW_el, 89 MW_th, 92.5 % total):
+      #   eta_el  = 0.925 x 97 / 186 = 0.48
+      #   c_m     = 97 / 89          = 1.09   (power-to-heat ratio)
+      #   c_v     = 0.01 -> eta_heat = 0.48 / 0.01 = 48
+      # Total efficiency on the back-pressure line
+      #   (1 + c_m) / (1/eta_heat + c_m/eta_el) = 2.09 / 2.2917 = 0.912.
+      # The real plant is almost pure back-pressure (c_v close to 0); a
+      # value of exactly 0 is not possible in this formulation, and with
+      # c_m = 1.09 the maximum reachable total is eta_el (1 + c_m) / c_m
+      # = 0.92. The electric capacities (241 MW_el in total) are kept from
+      # the default set although 97 MW_el is known for K13 only.
+      parameter_sets:
+
+        k13_calibrated:
+
+          swfl_real_k12:
+            electric_capacity_mw: 113.4
+            electric_efficiency: 0.48
+            c_m: 1.09
+            c_v: 0.01
+
+          swfl_real_k13:
+            electric_capacity_mw: 127.6
+            electric_efficiency: 0.48
+            c_m: 1.09
+            c_v: 0.01
 
 
     # -------------------------------------------------------------------------

@@ -3032,6 +3032,24 @@ def apply_config_to_args(
 
         chp_units_cfg = chp_coupling.get("units") or {}
 
+        chp_set = str(chp_coupling.get("parameter_set", "default"))
+
+        if chp_set != "default":
+
+            chp_sets = chp_coupling.get("parameter_sets") or {}
+
+            if chp_set not in chp_sets:
+
+                raise ScenarioConfigError(
+                    "technical.swfl.chp_coupling.parameter_set "
+                    f"{chp_set!r} is not defined in parameter_sets "
+                    f"{sorted(chp_sets)}."
+                )
+
+            chp_units_cfg = chp_sets[chp_set] or {}
+
+            print(f"CHP COUPLING: parameter set {chp_set!r}.")
+
         if not chp_units_cfg:
 
             raise ScenarioConfigError(
