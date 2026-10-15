@@ -25,7 +25,7 @@ The model covers the coupling of electricity grid models on different voltage le
 
 *eTraGo* fetches the input data from the `Open Energy Platform <https://openenergy-platform.org/>`_  when the
 `db <https://github.com/openego/eTraGo/blob/7e6719b8f71c78ea8f8312d74558e59c96c1b3a2/etrago/appl.py#L51>`_
-argument is set to `'oep'`. Alternatively, different scenarios of the data models are available through `zenodo <https://zenodo.org/>`_. The data needs to be downloaded and locally stored as a *PostgreSQL* database to be accessable for *eTraGo*. More explanations can be found in this `zenodo upload <https://zenodo.org/records/8376714>`_. The following scenarios are available:
+argument is set to `'oep'`. Alternatively, different scenarios of the data models are available through `zenodo <https://zenodo.org/>`_. The data needs to be downloaded and locally stored as a *PostgreSQL* database to be accessible for *eTraGo*. More explanations can be found in this `zenodo upload <https://zenodo.org/records/8376714>`_. The following scenarios are available:
 
 
 .. list-table::
@@ -72,7 +72,7 @@ The following extension scenarios are available:
      - **Status**
      - **Accessible at**
    * - **nep2021_confirmed**
-     - Includes all planed new lines confirmed by the Bundesnetzagentur included in the NEP version 2021
+     - Includes all planned new lines confirmed by the Bundesnetzagentur included in the NEP version 2021
      - computable
      - `Zenodo <https://zenodo.org/records/8376714>`_
    * - **nep2021_c2035**
@@ -100,7 +100,7 @@ Several features were developed to enhance the functionality of *eTraGo* and all
 * In ‚extendable‘ you can adapt the type of components you want to be optimized in capacity and set upper limits for grid expansion inside Germany and of lines to foreign countries.
 * With ‘foreign_lines‘ you can adapt the foreign lines to be modeled as DC-links (e.g. to avoid loop flows).
 * ‘branch_capacity_factor’ adds a factor to adapt all line capacities in order to consider (n-1) security. Because the average number of HV systems is much smaller than the one of eHV lines, you can choose factors for ‘HV’ and ‘eHV’ separately. 
-* The ‚extra_functionality‘-argument allows to consider extra constraints like limits for energy imort and export or minimal renewable shares in generation.
+* The ‚extra_functionality‘-argument allows to consider extra constraints like limits for energy import and export or minimal renewable shares in generation.
 * The ‘load_shedding’-argument is used for debugging complex grids in order to avoid infeasibilities. It introduces a very expensive generator at each bus to meet the demand. When optimizing storage units and grid expansion without limiting constraints, the need for load shedding should not be existent. 
 
 
@@ -117,7 +117,7 @@ The **ehv clustering** maps all electrical nodes with a voltage level below the 
 
 The **k-means Clustering** reduces the electrical or gas network to an adjustable number of nodes by considering the geographical position of the respective nodes. This method has been implemented within PyPSA by [Hoersch]_.
 
-The **k-medoids Dijkstra Clustering** aggregates nodes considering the network topology. First, a k-medoids Clustering is used dividing the original nodes of the network into groups by their geographical positions while identifiying the geographical medoid nodes per cluster. Afterwards, the original nodes in the original network are assigned to the former identified medoids considering the original network’s topology applying a Dijkstra’s algorithm considering the line lengths. Afterall, the original nodes are represented by one aggregated node per cluster at the position of the former identified medoid node.
+The **k-medoids Dijkstra Clustering** aggregates nodes considering the network topology. First, a k-medoids Clustering is used dividing the original nodes of the network into groups by their geographical positions while identifying the geographical medoid nodes per cluster. Afterwards, the original nodes in the original network are assigned to the former identified medoids considering the original network’s topology applying a Dijkstra’s algorithm considering the line lengths. After all, the original nodes are represented by one aggregated node per cluster at the position of the former identified medoid node.
 
 The procedures of the two methods are depicted in the following figure [Esterl2024]_:
 
@@ -248,7 +248,7 @@ Analysis
 ========
 
 *eTraGo* contains various functions for evaluating the optimization results in the form of graphics, maps and tables. Functions to quantify results can be found in :meth:`etrago.analyze.calc_results` and functions to plot results can be found in :mod:`etrago.analyze.plot`.
-Some examplary graphs by [Buettner2024]_ are presented below:
+Some exemplary graphs by [Buettner2024]_ are presented below:
 
 .. figure:: images/exemplary_results.png
    :align: center

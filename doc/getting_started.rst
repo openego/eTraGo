@@ -26,7 +26,7 @@ This will install all needed packages into your environment. Now you should be r
 Installation for windows users
 -----------------------------------
 
-- install anaconda inclusing python 3 (https://www.anaconda.com/download/)
+- install anaconda including python 3 (https://www.anaconda.com/download/)
 
 - open an anaconda prompt as administrator and run:
 
