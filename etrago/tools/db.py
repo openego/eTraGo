@@ -215,7 +215,8 @@ def connection(filepath=None, section="oep"):
             print(
                 "Connected to OEP without token. The acces might be limited. "
                 "Create an account on the OEP and add your token to the "
-                "environment variables or store it in OEP_TOKEN.txt"
+                "environment variables or store it in "
+                ".etrago_database/OEP_TOKEN.txt"
             )
     else:
         # define default filepath if not provided
