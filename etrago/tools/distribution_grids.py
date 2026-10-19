@@ -125,8 +125,12 @@ def distribution_grid_buses_and_links(self, mv_grids, seperate_dg_link=True):
             carrier="distribution_grid",
             bus0=mv_grids.bus_id.astype(str).values,
             bus1=(mv_grids.bus_id.astype(str) + "_distribution_grid").values,
-            p_nom_min=edisgo_results.loc[mv_grids.bus_id, "p_nom_worst_case"].values,
-            p_nom_max=(edisgo_results.loc[mv_grids.bus_id, "p_nom_worst_case"] * 4)
+            p_nom_min=edisgo_results.loc[
+                mv_grids.bus_id, "p_nom_worst_case"
+            ].values,
+            p_nom_max=(
+                edisgo_results.loc[mv_grids.bus_id, "p_nom_worst_case"] * 4
+            )
             .clip(lower=200.0)
             .values,
             p_nom_extendable=True,
@@ -769,6 +773,19 @@ def seperate_demands(
     ] = (
         self.network.links.loc[
             self.network.links.carrier == "rural_heat_pump", "bus0"
+        ]
+        + "_distribution_grid"
+    )
+
+    self.network.links.loc[
+        (self.network.links.carrier == "central_heat_pump")
+        & (self.network.links.p_nom <= 20),
+        "bus0",
+    ] = (
+        self.network.links.loc[
+            (self.network.links.carrier == "central_heat_pump")
+            & (self.network.links.p_nom <= 20),
+            "bus0",
         ]
         + "_distribution_grid"
     )
