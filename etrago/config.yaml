@@ -846,11 +846,11 @@ technical:
     #
     chp_coupling:
 
-      mode: "off"
+      mode: "coupled"
 
       # "default" uses `units` below; any other name selects an entry of
       # `parameter_sets`. Only used when mode is "coupled".
-      parameter_set: "default"
+      parameter_set: "k13_calibrated"
 
       units:
 
@@ -1579,15 +1579,11 @@ scenario_matrix:
   dimensions:
 
     support_case:
-      - "post_eeg"
       - "followon_eeg_no_flex"
-      - "followon_eeg_flex"
 
 
     fossil_gas_price_case:
       - "legacy_egon"
-      - "high_2035"
-      - "crisis_2035"
 
 
     # Fixed project biomethane-cost assumption.
@@ -1602,6 +1598,7 @@ scenario_matrix:
 
     # Fixed heat-pump configuration.
     heat_pump_case:
+      - "one_gwp1"
       - "two"
 
 
