@@ -46,11 +46,11 @@ if "READTHEDOCS" not in os.environ:
     # Do not import internal packages directly
 
     from etrago import Etrago
-    from etrago.network import import_egon_results, import_dc_links_results
+    from etrago.network import import_egon_results_network, import_dc_links_results
 
 args = {
     # Setup and Configuration:
-    "db": "oep",  # database session: oep or local database
+    "db": "egon-data",  # database session: oep or local database
     "gridversion": None,  # None for model_draft or version number
     "method": {  # choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
@@ -610,14 +610,14 @@ def run_etrago(args, json_path):
     etrago = Etrago(args, json_path=json_path)
 
     # import network from database
-    etrago.build_network_from_db()
+    #etrago.build_network_from_db()
 
     # adjust network regarding eTraGo setting
-    etrago.adjust_network()
+    #etrago.adjust_network()
     
     # define calculation case for power flow
     egon_path = "results_for_lpf/"
-    import_egon_results(etrago, egon_path)
+    import_egon_results_network(etrago, egon_path)
     
     if args["csv_export"]:
         path = args["csv_export"] + "/01-vor-cluster"
@@ -627,20 +627,25 @@ def run_etrago(args, json_path):
     etrago.spatial_clustering()
     etrago.spatial_clustering_gas()
     
+    if args['network_clustering']['electricity_grid']['active'] == False:
+        from cluster.electrical import unify_foreign_buses
+        busmap = unify_foreign_buses(etrago)
+        
+    
     if args["csv_export"]:
         path = args["csv_export"] + "/02-nach-cluster"
         etrago.export_to_csv(path)
-        
+    
     # define calculation case for power flow
     import_dc_links_results(etrago, egon_path)
-    
-    # manual fixes due to transformers bad electrical parameters
-    etrago.network.transformers.x = 0.00005
-    etrago.network.transformers.r = 0.0001
     
     if args["csv_export"]:
         path = args["csv_export"] + "/03-mit-dc-results"
         etrago.export_to_csv(path)
+        
+    # manual fixes due to transformers bad electrical parameters
+    etrago.network.transformers.x = 0.00005
+    etrago.network.transformers.r = 0.0001
         
     # conduct power flow
     etrago.power_flow()
@@ -672,7 +677,7 @@ if __name__ == "__main__":
 
     print(datetime.datetime.now())
     
-    spatial_resolution = [150] #[50, 300, 1000, 5000, 8000, 10000]
+    spatial_resolution = [30] #[50, 300, 1000, 5000, 8000, 10000]
     
     for i in range (0, len(spatial_resolution)):
             
@@ -680,7 +685,7 @@ if __name__ == "__main__":
         args['network_clustering']['electricity_grid']['n_clusters'] = spatial_resolution[i]
         
         #args['csv_export'] = 'Zooming-Tests/Server-Tests/no-AC-clustering'
-        args['csv_export'] = 'Zooming-Tests/Server-Tests/AC-'+str(args['network_clustering']['electricity_grid']['n_clusters'])
+        args['csv_export'] = 'Zooming-Tests/lokale_tests/AC-'+str(args['network_clustering']['electricity_grid']['n_clusters'])
         
         old_stdout = sys.stdout
         path_log = args['csv_export']

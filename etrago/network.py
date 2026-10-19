@@ -598,127 +598,89 @@ class Etrago:
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
     
-def import_egon_results(etrago, path):
+def import_egon_results_network(etrago, path):
     
     import pypsa
-    ego = pypsa.Network(path+"desaggregated/lowflex_network_peak_week.nc")
-    
-    # take over snapshot
-    etrago.network.set_snapshots(ego.snapshots)
-    
-    # delete components in imported network
-    components = {
-    "Generator": "generators",
-    "Load": "loads",
-    "StorageUnit": "storage_units",
-    "Store": "stores",
-    "Link": "links",
-    }
-    for comp, attr in components.items():
-        df = getattr(etrago.network, attr)
-        for name in df.index:
-            etrago.network.remove(comp, name)
-            
-    # import components from optimised egon-network
-    
-    # import generators incl. timeseries
-    etrago.network.import_components_from_dataframe(
-        ego.generators,
-        "Generator"
-    )
-    for attr, df in ego.generators_t.items():
-        etrago.network.import_series_from_dataframe(
-            df,
-            "Generator",
-            attr
-        )
-    
-    # import loads incl. timeseries
-    etrago.network.import_components_from_dataframe(
-        ego.loads,
-        "Load"
-    )
-    for attr, df in ego.loads_t.items():
-        etrago.network.import_series_from_dataframe(
-            df,
-            "Load",
-            attr
-        )
-    
-    # import storage units incl. timeseries
-    etrago.network.import_components_from_dataframe(
-        ego.storage_units,
-        "StorageUnit"
-    )
-    for attr, df in ego.storage_units_t.items():
-        etrago.network.import_series_from_dataframe(
-            df,
-            "StorageUnit",
-            attr
-        )
+    import numpy as np
 
-    # import stores incl. timeseries
-    etrago.network.import_components_from_dataframe(
-        ego.stores,
-        "Store"
-    )
-    for attr, df in ego.stores_t.items():
-        etrago.network.import_series_from_dataframe(
-            df,
-            "Store",
-            attr
-        ) 
+    # import eGo results
+    ego = pypsa.Network(path + "desaggregated/lowflex_network_peak_week.nc")
+
+    # take over the entire network (incl. buses, lines, snapshots, ...)
+    etrago.network = ego
+    network = etrago.network
     
-    # import links incl. timeseries
-    etrago.network.import_components_from_dataframe(
-        ego.links,
-        "Link"
-    )
-    for attr, df in ego.links_t.items():
-        etrago.network.import_series_from_dataframe(
-            df,
-            "Link",
-            attr
-        )
-        
-    # set resulting timeseries as input for pf
+    import pdb; pdb.set_trace()
     
-    if "p" in etrago.network.generators_t:
-        etrago.network.generators_t.p_set = (
-            etrago.network.generators_t.p.copy()
+    # Remove DC links within DE 
+    # anyhow no components attached
+    buses_to_remove = ["13824", "13665", "13478", "12770"]
+    links_to_remove = network.links.index[
+        network.links["bus0"].isin(buses_to_remove) |
+        network.links["bus1"].isin(buses_to_remove)
+    ]
+    # Remove links individually
+    for link in links_to_remove:
+        network.remove("Link", link)
+    
+    # Remove buses individually
+    for bus in buses_to_remove:
+        if bus in network.buses.index:
+            network.remove("Bus", bus)
+    
+    # set country of buses with missing indication to DE
+    missing_country = (
+        network.buses["country"].isna()
+            | network.buses["country"].isin(["", "None", "nan"])
         )
-        
-    if "p" in etrago.network.storage_units_t:
-        etrago.network.storage_units_t.p_set = (
-            etrago.network.storage_units_t.p.copy()
-        )
-        
-    if "p" in etrago.network.stores_t:
-        etrago.network.stores_t.p_set = (
-            etrago.network.stores_t.p.copy()
-        )
-        
-    if "p0" in etrago.network.links_t:
-        etrago.network.links_t.p_set = (
-            etrago.network.links_t.p0.copy()
-        )
-        
+    network.buses.loc[missing_country, "country"] = "DE"
+    
+    # set country of lines based on the countries of their buses
+    bus0_country = network.lines["bus0"].map(network.buses["country"])
+    bus1_country = network.lines["bus1"].map(network.buses["country"])
+    
+    network.lines["country"] = np.where(
+        bus0_country == bus1_country,
+        bus0_country,                  # inside one country, e.g. "DE"
+        bus0_country + bus1_country,   # cross-border, e.g. "DEGB"
+    )
+
+    # set result timeseries as input for pf: p_set = p (p0 for links)
+    result_to_set = {
+        "generators_t": "p",
+        "storage_units_t": "p",
+        "stores_t": "p",
+        "links_t": "p0",
+    }
+    for container_name, result_attr in result_to_set.items():
+        container = getattr(network, container_name)
+        if result_attr in container:
+            container["p_set"] = container[result_attr].copy()
+
     # set extendable to False
-    
-    etrago.network.generators.p_nom_extendable = False
-    etrago.network.storage_units.p_nom_extendable = False
-    etrago.network.stores.e_nom_extendable = False
-    etrago.network.links.p_nom_extendable = False
-    
+    network.generators["p_nom_extendable"] = False
+    network.storage_units["p_nom_extendable"] = False
+    network.stores["e_nom_extendable"] = False
+    network.links["p_nom_extendable"] = False
+    network.lines["s_nom_extendable"] = False
+    if len(network.transformers) > 0:
+        network.transformers["s_nom_extendable"] = False
+
     # delete former result timeseries
-    keep_attrs = {"q_set", "p_set", "p_min_pu", "p_max_pu", "e_min_pu", "e_max_pu", "efficiency"}
+    keep_attrs = {
+        "q_set", "p_set", "p_min_pu", "p_max_pu",
+        "e_min_pu", "e_max_pu", "efficiency",
+    }
     components_t = [
-        etrago.network.generators_t,
-        etrago.network.links_t,
-        etrago.network.storage_units_t,
-        etrago.network.stores_t,
-        etrago.network.loads_t
-        ]
+        network.generators_t,
+        network.links_t,
+        network.storage_units_t,
+        network.stores_t,
+        network.loads_t,
+        network.buses_t,
+        network.lines_t,
+        network.transformers_t,
+    ]
     for container in components_t:
         for attr in list(container.keys()):
             if attr not in keep_attrs:
@@ -733,8 +695,10 @@ def import_dc_links_results(etrago, path):
         """Canonical, direction-independent country pair."""
         return tuple(sorted((c0, c1)))
     
-    # import clustered results
     import pypsa
+    import numpy as np
+    
+    # import clustered results
     clus_network = pypsa.Network(path + "clustered")
     
     # find out foreign countries per DC link
@@ -775,6 +739,8 @@ def import_dc_links_results(etrago, path):
         .reindex(target_snapshots)
     )
     
+    import pdb; pdb.set_trace()
+    
     # DC links in the etrago network
     dc_links = etrago.network.links[etrago.network.links.carrier == "DC"].copy()
     bus_country = etrago.network.buses["country"]
@@ -787,22 +753,44 @@ def import_dc_links_results(etrago, path):
         lambda r: 1 if r["country0"] == r["pair"][0] else -1, axis=1
     )
 
-    # number of parallel links per country pair (for disaggregation)
-    link_counts = dc_links["pair"].value_counts()
+    # share of each link in its country pair, proportional to p_nom
+    pair_p_nom = dc_links.groupby("pair")["p_nom"].transform("sum")
+    n_links = dc_links.groupby("pair")["p_nom"].transform("size")
 
+    # fall back to equal distribution if the p_nom sum of a pair is zero
+    dc_links["share"] = (dc_links["p_nom"] / pair_p_nom).where(
+        pair_p_nom > 0, 1 / n_links
+    )
     
+    # capacity limits per link (flow direction bus0 -> bus1)
+    upper = dc_links["p_nom"] * dc_links["p_max_pu"]
+    lower = dc_links["p_nom"] * dc_links["p_min_pu"]
+
     for link_id, row in dc_links.iterrows():
         pair = row["pair"]
         if pair not in exchange_hourly.columns:
             continue
         # flow in reference direction (pair[0]->pair[1]), flipped to match
-        # the actual direction of the etrago link, divided by the number
-        # of parallel links for that country pair
-        values = (
-            exchange_hourly[pair].to_numpy() * row["sign"] / link_counts[pair]
-        )
+        # the actual direction of the etrago link, scaled by the link's
+        # p_nom share within its country pair
+        
+        # desired flow in the actual direction of the etrago link
+        desired = exchange_hourly[pair].to_numpy() * row["sign"] * row["share"]
+        
+        # limit to the technical capacity of the link
+        values = np.clip(desired, lower[link_id], upper[link_id])
+        
+        # report curtailed power (MW) so the mismatch is visible
+        curtailed = np.abs(desired - values)
+        if curtailed.max() > 1e-6:
+            logger.warning(
+                f"DC link {link_id} ({pair}): p_set limited to capacity in "
+                f"{(curtailed > 1e-6).sum()} snapshots, "
+                f"max curtailment {curtailed.max():.1f} MW"
+            )
+        
         etrago.network.links_t.p_set.loc[target_snapshots, link_id] = values
-    
+        
     
     
     
