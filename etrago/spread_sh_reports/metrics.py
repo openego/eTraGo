@@ -663,14 +663,14 @@ class ScenarioMetrics:
 
         # Grid-stage investments (calc_investment_cost of eTraGo).
         gl = g.static("links")
-        ext_links = gl[gl.get("p_nom_extendable", False).astype(bool)
+        ext_links = gl[gl.get("p_nom_extendable", pd.Series(False, index=gl.index)).astype(bool)
                        & (gl.carrier != "DC") & ~gl.index.str.contains("ramp")]
         link_inv = ((ext_links.p_nom_opt - ext_links.p_nom_min.fillna(0)) * ext_links.capital_cost).sum()
         gsu = g.static("storage_units")
-        ext_su = gsu[gsu.get("p_nom_extendable", False).astype(bool)]
+        ext_su = gsu[gsu.get("p_nom_extendable", pd.Series(False, index=gsu.index)).astype(bool)]
         su_inv = ((ext_su.p_nom_opt - ext_su.p_nom_min.fillna(0)) * ext_su.capital_cost).sum()
         gst = g.static("stores")
-        ext_st = gst[gst.get("e_nom_extendable", False).astype(bool)]
+        ext_st = gst[gst.get("e_nom_extendable", pd.Series(False, index=gst.index)).astype(bool)]
         st_inv = (ext_st.e_nom_opt * ext_st.capital_cost).sum()
         ely = self.electrolysis
         ely_inv = (ely.p_nom_opt * ely.capital_cost).sum()
