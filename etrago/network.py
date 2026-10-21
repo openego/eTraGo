@@ -94,6 +94,7 @@ from etrago.tools.io import (
 from etrago.tools.utilities import (
     adjust_CH4_gen_carriers,
     adjust_chp_model,
+    adjust_e_initial_emob,
     adjust_PtH2_model,
     buses_by_country,
     check_args,
@@ -545,6 +546,8 @@ class Etrago:
         """
 
         self.manual_fixes_datamodel()
+
+        adjust_e_initial_emob(self.network)
 
         self.geolocation_buses()
 

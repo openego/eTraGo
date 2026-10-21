@@ -743,6 +743,59 @@ def load_shedding(
             )
 
 
+def adjust_e_initial_emob(network):
+    """Limit e_initial of e-mobility stores to their SoC band
+
+    The e_initial of the e-mobility stores refers to the first hour of the
+    year. When the calculation starts at a different snapshot (start_snapshot
+    > 1), e_initial can be outside of the allowed state of charge and lead to
+    infeasibilities. Therefore, e_initial is clipped to e_min_pu and e_max_pu
+    of the first snapshot of the network.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    Returns
+    -------
+    None.
+
+    """
+    stores = network.stores.index[network.stores.carrier == "battery_storage"]
+
+    if stores.empty:
+        return
+
+    snapshot = network.snapshots[0]
+
+    e_nom = network.stores.loc[stores, "e_nom"]
+    e_min = (
+        network.get_switchable_as_dense(
+            "Store", "e_min_pu", snapshots=[snapshot], inds=stores
+        ).loc[snapshot]
+        * e_nom
+    )
+    e_max = (
+        network.get_switchable_as_dense(
+            "Store", "e_max_pu", snapshots=[snapshot], inds=stores
+        ).loc[snapshot]
+        * e_nom
+    )
+
+    e_initial = network.stores.loc[stores, "e_initial"]
+    e_initial_clipped = e_initial.clip(lower=e_min, upper=e_max)
+
+    changed = (e_initial - e_initial_clipped).abs() > 1e-6
+    if changed.any():
+        logger.info(
+            f"e_initial of {changed.sum()} e-mobility stores clipped to the "
+            f"SoC band of snapshot {snapshot}"
+        )
+
+    network.stores.loc[stores, "e_initial"] = e_initial_clipped
+
+
 def set_control_strategies(network):
     """Sets control strategies for AC generators and storage units
 
@@ -1683,8 +1736,10 @@ def get_clustering_data(self, path):
             self.ch4_h2_mapping.index.name = "CH4_bus"
             self.ch4_h2_mapping.index = self.ch4_h2_mapping.index.astype(str)
     else:
-        logger.info("""There is no CH4 to H2 bus mapping data
-            available in the loaded object.""")
+        logger.info(
+            """There is no CH4 to H2 bus mapping data
+            available in the loaded object."""
+        )
 
     busmap_path = os.path.join(path, "busmap.json")
     if os.path.exists(busmap_path):
@@ -2461,11 +2516,13 @@ def adjust_CH4_gen_carriers(self):
             )
             marginal_cost = df["gas_parameters"][0]["marginal_cost"]
         except sqlalchemy.exc.NoSuchTableError as e:
-            logging.warning(f"""
+            logging.warning(
+                f"""
                 The database query failed for
                 'scenario.egon_scenario_parameters'.
                 Fallback values are being used. Error message: {e}
-                """)
+                """
+            )
             marginal_cost = marginal_cost_def
 
         self.network.generators.loc[
@@ -2678,23 +2735,27 @@ def manual_fixes_datamodel(etrago):
 
     # Set r value if missing
     if not etrago.network.lines.loc[etrago.network.lines.r == 0, "r"].empty:
-        logger.info(f"""
+        logger.info(
+            f"""
             There are {len(
                 etrago.network.lines.loc[etrago.network.lines.r == 0, "r"]
                 )} lines without a resistance (r) in the data model.
             The resistance of these lines will be automatically set to 0.0001.
-            """)
+            """
+        )
 
     etrago.network.lines.loc[etrago.network.lines.r == 0, "r"] = 0.0001
 
     if not etrago.network.transformers.loc[
         etrago.network.transformers.r == 0, "r"
     ].empty:
-        logger.info(f"""There are {len(etrago.network.transformers.loc[
+        logger.info(
+            f"""There are {len(etrago.network.transformers.loc[
                 etrago.network.transformers.r == 0, "r"]
                 )} trafos without a resistance (r) in the data model.
             The resistance of these trafos will be automatically set to 0.0001.
-            """)
+            """
+        )
     etrago.network.transformers.loc[
         etrago.network.transformers.r == 0, "r"
     ] = 0.0001
@@ -2717,10 +2778,12 @@ def manual_fixes_datamodel(etrago):
     if (etrago.args["method"]["type"] == "sclopf") & (
         not etrago.network.lines_t.s_max_pu.empty
     ):
-        print("""
+        print(
+            """
             Dynamic line rating is not implemented for the sclopf yet.
             Setting s_max_pu timeseries to 1
-            """)
+            """
+        )
         etrago.network.lines_t.s_max_pu = pd.DataFrame(
             index=etrago.network.snapshots,
         )
