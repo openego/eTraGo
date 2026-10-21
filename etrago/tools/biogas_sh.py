@@ -751,6 +751,37 @@ def _get_ch4_p_nom(row, settings) -> float:
 # =============================================================================
 
 
+def _supported_availability_mask(network, price_csv, min_price) -> pd.Series:
+    """Hourly availability of the supported tranche (sliding premium).
+
+    1 where the German-zone reference price is above min_price, 0 where the
+    EEG sets the award value to zero (spot price <= min_price).
+    """
+
+    prices = pd.read_csv(price_csv, index_col="snapshot", parse_dates=True)[
+        "price_eur_per_mwh"
+    ]
+    snapshots = pd.DatetimeIndex(network.snapshots)
+    missing = snapshots.difference(prices.index)
+    if len(missing):
+        raise ValueError(
+            f"{price_csv} has no price for {len(missing)} network "
+            f"snapshots, e.g. {missing[0]}."
+        )
+
+    mask = (prices.reindex(snapshots) > min_price).astype(float)
+    mask.index = network.snapshots
+
+    logger.info(
+        "Biogas.SH sliding premium: supported tranche available in "
+        "%d of %d snapshots (price > %.1f EUR/MWh).",
+        int(mask.sum()),
+        len(mask),
+        min_price,
+    )
+    return mask
+
+
 def _add_electricity_generator(
     network,
     plant_id,
@@ -4881,6 +4912,74 @@ def apply_biogas_sh_assets(
         )
     )
 
+    # Plants up to the threshold get more eligible hours (EEG §39i).
+    supported_hours_small = float(
+        support_cfg.get(
+            "supported_hours_small_plants",
+            supported_hours_per_year,
+        )
+    )
+
+    small_plant_threshold_mw = float(
+        support_cfg.get(
+            "small_plant_threshold_kw",
+            350.0,
+        )
+    ) / 1000.0
+
+    # Flexibilisation: "plant_energy" sizes each plant so that its annual
+    # electricity fits into flex_design_hours; "multiplier" scales the
+    # rated output by chp_capacity_multiplier.
+    flexibility_active = _as_bool(
+        support_cfg.get(
+            "flexibility_active",
+            False,
+        ),
+        False,
+    )
+
+    flex_capacity_mode = str(
+        support_cfg.get(
+            "flex_capacity_mode",
+            "multiplier",
+        )
+    ).strip()
+
+    if flex_capacity_mode not in ("multiplier", "plant_energy"):
+        raise ValueError(
+            "biogas_sh.support.flex_capacity_mode must be "
+            "'multiplier' or 'plant_energy'."
+        )
+
+    flex_design_hours = float(
+        support_cfg.get(
+            "flex_design_hours",
+            2920.0,
+        )
+    )
+
+    flex_el_efficiency = float(
+        support_cfg.get(
+            "flex_electricity_efficiency",
+            0.38,
+        )
+    )
+
+    # Sliding premium: availability of the supported tranche, 0 in hours
+    # with a German price at or below the minimum price for support.
+    supported_availability = None
+
+    if eeg_active and str(support_cfg.get("premium_mode", "fixed")) == "sliding":
+        supported_availability = _supported_availability_mask(
+            network,
+            support_cfg["de_price_series_path"],
+            float(support_cfg["min_price_for_support_eur_per_mwh"]),
+        )
+
+    supported_capacity_hours = 0.0
+
+    installed_el_capacity = 0.0
+
 
     heat_mc = float(
         settings.get(
@@ -5246,10 +5345,40 @@ def apply_biogas_sh_assets(
             )
 
 
-            p_nom_el = (
-                base_p_nom_el
-                * chp_capacity_multiplier
+            installed_el = _safe_float(
+                row,
+                "installed_electric_capacity_mwel",
+                default=base_p_nom_el,
             )
+
+            if flexibility_active and flex_capacity_mode == "plant_energy":
+
+                # Capacity needed to produce the plant's annual electricity
+                # within the design hours; never below the installed CHP.
+                annual_el_mwh = (
+                    _safe_float(
+                        row,
+                        "raw_biogas_mwh_hs_a",
+                        default=0.0,
+                    )
+                    * flex_el_efficiency
+                )
+
+                p_nom_el = max(
+                    installed_el,
+                    annual_el_mwh / flex_design_hours,
+                )
+
+                plant_size_mw = p_nom_el
+
+            else:
+
+                p_nom_el = (
+                    base_p_nom_el
+                    * chp_capacity_multiplier
+                )
+
+                plant_size_mw = installed_el * chp_capacity_multiplier
 
 
             potential_el_capacity += max(
@@ -5340,7 +5469,7 @@ def apply_biogas_sh_assets(
                     )
 
 
-                    _add_electricity_generator(
+                    supported_name = _add_electricity_generator(
                         network=network,
                         plant_id=plant_id,
                         ac_bus=ac_bus,
@@ -5350,11 +5479,28 @@ def apply_biogas_sh_assets(
                         tranche="supported",
                     )
 
+                    if supported_availability is not None:
+                        network.generators_t.p_max_pu[
+                            supported_name
+                        ] = supported_availability
+
+                    plant_hours = (
+                        supported_hours_small
+                        if plant_size_mw <= small_plant_threshold_mw
+                        else supported_hours_per_year
+                    )
+
+                    supported_capacity_hours += p_nom_el * plant_hours
+
 
                 added_el += 1
 
                 added_el_capacity += float(
                     p_nom_el
+                )
+
+                installed_el_capacity += float(
+                    installed_el
                 )
 
 
@@ -5666,6 +5812,42 @@ def apply_biogas_sh_assets(
 
 
     # ==================================================================
+    # 10B. SUPPORTED HOURS FOR THE EEG CONSTRAINT
+    # ==================================================================
+
+    # Plants lose their identity in spatial clustering, so the support
+    # constraint uses one capacity-weighted number of eligible hours.
+    fleet_supported_hours = (
+        supported_capacity_hours / added_el_capacity
+        if added_el_capacity > 0
+        else supported_hours_per_year
+    )
+
+    support_constraint = (
+        self.args.get("extra_functionality", {}) or {}
+    ).get("biogas_sh_support")
+
+    if eeg_active and isinstance(support_constraint, dict):
+        support_constraint[
+            "supported_hours_per_year"
+        ] = fleet_supported_hours
+
+    # Recorded for the result reports (flexibility surcharge and
+    # investment are based on capacity added beyond the installed CHP).
+    support_cfg[
+        "onsite_el_capacity_mw"
+    ] = added_el_capacity
+
+    support_cfg[
+        "installed_el_capacity_mw"
+    ] = installed_el_capacity
+
+    support_cfg[
+        "fleet_supported_hours_per_year"
+    ] = fleet_supported_hours
+
+
+    # ==================================================================
     # 11. SUMMARY
     # ==================================================================
 
@@ -5755,6 +5937,36 @@ def apply_biogas_sh_assets(
         f"  CHP capacity multiplier:          "
         f"{chp_capacity_multiplier:.2f}"
     )
+
+    print(
+        f"  flexible capacity rule:           "
+        f"{flex_capacity_mode if flexibility_active else 'none'}"
+    )
+
+    print(
+        f"  onsite electrical capacity:       "
+        f"{added_el_capacity:.3f} MW"
+    )
+
+    if eeg_active:
+
+        print(
+            f"  supported marginal cost:          "
+            f"{supported_el_mc:.2f} EUR/MWh_el "
+            f"({support_cfg.get('premium_mode', 'fixed')} premium)"
+        )
+
+        print(
+            f"  supported hours (fleet average):  "
+            f"{fleet_supported_hours:.1f} h/a"
+        )
+
+        if supported_availability is not None:
+            print(
+                f"  supported tranche available in:   "
+                f"{int(supported_availability.sum())} of "
+                f"{len(supported_availability)} snapshots"
+            )
 
     print(
         f"  onsite electricity generators:    "

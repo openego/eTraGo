@@ -5661,6 +5661,58 @@ def _biogas_sh_resource(
     )
 
 
+def _biogas_sh_window_supported_hours(
+    arg,
+    network,
+    snapshots,
+    weights,
+    supported_generators,
+):
+    """Supported full-load hours available in the optimised snapshots.
+
+    Without eligible-hour information the annual hours are scaled by the
+    represented share of the year. With the sliding premium the annual
+    hours are split in proportion to the eligible hours (supported tranche
+    available) that the snapshots contain, so a rolling-horizon window with
+    many low-price hours gets a smaller share of the allowance.
+    """
+
+    supported_hours_per_year = float(
+        arg.get(
+            "supported_hours_per_year",
+            0.0,
+        )
+    )
+
+    eligible_hours_per_year = arg.get(
+        "eligible_hours_per_year"
+    )
+
+    if not eligible_hours_per_year:
+        return (
+            supported_hours_per_year
+            * float(weights.sum())
+            / 8760.0
+        )
+
+    availability = get_as_dense(
+        network,
+        "Generator",
+        "p_max_pu",
+        snapshots,
+    )[supported_generators].mean(axis=1)
+
+    eligible_hours = float(
+        (availability * weights).sum()
+    )
+
+    return (
+        supported_hours_per_year
+        * eligible_hours
+        / float(eligible_hours_per_year)
+    )
+
+
 def _biogas_sh_support(
     self,
     network,
@@ -5751,10 +5803,12 @@ def _biogas_sh_support(
         weights.sum()
     )
 
-    effective_supported_hours = (
-        supported_hours_per_year
-        * represented_hours
-        / 8760.0
+    effective_supported_hours = _biogas_sh_window_supported_hours(
+        arg,
+        network,
+        snapshots,
+        weights,
+        supported_generators,
     )
 
     # Group generators by clustered AC bus.
@@ -5999,10 +6053,12 @@ def _biogas_sh_support_linopy(
         weights.sum()
     )
 
-    effective_supported_hours = (
-        supported_hours_per_year
-        * represented_hours
-        / 8760.0
+    effective_supported_hours = _biogas_sh_window_supported_hours(
+        arg,
+        network,
+        snapshots,
+        weights,
+        supported_generators,
     )
 
     market_by_bus = {}

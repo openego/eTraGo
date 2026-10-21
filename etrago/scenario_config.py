@@ -495,6 +495,52 @@ def _apply_upgrading_accounting(
     return modified, summary
 
 
+def _sliding_premium_reference(
+    fossil_gas: Mapping[str, Any],
+    onsite: Mapping[str, Any],
+    gas_case: str,
+) -> Dict[str, Any]:
+    """Annual market value JW and eligible hours for the sliding EEG premium.
+
+    JW is the mean of the hourly German-zone price series of the gas case
+    (or the explicit annual_market_value_eur_per_mwh). Eligible hours are
+    the hours above the minimum price for support (EEG 2 ct rule).
+    """
+
+    from etrago.tools.import_data import biogas_sh_csv
+
+    min_price = float(onsite.get("min_price_for_support_eur_per_mwh", 20.0))
+    series_name = fossil_gas.get("de_price_series")
+    if not series_name:
+        raise ScenarioConfigError(
+            f"price_cases.fossil_gas.{gas_case}.de_price_series is required "
+            "for the sliding EEG premium."
+        )
+    path = Path(biogas_sh_csv(str(series_name)))
+    if not path.exists():
+        raise ScenarioConfigError(
+            f"German price series {path} not found. Write it with "
+            "tools/export_de_market_price.py."
+        )
+
+    with path.open(newline="", encoding="utf-8") as handle:
+        prices = [float(row["price_eur_per_mwh"]) for row in csv.DictReader(handle)]
+    if len(prices) != 8760:
+        raise ScenarioConfigError(
+            f"{path} must hold 8760 hourly prices, found {len(prices)}."
+        )
+
+    jw_override = fossil_gas.get("annual_market_value_eur_per_mwh")
+    jw = float(jw_override) if jw_override is not None else sum(prices) / len(prices)
+
+    return {
+        "de_price_series_path": str(path),
+        "annual_market_value_eur_per_mwh": jw,
+        "min_price_for_support_eur_per_mwh": min_price,
+        "eligible_hours_per_year": float(sum(p > min_price for p in prices)),
+    }
+
+
 def resolve_config(
     config: Mapping[str, Any],
 ) -> Dict[str, Any]:
@@ -605,11 +651,55 @@ def _resolve_config_core(
         ]
     )
 
-    eeg_premium = float(
-        onsite[
-            "eeg_premium_eur_per_mwh"
-        ]
-    )
+    premium_mode = str(
+        onsite.get(
+            "premium_mode",
+            "fixed",
+        )
+    ).strip()
+
+    if premium_mode not in ("fixed", "sliding"):
+        raise ScenarioConfigError(
+            "price_cases.onsite.premium_mode must be "
+            "'fixed' or 'sliding'."
+        )
+
+    sliding_reference = {}
+
+    if premium_mode == "sliding" and bool(support.get("eeg_active", False)):
+
+        sliding_reference = _sliding_premium_reference(
+            fossil_gas,
+            onsite,
+            selection["fossil_gas_price_case"],
+        )
+
+        award_value = float(
+            onsite[
+                "award_value_eur_per_mwh"
+            ]
+        )
+
+        # MP = max(0, AW - JW)
+        eeg_premium = max(
+            0.0,
+            award_value
+            - sliding_reference[
+                "annual_market_value_eur_per_mwh"
+            ],
+        )
+
+        sliding_reference[
+            "award_value_eur_per_mwh"
+        ] = award_value
+
+    else:
+
+        eeg_premium = float(
+            onsite[
+                "eeg_premium_eur_per_mwh"
+            ]
+        )
 
     supported_el_cost = (
         merchant_el_cost
@@ -941,6 +1031,10 @@ def _resolve_config_core(
             "eeg_premium_eur_per_mwh": (
                 eeg_premium
             ),
+
+            "eeg_premium_mode": premium_mode,
+
+            **sliding_reference,
         },
 
         # ========================================================
@@ -2796,6 +2890,47 @@ def apply_config_to_args(
         )
     )
 
+    # Plants up to the threshold get more eligible hours (EEG §39i).
+    support_args[
+        "supported_hours_small_plants"
+    ] = float(
+        support.get(
+            "supported_hours_small_plants",
+            support_args["supported_hours_per_year"],
+        )
+    )
+
+    support_args[
+        "small_plant_threshold_kw"
+    ] = float(
+        support.get(
+            "small_plant_threshold_kw",
+            350.0,
+        )
+    )
+
+    # Sliding premium: hours with a German price at or below the minimum
+    # price get no premium; the builder makes the supported tranche
+    # unavailable in those hours.
+    support_args[
+        "premium_mode"
+    ] = str(
+        prices.get(
+            "eeg_premium_mode",
+            "fixed",
+        )
+    )
+
+    for key in (
+        "de_price_series_path",
+        "min_price_for_support_eur_per_mwh",
+        "annual_market_value_eur_per_mwh",
+        "award_value_eur_per_mwh",
+        "eligible_hours_per_year",
+    ):
+        if key in prices:
+            support_args[key] = prices[key]
+
     support_args[
         "flexibility_active"
     ] = bool(
@@ -2812,6 +2947,34 @@ def apply_config_to_args(
             "chp_capacity_multiplier",
             1.0,
         )
+    )
+
+    support_args[
+        "flex_capacity_mode"
+    ] = str(
+        support.get(
+            "flex_capacity_mode",
+            "multiplier",
+        )
+    )
+
+    support_args[
+        "flex_design_hours"
+    ] = float(
+        support.get(
+            "flex_design_hours",
+            2920.0,
+        )
+    )
+
+    support_args[
+        "flex_electricity_efficiency"
+    ] = float(
+        technical_biogas[
+            "efficiencies"
+        ][
+            "onsite_electricity"
+        ]
     )
 
     support_args[
@@ -2872,10 +3035,18 @@ def apply_config_to_args(
             "biogas_sh_support"
         ] = {
             "active": True,
+            # Replaced by the capacity-weighted hours of the fleet when
+            # the Biogas.SH plants are built.
             "supported_hours_per_year": (
                 support_args[
                     "supported_hours_per_year"
                 ]
+            ),
+            # Eligible hours of the reference year (sliding premium); the
+            # allowance is split over rolling-horizon windows in
+            # proportion to the eligible hours they contain.
+            "eligible_hours_per_year": support_args.get(
+                "eligible_hours_per_year"
             ),
             "ignore_missing_components": False,
         }

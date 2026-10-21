@@ -345,6 +345,13 @@ price_cases:
       co2_source: "NEP 2021 / eGon2035"
       emission_factor_tco2_per_mwh_fuel: 0.201
       swfl_import_adder_eur_per_mwh_fuel: 0.0
+      # Hourly German-zone price of the eTraGo market model for this gas
+      # case, written by tools/export_de_market_price.py from a reference
+      # run. It gives the annual market value JW of the sliding EEG
+      # premium and the hours with prices <= 20 EUR/MWh. Set
+      # annual_market_value_eur_per_mwh to override JW.
+      de_price_series: "de_price_legacy_egon.csv"
+      annual_market_value_eur_per_mwh: null
 
     high_2035:
       description: >
@@ -356,6 +363,8 @@ price_cases:
       co2_source: "UBA (2025), EU ETS 1 assumption for 2035"
       emission_factor_tco2_per_mwh_fuel: 0.201
       swfl_import_adder_eur_per_mwh_fuel: 0.0
+      de_price_series: "de_price_high_2035.csv"
+      annual_market_value_eur_per_mwh: null
 
     crisis_2035:
       description: >
@@ -370,6 +379,8 @@ price_cases:
       co2_source: "UBA (2025), EU ETS 1 assumption for 2035"
       emission_factor_tco2_per_mwh_fuel: 0.201
       swfl_import_adder_eur_per_mwh_fuel: 0.0
+      de_price_series: "de_price_crisis_2035.csv"
+      annual_market_value_eur_per_mwh: null
 
   biomethane:
       project_92_9:
@@ -396,10 +407,36 @@ price_cases:
       # 75 / 0.45
       heat_marginal_cost_eur_per_mwh: 166.67
 
-      # Follow-on EEG modelling assumption
+      # ----------------------------------------------------------------
+      # Follow-on EEG market premium (Biomass Package 2025)
+      # ----------------------------------------------------------------
+      #
+      # premium_mode: "sliding" (default) -> MP = max(0, AW - JW)
+      #   AW = award value. 18.46 ct/kWh is the volume-weighted average
+      #        award of the April 2026 biomass auction (BNetzA); it is a
+      #        representative value, not a plant-specific bid.
+      #   JW = annual market value: the snapshot-weighted mean price of
+      #        the German bidding zone in the market model of the selected
+      #        gas-price case (fossil_gas.<case>.de_price_series, or
+      #        annual_market_value_eur_per_mwh if given there).
+      #   No premium in hours with a German price <= the threshold below
+      #   (EEG "2 ct rule"): the supported tranche is unavailable there.
+      #
+      # premium_mode: "fixed" -> the old sensitivity, a fixed premium of
+      #   eeg_premium_eur_per_mwh (184.60 award - 97.54 assumed market
+      #   value = 87.06) in every hour.
+      #
+      # The supported marginal cost is the fuel-equivalent cost minus the
+      # premium (197.37 - MP); it is not a full generation cost.
+      premium_mode: "sliding"
+      award_value_eur_per_mwh: 184.6
+      min_price_for_support_eur_per_mwh: 20.0
+
+      # Used only with premium_mode: "fixed"
       eeg_premium_eur_per_mwh: 87.06
 
-      # 197.37 - 87.06
+      # 197.37 - 87.06, fixed-premium mode only; the sliding mode derives
+      # the supported cost at run time
       supported_electricity_marginal_cost_eur_per_mwh: 110.31
 
 
@@ -469,7 +506,13 @@ support_cases:
       without additional flexibilisation.
 
     eeg_active: true
-    supported_hours_per_year: 2920.0
+    # Eligible operating hours (EEG §39i): 11,680 quarter-hours = 2,920 h
+    # above 350 kW, 16,000 = 4,000 h up to 350 kW, each reduced by 125 h in
+    # support years 5, 7, 9 and 11. With follow-on support starting around
+    # 2031, 2035 is support year 5: 2,795 h and 3,875 h.
+    supported_hours_per_year: 2795.0
+    supported_hours_small_plants: 3875.0
+    small_plant_threshold_kw: 350.0
 
     flexibility_active: false
     chp_capacity_multiplier: 1.0
@@ -480,14 +523,23 @@ support_cases:
   followon_eeg_flex:
     description: >
       Follow-on EEG plus flexibilisation.
-      Electrical CHP capacity is represented as three times
-      the existing capacity while annual raw-biogas availability
-      remains unchanged.
+      Each plant's electrical capacity is raised so that its annual
+      electricity fits into the eligible hours, while annual raw-biogas
+      availability remains unchanged.
 
     eeg_active: true
-    supported_hours_per_year: 2920.0
+    supported_hours_per_year: 2795.0
+    supported_hours_small_plants: 3875.0
+    small_plant_threshold_kw: 350.0
 
     flexibility_active: true
+    # "plant_energy": capacity per plant = max(installed capacity,
+    #   raw biogas x electricity_efficiency / flex_design_hours),
+    #   about 40.3 MW for Cluster I instead of 21.0 MW installed.
+    #   The plant is sized for the initial 2,920 h at conversion.
+    # "multiplier": the old rule, rated output x chp_capacity_multiplier.
+    flex_capacity_mode: "plant_energy"
+    flex_design_hours: 2920.0
     chp_capacity_multiplier: 3.0
 
     # Used for reporting/economic interpretation.
