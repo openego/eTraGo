@@ -693,13 +693,18 @@ def _resolve_config_core(
             "award_value_eur_per_mwh"
         ] = award_value
 
-    else:
+    elif bool(support.get("eeg_active", False)):
 
         eeg_premium = float(
             onsite[
                 "eeg_premium_eur_per_mwh"
             ]
         )
+
+    else:
+
+        # No supported tranche without EEG support.
+        eeg_premium = 0.0
 
     supported_el_cost = (
         merchant_el_cost

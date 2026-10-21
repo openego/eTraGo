@@ -310,7 +310,9 @@ run:
   start_snapshot: 1
   end_snapshot: 8760
   ac_clusters: 50
-  result_name_template: "{scenario}_{hours}h_{ac_clusters}ac"
+  # "_netzero": runs with the SWFL net-zero framework (fossil CO2 cap 0 +
+  # certified biomethane), the sliding EEG premium and the T+P upgrading values.
+  result_name_template: "{scenario}_netzero_{hours}h_{ac_clusters}ac"
 
 # -----------------------------------------------------------------------------
 # PRICE CASES
@@ -967,10 +969,12 @@ technical:
     # first bound. The charger/discharger power is extendable at no cost.
     #
     heat_store:
-      active: false
+      active: true
       extendable: true
       e_nom_mwh: 0.0
-      e_nom_max_mwh: null
+      # SWFL's planned decentralised storage (45 + 60 + 25 MWh). Without a
+      # bound the lossless store becomes an unrealistic seasonal store.
+      e_nom_max_mwh: 130.0
       capital_cost_eur_per_mwh: 9.097466
       charger_efficiency: 0.84
       discharger_efficiency: 0.84
@@ -1185,7 +1189,7 @@ technical:
     #
     upgrading_accounting:
 
-      active: false
+      active: true
 
       case: "project_documents_central"
 
@@ -1231,7 +1235,10 @@ technical:
       # yield (about 0.184 t/MWh) is about 20 % higher than the one at the
       # real flow (about 0.155 t/MWh, basis "flow" with 2,700 m3/h, T+P p. 28).
       co2:
-        basis: "annual"
+        # "flow": the real CO2 flow of 2,700 m3/h (T+P p. 28) matches the
+        # raw-biogas energy of the real plants; "annual" would use ETW's
+        # design flow and overstate the yield by about 20 %.
+        basis: "flow"
         annual_t_per_year: 55000.0
         flow_nm3_per_h: 2700.0
         density_kg_per_nm3: 1.96
@@ -1572,12 +1579,11 @@ technical:
       # Storage energy capacity
       # -----------------------------------------------------------------------
 
-      # 500 MWh is the earlier baseline assumption (about 15 hours of
-      # average biomethane production). T+P's documented store is 5,000 m3,
-      # about 54 MWh (1.6 hours): with upgrading_accounting.active = true
-      # this value is replaced by
-      # upgrading_accounting.storage_energy_capacity_mwh.
-      energy_capacity_mwh: 500.0
+      # T+P's documented store: 5,000 m3, about 54 MWh (1.6 hours of
+      # average biomethane production). The earlier baseline was 500 MWh
+      # (about 15 hours). With upgrading_accounting.active = true this value
+      # is replaced by upgrading_accounting.storage_energy_capacity_mwh.
+      energy_capacity_mwh: 54.0
 
       initial_energy_mwh: 0.0
 
@@ -1651,11 +1657,15 @@ scenario_matrix:
   dimensions:
 
     support_case:
+      - "post_eeg"
       - "followon_eeg_no_flex"
+      - "followon_eeg_flex"
 
 
     fossil_gas_price_case:
       - "legacy_egon"
+      - "high_2035"
+      - "crisis_2035"
 
 
     # Fixed project biomethane-cost assumption.
@@ -1670,7 +1680,6 @@ scenario_matrix:
 
     # Fixed heat-pump configuration.
     heat_pump_case:
-      - "one_gwp1"
       - "two"
 
 
