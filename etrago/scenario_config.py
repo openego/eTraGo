@@ -3612,6 +3612,32 @@ def apply_config_to_args(
             f"({factor:.3f} tCO2/MWh_fuel)."
         )
 
+    # --- S8c+: certified biomethane as zero-carbon fuel for SWFL ---
+    certified = framework.get("certified_biomethane") or {}
+
+    central_heat.pop("certified_biomethane", None)
+
+    if bool(certified.get("active", False)):
+
+        price = float(certified.get("price_eur_per_mwh_hs", 92.9))
+        units = [str(unit) for unit in certified.get("eligible_units", [])]
+
+        if price < 0.0 or not units:
+            raise ScenarioConfigError(
+                "certified_biomethane needs price_eur_per_mwh_hs >= 0 and "
+                "at least one eligible unit."
+            )
+
+        central_heat["certified_biomethane"] = {
+            "price_eur_per_mwh_hs": price,
+            "eligible_units": units,
+        }
+
+        print(
+            f"SWFL CERTIFIED BIOMETHANE: {price:.2f} EUR/MWh_Hs for "
+            f"{', '.join(units)}."
+        )
+
 
     # =====================================================================
     # 11. SWFL BUS CONFIGURATION

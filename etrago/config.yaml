@@ -1027,10 +1027,30 @@ technical:
       # biomethane and raw biogas are counted as zero. The cap is scaled by
       # the modelled share of the year when fewer than 8760 h are run.
       fossil_co2_cap:
-        active: false
+        active: true
         max_tco2_per_year: 0.0
         emission_factor_tco2_per_mwh_fuel: 0.201
         scale_to_modelled_hours: true
+
+      # S8c+ - certified biomethane for a net-zero SWFL. With the CO2 cap at
+      # 0, the current zero-carbon units (heat pumps, electric boilers,
+      # raw-biogas CHP) leave about 114 MW of the winter peak uncovered
+      # (1,342 h, 40 GWh/a). active: true lets the eligible gas units burn
+      # biomethane bought via the public gas grid with certificates (mass
+      # balance), which counts as zero CO2. It is a separate source at
+      # price_eur_per_mwh_hs, independent of the Biogas.SH biomethane and of
+      # the regional raw-biogas resource. The default is the project's
+      # all-in biomethane cost after T+P (93.9 EUR/MWh_Hs) as a placeholder
+      # for a certified market price. Use together with fossil_co2_cap for
+      # the net-zero case.
+      certified_biomethane:
+        active: true
+        price_eur_per_mwh_hs: 93.9
+        eligible_units:
+          - "swfl_real_k5"
+          - "swfl_real_k11"
+          - "swfl_real_k12"
+          - "swfl_real_k13"
 
 
     # -------------------------------------------------------------------------

@@ -2583,6 +2583,64 @@ def add_central_heat_units(
     raw_biogas_heat_capacity = 0.0
 
 
+    # ------------------------------------------------------------------
+    # Optional certified biomethane (net-zero case)
+    #
+    # Biomethane bought via the public gas grid with certificates. It has
+    # its own bus and supply generator at the certified price, so it is
+    # separate from the Biogas.SH biomethane and raw biogas, and the SWFL
+    # fossil CO2 cap (natural-gas bus only) counts it as zero.
+    # ------------------------------------------------------------------
+
+    certified_cfg = cfg.get("certified_biomethane") or {}
+
+    certified_units = {
+        str(name).strip()
+        for name in certified_cfg.get("eligible_units", [])
+        if str(name).strip()
+    }
+
+    certified_bus = "swfl_real_certified_biomethane_bus"
+
+    if certified_units:
+
+        unknown_certified_units = certified_units - available_boilers
+
+        if unknown_certified_units:
+            raise ValueError(
+                "Unknown certified-biomethane boiler units: "
+                f"{sorted(unknown_certified_units)}"
+            )
+
+        ensure_carrier(network, "certified_biomethane")
+        ensure_carrier(network, "swfl_certified_biomethane_supply")
+
+        ensure_bus(
+            network=network,
+            name=certified_bus,
+            carrier="certified_biomethane",
+            x=x,
+            y=y,
+        )
+
+        remove_components(
+            network,
+            "Generator",
+            ["swfl_real_certified_biomethane_supply"],
+        )
+
+        # Supply is unlimited; the fuel Links limit what each unit burns.
+        network.add(
+            "Generator",
+            "swfl_real_certified_biomethane_supply",
+            bus=certified_bus,
+            carrier="swfl_certified_biomethane_supply",
+            p_nom=10000.0,
+            p_nom_extendable=False,
+            marginal_cost=float(certified_cfg["price_eur_per_mwh_hs"]),
+        )
+
+
     for unit in boilers:
 
         name = str(
@@ -2891,6 +2949,20 @@ def add_central_heat_units(
 
             raw_biogas_heat_capacity += (
                 heat_capacity
+            )
+
+        # --------------------------------------------------------------
+        # Certified biomethane -> internal boiler fuel bus
+        # --------------------------------------------------------------
+        if name in certified_units:
+            add_fuel_supply_link(
+                name=f"{name}_certified_biomethane_supply",
+                source_bus=certified_bus,
+                target_bus=fuel_bus,
+                p_nom=fuel_input_capacity,
+                carrier=(
+                    "swfl_real_certified_biomethane_to_boiler"
+                ),
             )
 
 
