@@ -156,8 +156,10 @@ def run_lopf(etrago, extra_functionality, method):
             extra_functionality=extra_functionality,
         )
         if status != "ok":
-            logger.warning(f"""Optimization failed with status {status}
-                and condition {condition}""")
+            logger.warning(
+                f"""Optimization failed with status {status}
+                and condition {condition}"""
+            )
             etrago.network.model.print_infeasibilities()
             import pdb
 
@@ -439,8 +441,10 @@ def optimize_with_rolling_horizon(
     for i, start in enumerate(starting_points):
         end = min(len(snapshots), start + horizon)
         sns = snapshots[start:end]
-        logger.info(f"""Optimizing network for snapshot horizon
-            [{sns[0]}:{sns[-1]}] ({i+1}/{len(starting_points)}).""")
+        logger.info(
+            f"""Optimizing network for snapshot horizon
+            [{sns[0]}:{sns[-1]}] ({i+1}/{len(starting_points)})."""
+        )
 
         if not n.stores.empty:
             stores_no_dsm = n.stores[
@@ -471,9 +475,7 @@ def optimize_with_rolling_horizon(
             # Set e_initial of e-mobility stores from the previous horizon,
             # the first horizon keeps the e_initial from the data model
             # which was clipped to the SoC band in adjust_network()
-            emob_stores = n.stores.index[
-                n.stores.carrier == "battery_storage"
-            ]
+            emob_stores = n.stores.index[n.stores.carrier == "battery_storage"]
             if start != 0:
                 n.stores.loc[emob_stores, "e_initial"] = n.stores_t.e.loc[
                     snapshots[start - 1], emob_stores
@@ -588,8 +590,10 @@ def optimize_with_rolling_horizon(
             )
 
             if status != "ok":
-                logger.warning(f"""Optimization failed with status {status}
-                    and condition {condition}""")
+                logger.warning(
+                    f"""Optimization failed with status {status}
+                    and condition {condition}"""
+                )
                 n.model.print_infeasibilities()
                 import pdb
 
