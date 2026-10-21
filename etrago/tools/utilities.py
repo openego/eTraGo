@@ -743,22 +743,19 @@ def load_shedding(
             )
 
 
-def adjust_e_initial_emob(network, snapshot=None):
+def adjust_e_initial_emob(network):
     """Limit e_initial of e-mobility stores to their SoC band
 
     The e_initial of the e-mobility stores refers to the first hour of the
-    year. When the optimization starts at a different snapshot (e.g. due to
-    start_snapshot or a rolling horizon), e_initial can be outside of the
-    allowed state of charge and lead to infeasibilities. Therefore,
-    e_initial is clipped to e_min_pu and e_max_pu of the first snapshot.
+    year. When the calculation starts at a different snapshot (start_snapshot
+    > 1), e_initial can be outside of the allowed state of charge and lead to
+    infeasibilities. Therefore, e_initial is clipped to e_min_pu and e_max_pu
+    of the first snapshot of the network. 
 
     Parameters
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
-    snapshot : pandas.Timestamp, optional
-        First snapshot of the optimization. The default is None, then the
-        first snapshot of the network is used.
 
     Returns
     -------
@@ -772,8 +769,7 @@ def adjust_e_initial_emob(network, snapshot=None):
     if stores.empty:
         return
 
-    if snapshot is None:
-        snapshot = network.snapshots[0]
+    snapshot = network.snapshots[0]
 
     e_nom = network.stores.loc[stores, "e_nom"]
     e_min = (
