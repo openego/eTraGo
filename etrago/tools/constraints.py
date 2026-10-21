@@ -5940,6 +5940,14 @@ def _biogas_sh_support(
         # --------------------------------------------------
         # Supported-energy limit
         # --------------------------------------------------
+
+        # Skipped in the grid stage once onsite electricity is fixed to
+        # the market dispatch, which already respected the limit.
+        if (
+            self.apply_on == "grid_model"
+            and arg.get("onsite_fixed_in_grid_stage")
+        ):
+            continue
         supported_energy = sum(
 
             model.generator_p[
@@ -6183,6 +6191,14 @@ def _biogas_sh_support_linopy(
                     f"{snapshot_number}"
                 ),
             )
+
+        # Skipped in the grid stage once onsite electricity is fixed to
+        # the market dispatch, which already respected the limit.
+        if (
+            self.apply_on == "grid_model"
+            and arg.get("onsite_fixed_in_grid_stage")
+        ):
+            continue
 
         supported_energy = 0
 

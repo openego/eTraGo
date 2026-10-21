@@ -67,6 +67,8 @@ def grid_optimization(
 
     fix_chp_generation(self)
 
+    fix_biogas_sh_onsite_generation(self)
+
     add_redispatch_generators(
         self,
         factor_redispatch_cost,
@@ -209,6 +211,51 @@ def fix_chp_generation(self):
         self.market_model.links_t.p0[links_fixed].mul(
             0.99 / self.market_model.links.p_nom[links_fixed]
         )
+    )
+
+
+def fix_biogas_sh_onsite_generation(self):
+    """Fix Biogas.SH onsite electricity to the market-stage dispatch.
+
+    The onsite CHPs sell at the German market price plus the EEG premium,
+    so their market-stage dispatch is the realistic one. Without fixing,
+    the grid stage would re-optimise them at nodal prices, which in the
+    congested north are well below the market price. These small units are
+    not redispatched. Onsite heat and the other Biogas.SH routes stay free.
+    """
+    if not (self.args.get("biogas_sh") or {}).get(
+        "fix_onsite_electricity_in_grid_stage", True
+    ):
+        return
+
+    gens_fixed = self.network.generators[
+        self.network.generators.carrier.str.match(
+            r"biogas_sh_onsite(_chp)?_el(_supported)?$"
+        )
+    ].index
+    if gens_fixed.empty:
+        return
+
+    dispatch = self.market_model.generators_t.p[gens_fixed].div(
+        self.market_model.generators.p_nom[gens_fixed]
+    )
+    self.network.generators_t.p_max_pu.loc[:, gens_fixed] = (
+        dispatch.mul(1.01).clip(upper=1.0)
+    )
+    self.network.generators_t.p_min_pu.loc[:, gens_fixed] = dispatch.mul(0.99)
+
+    # The market stage already respected the supported-energy limit; on the
+    # coarser grid-stage snapshots it would only risk infeasibility.
+    support = (self.args.get("extra_functionality") or {}).get(
+        "biogas_sh_support"
+    )
+    if isinstance(support, dict):
+        support["onsite_fixed_in_grid_stage"] = True
+
+    logger.info(
+        "Biogas.SH onsite electricity fixed to market dispatch "
+        "(%d generators).",
+        len(gens_fixed),
     )
 
 
