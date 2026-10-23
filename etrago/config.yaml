@@ -1114,6 +1114,24 @@ technical:
         cop: 2.86  # provisional: same as GWP 1, no separate public COP found
         planned_year: null
 
+    # Förde-water heat pumps limited by the source temperature (sensitivity,
+    # off by default). SWFL: the heat pumps cannot run below about 4 degC.
+    # Daily water temperature 2010-2023 at 4.7 m depth, model cell
+    # 54.84 N 9.49 E (5.9 km from the plant), from the Copernicus Marine
+    # Baltic Sea Physics Reanalysis (BALTICSEA_MULTIYEAR_PHY_003_011),
+    # fetched with tools/fetch_forde_water_temperature.py. 2011, the eGon
+    # weather year, has 123 days below 4 degC (median 2010-2023: ~95).
+    # p_max_pu is 0 below off_below_c and 1 from full_output_from_c, linear
+    # in between starting at output_share_at_off_c; equal values give a
+    # hard cut-off. Applies to all active units; the COP stays constant.
+    heat_pump_source_temperature:
+      active: false
+      csv_path: "data/forde_water_temp_2010_2023_5m.csv"
+      year: 2011
+      off_below_c: 4.0
+      full_output_from_c: 4.0
+      output_share_at_off_c: 0.0
+
 
     # -------------------------------------------------------------------------
     # Optional reserve heating plant

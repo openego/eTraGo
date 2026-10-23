@@ -723,6 +723,16 @@ def apply_swfl_real_system(
             heat_bus=swfl_heat_bus,
         )
 
+        source_cfg = settings.get("heat_pump_source_temperature", {}) or {}
+
+        if _as_bool(source_cfg.get("active", False), False):
+
+            apply_heat_pump_source_temperature(
+                network=network,
+                cfg=source_cfg,
+                units=hp_cfg.get("active_units") or [],
+            )
+
 
     # ==================================================================
     # 13. SUMMARY
@@ -3611,6 +3621,82 @@ def add_future_heat_pumps(
                 network.links.loc[name, column] = value
             except Exception:
                 pass
+
+
+def apply_heat_pump_source_temperature(
+    network,
+    cfg: Dict[str, Any],
+    units: Sequence[str],
+) -> None:
+    """
+    Limit the Förde-water heat pumps by the daily source temperature.
+
+    p_max_pu of each unit is 0 below off_below_c, 1 from full_output_from_c
+    and linear in between, starting at output_share_at_off_c. With
+    full_output_from_c equal to off_below_c this is a hard cut-off. The
+    daily temperatures of `year` are mapped to the snapshots by month and
+    day. The COP stays constant.
+    """
+
+    path = Path(str(cfg["csv_path"]))
+    if not path.is_absolute():
+        path = Path(__file__).resolve().parents[1] / path
+
+    column = str(cfg.get("column", "water_temp_c"))
+    year = int(cfg.get("year", 2011))
+    off = float(cfg["off_below_c"])
+    full = float(cfg.get("full_output_from_c", off))
+    share_at_off = float(cfg.get("output_share_at_off_c", 0.0))
+
+    if full < off or not 0.0 <= share_at_off <= 1.0:
+        raise ValueError(
+            "heat_pump_source_temperature needs full_output_from_c >= "
+            "off_below_c and output_share_at_off_c in [0, 1]."
+        )
+
+    temp = pd.read_csv(path, index_col=0, parse_dates=True)[column]
+    temp = temp[temp.index.year == year]
+
+    if temp.empty:
+        raise ValueError(
+            f"heat_pump_source_temperature: no {year} data in {path}."
+        )
+
+    by_day = pd.Series(temp.values, index=temp.index.strftime("%m-%d"))
+    snapshots = network.snapshots
+    if isinstance(snapshots, pd.MultiIndex):
+        snapshots = snapshots.get_level_values(-1)
+    days = pd.DatetimeIndex(snapshots).strftime("%m-%d")
+    t = by_day.reindex(days).to_numpy()
+
+    if np.isnan(t).any():
+        raise ValueError(
+            "heat_pump_source_temperature: missing temperatures for "
+            f"{int(np.isnan(t).sum())} snapshots."
+        )
+
+    if full > off:
+        ramp = share_at_off + (1.0 - share_at_off) * (t - off) / (full - off)
+        pu = np.where(t < off, 0.0, np.clip(ramp, 0.0, 1.0))
+    else:
+        pu = np.where(t < off, 0.0, 1.0)
+
+    applied = []
+    for name in units:
+        if name not in network.links.index:
+            continue
+        network.links_t.p_max_pu[name] = pd.Series(
+            pu * float(network.links.at[name, "p_max_pu"]),
+            index=network.snapshots,
+        )
+        applied.append(name)
+
+    print(
+        f"HEAT-PUMP SOURCE TEMPERATURE: {year} Förde water, off below "
+        f"{off:g} °C, full output from {full:g} °C; "
+        f"{int((pu < 1.0).sum())} of {len(pu)} snapshots limited, "
+        f"mean availability {pu.mean():.2f} for {applied or 'no unit'}."
+    )
 
 
 def validate_swfl_heat_pumps(

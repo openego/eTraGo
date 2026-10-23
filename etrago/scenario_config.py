@@ -3469,6 +3469,14 @@ def apply_config_to_args(
     )
 
 
+    source_temp_cfg = technical_swfl.get("heat_pump_source_temperature") or {}
+
+    swfl["heat_pump_source_temperature"] = {
+        "active": bool(source_temp_cfg.get("active", False)),
+        **{k: v for k, v in source_temp_cfg.items() if k != "active"},
+    }
+
+
     # =====================================================================
     # 10a. OPTIONAL EXTENDABLE HEAT STORE AT THE SWFL HEAT BUS (off by
     # default; see technical.swfl.heat_store in config.yaml)
