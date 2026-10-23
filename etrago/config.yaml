@@ -976,9 +976,12 @@ technical:
       # bound the lossless store becomes an unrealistic seasonal store.
       e_nom_max_mwh: 130.0
       capital_cost_eur_per_mwh: 9.097466
-      charger_efficiency: 0.84
-      discharger_efficiency: 0.84
-      standing_loss_per_hour: 0.0
+      # Lossless charge/discharge with the tank loss as standing loss
+      # (~1 %/day). With 0.84/0.84 the store could destroy heat by charging
+      # and discharging at once, which the grid stage used as a heat dump.
+      charger_efficiency: 1.0
+      discharger_efficiency: 1.0
+      standing_loss_per_hour: 0.0004
 
 
     # -------------------------------------------------------------------------
