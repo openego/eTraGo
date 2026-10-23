@@ -3491,13 +3491,20 @@ def apply_config_to_args(
 
     if swfl["heat_store"]["active"]:
 
-        print(
-            "SWFL HEAT STORE: extendable store at the SWFL heat bus "
-            f"(capital cost "
-            f"{heat_store_cfg.get('capital_cost_eur_per_mwh', 9.097466)} "
-            "EUR/MWh, max "
-            f"{heat_store_cfg.get('e_nom_max_mwh')} MWh)."
-        )
+        if heat_store_cfg.get("extendable", True):
+            print(
+                "SWFL HEAT STORE: extendable store at the SWFL heat bus "
+                f"(capital cost "
+                f"{heat_store_cfg.get('capital_cost_eur_per_mwh', 9.097466)} "
+                "EUR/MWh, max "
+                f"{heat_store_cfg.get('e_nom_max_mwh')} MWh)."
+            )
+        else:
+            print(
+                "SWFL HEAT STORE: fixed store of "
+                f"{heat_store_cfg.get('e_nom_mwh', 0.0)} MWh at the SWFL "
+                "heat bus."
+            )
 
 
     # =====================================================================

@@ -970,11 +970,13 @@ technical:
     #
     heat_store:
       active: true
-      extendable: true
-      e_nom_mwh: 0.0
-      # SWFL's planned decentralised storage (45 + 60 + 25 MWh). Without a
-      # bound the lossless store becomes an unrealistic seasonal store.
-      e_nom_max_mwh: 130.0
+      # The two existing tanks at the plant (29 + 28 million litres, SWFL
+      # Transformationsplan): ~57,000 m3 x 1.163 kWh/(m3 K) x ~38 K usable
+      # spread = ~2,500 MWh. Fixed, as they already exist. A planned third
+      # tank (2031-2035) would give ~3,800 MWh (sensitivity).
+      extendable: false
+      e_nom_mwh: 2500.0
+      e_nom_max_mwh: null
       capital_cost_eur_per_mwh: 9.097466
       # Lossless charge/discharge with the tank loss as standing loss
       # (~1 %/day). With 0.84/0.84 the store could destroy heat by charging
