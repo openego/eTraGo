@@ -34,6 +34,10 @@ logger = logging.getLogger(__name__)
 if "READTHEDOCS" not in os.environ:
 
     from etrago.execute import optimize_with_rolling_horizon
+    from etrago.execute.grid_optimization import (
+        add_redispatch_generators,
+        fix_chp_generation,
+    )
     from etrago.tools.constraints import Constraints
 
 
@@ -167,6 +171,20 @@ def dispatch_disaggregation(self):
 
         n.storage_units.cyclic_state_of_charge = False
         n.stores.e_cyclic = False
+
+        # Apply the same market-based fixing and redispatch components as in
+        # the grid optimization, using the market results in full resolution
+        if self.args["method"]["market_optimization"]["active"]:
+            fix_chp_generation(self, network=n)
+            if self.args["method"]["market_optimization"]["redispatch"]:
+                add_redispatch_generators(
+                    self,
+                    factor_redispatch_cost=1,
+                    management_cost=0,
+                    time_depended_cost=True,
+                    fre_mangement_fee=0,
+                    network=n,
+                )
 
         n = optimize_with_rolling_horizon(
             n,

@@ -34,6 +34,7 @@ if "READTHEDOCS" not in os.environ:
     import numpy as np
     import pandas as pd
 
+    from etrago.execute.grid_optimization import merge_redispatch_components
     from etrago.tools.constraints import (
         Constraints,
         _get_crossborder_components,
@@ -435,6 +436,12 @@ def optimize_with_rolling_horizon(
     # Make sure that quadratic costs as zero and not NaN
     n.links.marginal_cost_quadratic = 0.0
 
+    # Keep the original SoC limits of the stores. The targets of the seasonal
+    # stores are only valid for the horizon they are set for, the limits are
+    # therefore reset before each horizon and after the last one.
+    e_min_pu_orig = n.stores_t.e_min_pu.copy()
+    e_max_pu_orig = n.stores_t.e_max_pu.copy()
+
     starting_points = range(0, len(snapshots), horizon - overlap)
     for i, start in enumerate(starting_points):
         end = min(len(snapshots), start + horizon)
@@ -485,30 +492,28 @@ def optimize_with_rolling_horizon(
                 snapshots[start - 1], seasonal_stores
             ]
 
+            # Remove targets of previous horizons
+            n.stores_t.e_min_pu = e_min_pu_orig.copy()
+            n.stores_t.e_max_pu = e_max_pu_orig.copy()
+
             # Set e at the end of the horizon
             # by setting e_max_pu and e_min_pu
-            n.stores_t.e_max_pu.loc[
-                snapshots[end - 1], seasonal_stores
-            ] = pre_market.stores_t.e.loc[
-                snapshots[end - 1], seasonal_stores
-            ].div(
-                pre_market.stores.e_nom_opt[seasonal_stores]
-            ).clip(
-                lower=0.0
-            ) * (
-                1 + 1e-6
+            target_e = (
+                pre_market.stores_t.e.loc[snapshots[end - 1], seasonal_stores]
+                .div(pre_market.stores.e_nom_opt[seasonal_stores])
+                .clip(lower=0.0)
             )
-            n.stores_t.e_min_pu.loc[
-                snapshots[end - 1], seasonal_stores
-            ] = pre_market.stores_t.e.loc[
-                snapshots[end - 1], seasonal_stores
-            ].div(
-                pre_market.stores.e_nom_opt[seasonal_stores]
-            ).clip(
-                lower=0.0
-            ) * (
-                1 - 1e-6
+            n.stores_t.e_min_pu.loc[snapshots[end - 1], seasonal_stores] = (
+                target_e * (1 - 1e-6)
             )
+            # In the temporal disaggregation the targets are interpolated from
+            # the results with reduced temporal resolution and can not be met
+            # exactly. Only a minimum state of charge is set to avoid
+            # infeasibilities.
+            if not temporal_disaggregation:
+                n.stores_t.e_max_pu.loc[
+                    snapshots[end - 1], seasonal_stores
+                ] = target_e * (1 + 1e-6)
             n.stores_t.e_min_pu.fillna(0.0, inplace=True)
             n.stores_t.e_max_pu.fillna(1.0, inplace=True)
 
@@ -593,6 +598,9 @@ def optimize_with_rolling_horizon(
                 extra_functionality=extra_functionality,
                 formulation=args["model_formulation"],
             )
+
+    n.stores_t.e_min_pu = e_min_pu_orig
+    n.stores_t.e_max_pu = e_max_pu_orig
 
     return n
 
@@ -735,7 +743,10 @@ def import_gen_from_links(network, drop_small_capacities=True):
     df = pd.DataFrame()
     df["p_nom"] = gas_to_add.groupby(["bus", "carrier"]).p_nom.sum()
     df["p_nom_opt"] = gas_to_add.groupby(["bus", "carrier"]).p_nom_opt.sum()
-    df["p_nom_max"] = gas_to_add.groupby(["bus", "carrier"]).p_nom_max.sum()
+    # groupby().sum() returns NaN when more than one value is infinite
+    df["p_nom_max"] = gas_to_add.groupby(["bus", "carrier"]).p_nom_max.apply(
+        lambda x: x.to_numpy().sum()
+    )
     df["p_nom_min"] = gas_to_add.groupby(["bus", "carrier"]).p_nom_min.sum()
     df["p_nom_extendable"] = gas_to_add.groupby(
         ["bus", "carrier"]
@@ -929,8 +940,17 @@ def pf_post_lopf(etrago, calc_losses=False):
         return foreign_bus, foreign_comp, foreign_series
 
     x = time.time()
-    network = etrago.network
     args = etrago.args
+
+    # Merge redispatch components into their original components, each power
+    # plant is represented by one component in the power flow. The network
+    # including the separate redispatch time series is kept for the results.
+    merged_network = merge_redispatch_components(etrago.network)
+    if merged_network is not etrago.network:
+        etrago.network_redispatch = etrago.network
+        etrago.network = merged_network
+
+    network = etrago.network
 
     network.lines.s_nom = network.lines.s_nom_opt
     network.links.loc[network.links.p_nom_extendable, "p_nom"] = (

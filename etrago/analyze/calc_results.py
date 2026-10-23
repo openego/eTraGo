@@ -43,6 +43,24 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, ClaraBuettner, KathiEsterl"
 
 
+def _network_with_redispatch(self):
+    """Returns the network including separate redispatch components
+
+    If the redispatch components were merged into their original components
+    for the non-linear power flow, the network from before is used. Otherwise
+    the redispatch components are still part of self.network.
+
+    Returns
+    -------
+    pypsa.Network
+        Network including redispatch components, if they were considered
+
+    """
+    if not self.network_redispatch.buses.empty:
+        return self.network_redispatch
+    return self.network
+
+
 def _calc_storage_expansion(self):
     """Function that calulates storage expansion in MW
 
@@ -265,7 +283,7 @@ def calc_marginal_cost(self):
         Annual marginal cost in EUR
 
     """
-    network = self.network
+    network = _network_with_redispatch(self)
     gen = (
         network.generators_t.p.mul(
             network.snapshot_weightings.objective, axis=0
@@ -1006,10 +1024,10 @@ def calc_etrago_results(self):
             _calc_network_expansion(self)[1].sum() / ext_dc_lines.p_nom.sum()
         )
 
+    network = _network_with_redispatch(self)
     if not network.generators[
         network.generators.index.str.contains("ramp")
     ].empty:
-        network = self.network
         gen_idx = network.generators[
             network.generators.index.str.contains("ramp")
         ].index
