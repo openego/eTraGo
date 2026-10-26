@@ -80,6 +80,10 @@ def grid_optimization(
     ):
         fix_market_storage_investments(self)
 
+    if self.args["method"]["market_optimization"].get(
+        "fix_h2_conversion_investments_in_grid", False
+    ):
+        fix_market_conversion_investments(self)
 
     fix_chp_generation(self)
 
@@ -290,6 +294,11 @@ STORE_LINK_CARRIERS = [
     "rural_heat_store_charger",
     "rural_heat_store_discharger",
 ]
+CONVERSION_LINK_CARRIERS = [
+    "H2_to_power",
+    "H2_to_CH4",
+    "CH4_to_H2",
+]
 
 
 def _market_bus(self, buses):
@@ -400,6 +409,39 @@ def fix_market_storage_investments(self):
             "GWh" if cap == "e_nom" else "GW",
             unmatched,
         )
+
+
+def fix_market_conversion_investments(self):
+    """Carry the market investment in gas/H2 conversion links (H2_to_power,
+    H2_to_CH4, CH4_to_H2) into the grid model.
+
+    Without this, the grid optimisation decides these investments again
+    from zero, while the market model dispatched the pre-market capacity.
+    Capacities are distributed and fixed like the store links; dispatch
+    stays free.
+    """
+    if not hasattr(self, "market_busmap"):
+        logger.warning(
+            "No market busmap available, conversion links are not fixed."
+        )
+        return
+
+    n, total, unmatched = _fix_component(
+        self,
+        self.network.links,
+        self.market_model.links,
+        CONVERSION_LINK_CARRIERS,
+        "p_nom",
+        ["bus0", "bus1"],
+    )
+    logger.info(
+        "Fixed %s gas/H2 conversion links to the market investment "
+        "(%.2f GW in total); %s groups without market counterpart stay "
+        "extendable.",
+        n,
+        total / 1e3,
+        unmatched,
+    )
 
 
 def add_redispatch_generators(

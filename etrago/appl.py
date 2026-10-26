@@ -71,6 +71,9 @@ args = {
             "snapshot_step": 5,  #1 for hourly resolution; e.g. 5 keeps every fifth snapshot
             "redispatch": True,
             "fix_electrolyzer_investments_in_grid": False,
+            # Gas/H2 conversion links (H2_to_power, H2_to_CH4, CH4_to_H2)
+            # keep the market investment in the grid optimisation as well
+            "fix_h2_conversion_investments_in_grid": True,
         },
         "distribution_grids": False,  # False or path to file with edisgo results
     },

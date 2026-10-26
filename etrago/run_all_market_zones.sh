@@ -52,6 +52,13 @@ AC_CLUSTERS="150"
 FOCUS_CLUSTERS="100"
 SNAPSHOTS="10"
 
+# Optional overrides from the command line, e.g.
+#   RUN_ZONES="DE3" RUN_SNAPSHOTS=48 ./run_all_market_zones.sh
+if [ -n "${RUN_ZONES:-}" ]; then
+    read -ra ZONES <<< "$RUN_ZONES"
+fi
+SNAPSHOTS="${RUN_SNAPSHOTS:-$SNAPSHOTS}"
+
 # Transfer capacity between bidding zones in the market model
 # LINE_LIMITS: "true"  = hourly limits of the underlying lines (branch
 #                        capacity factor + dynamic line rating)
@@ -60,6 +67,10 @@ SNAPSHOTS="10"
 #              (1.0 = off, e.g. 0.7 = 70 % of the line limit tradable)
 LINE_LIMITS="true"
 CAPACITY_FACTOR="0.7"
+
+# H2_to_power, H2_to_CH4 and CH4_to_H2 keep the market investment in the
+# grid optimisation ("false" = the grid stage decides them again)
+FIX_H2_CONVERSION="true"
 
 # Preserve the original configuration
 CONFIG_BACKUP="$(mktemp)"
@@ -99,6 +110,7 @@ for ZONE in "${ZONES[@]}"; do
     SNAPSHOTS="$SNAPSHOTS" \
     LINE_LIMITS="$LINE_LIMITS" \
     CAPACITY_FACTOR="$CAPACITY_FACTOR" \
+    FIX_H2_CONVERSION="$FIX_H2_CONVERSION" \
     CONFIG="$CONFIG" \
     python - <<'PY'
 import json
@@ -153,6 +165,11 @@ except ValueError:
 if not 0.0 < capacity_factor <= 1.0:
     raise SystemExit(f"ERROR: CAPACITY_FACTOR must be in (0, 1], found {capacity_factor}.")
 market["interzonal_capacity_factor"] = capacity_factor
+
+fix_conversion = os.environ["FIX_H2_CONVERSION"].strip().lower()
+if fix_conversion not in ("true", "false"):
+    raise SystemExit(f"ERROR: FIX_H2_CONVERSION must be true or false, found {fix_conversion!r}.")
+market["fix_h2_conversion_investments_in_grid"] = fix_conversion == "true"
 
 args["start_snapshot"] = 1
 args["end_snapshot"] = int(os.environ["SNAPSHOTS"])
@@ -251,6 +268,7 @@ print("  snapshots:", args["start_snapshot"], "-", args["end_snapshot"])
 print("  snapshot_step:", market["snapshot_step"])
 print("  interzonal_line_limits:", market["interzonal_line_limits"])
 print("  interzonal_capacity_factor:", market["interzonal_capacity_factor"])
+print("  fix_h2_conversion_investments_in_grid:", market["fix_h2_conversion_investments_in_grid"])
 print("  skip_snapshots:", args["skip_snapshots"])
 print("  focus districts:", len(focus_region))
 print("  cluster_within_focus:", cluster_within_focus)
