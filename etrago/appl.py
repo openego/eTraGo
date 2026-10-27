@@ -643,10 +643,6 @@ def run_etrago(args, json_path):
         path = args["csv_export"] + "/03-mit-dc-results"
         etrago.export_to_csv(path)
         
-    # manual fixes due to transformers bad electrical parameters
-    etrago.network.transformers.x = 0.00005
-    etrago.network.transformers.r = 0.0001
-        
     # conduct power flow
     etrago.power_flow()
     
