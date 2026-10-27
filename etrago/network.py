@@ -610,8 +610,6 @@ def import_egon_results_network(etrago, path):
     etrago.network = ego
     network = etrago.network
     
-    import pdb; pdb.set_trace()
-    
     # Remove DC links within DE 
     # anyhow no components attached
     buses_to_remove = ["13824", "13665", "13478", "12770"]
@@ -738,8 +736,6 @@ def import_dc_links_results(etrago, path):
         .ffill()
         .reindex(target_snapshots)
     )
-    
-    import pdb; pdb.set_trace()
     
     # DC links in the etrago network
     dc_links = etrago.network.links[etrago.network.links.carrier == "DC"].copy()
