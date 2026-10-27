@@ -646,7 +646,7 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
         # k-mean clustering
         busmap = busmap_by_kmeans(
             selected_network,
-            bus_weightings=pd.Series(weight),
+            bus_weightings=pd.Series(weight).apply(np.ceil),
             n_clusters=n_clusters,
             n_init=kmean_settings["method"]["n_init"],
             max_iter=kmean_settings["method"]["max_iter"],
@@ -781,9 +781,7 @@ def kmedoids_dijkstra_clustering(
 
         bus_weightings = pd.Series(weight)
         buses_i = buses.index
-        points = buses.loc[buses_i, ["x", "y"]].values.repeat(
-            bus_weightings.reindex(buses_i).astype(int), axis=0
-        )
+        points = buses.loc[buses_i, ["x", "y"]].values
 
         kmeans = KMeans(
             init="k-means++",
@@ -793,7 +791,10 @@ def kmedoids_dijkstra_clustering(
             tol=settings["method"]["tol"],
             random_state=settings["method"]["random_state"],
         )
-        kmeans.fit(points)
+        kmeans.fit(
+            points,
+            sample_weight=bus_weightings.reindex(buses_i).fillna(0).values,
+        )
 
         busmap = pd.Series(
             data=kmeans.predict(buses.loc[buses_i, ["x", "y"]].values),
@@ -990,8 +991,7 @@ def focus_weighting(
     Returns
     -------
     pandas.Series
-        Modified bus weighting indexed by bus name. The values are rounded
-        up using `np.ceil`.
+        Modified bus weighting indexed by bus name (float values).
     """
 
     # prepare focus region gdf
@@ -1144,8 +1144,9 @@ def focus_weighting(
         factor = 1 / (1 + (dist / sigma) ** 2)
 
     # apply to normal weighting (based on generation capacities and loads)
+    # keep float values: rounding up would lift most decayed weights to 1
+    # and flatten the distance decay
     weight = weight * factor
-    weight = weight.apply(np.ceil)
 
     if cluster_within is False:
         weight.loc[inside.index] = 100000

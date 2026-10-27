@@ -274,7 +274,7 @@ def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
 
     busmap = busmap_by_kmeans(
         network_ch4,
-        bus_weightings=weight,
+        bus_weightings=weight.apply(np.ceil),
         n_clusters=n_clusters,
         n_init=settings["n_init"],
         max_iter=settings["max_iter"],
