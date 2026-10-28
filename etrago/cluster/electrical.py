@@ -1190,12 +1190,19 @@ def _snapshot_focus_region(etrago, focus_region):
     boundary_buses : pd.Index
     focus_trafos : pd.DataFrame
     focus_trafos_t : dict
-    focus_cross_pairs : dict of (bus0, bus1) tuples -> (x_pu, r_pu)
-        Per-unit impedances on a 1 MVA base of the original cross-boundary
-        lines (parallel lines combined).
+    focus_cross_lines : pd.DataFrame
+        Original cross-boundary lines (not 380 kV at both ends) with the
+        extra columns ``outside_bus`` and ``v_nom_orig`` (voltage of the
+        inside end).
     """
     if not focus_region:
-        return pd.Index([]), pd.Index([]), pd.DataFrame(), {}, set()
+        return (
+            pd.Index([]),
+            pd.Index([]),
+            pd.DataFrame(),
+            {},
+            pd.DataFrame(),
+        )
 
     inside_buses, boundary_buses = get_focus_region_buses(
         etrago,
@@ -1229,10 +1236,10 @@ def _snapshot_focus_region(etrago, focus_region):
         if not cols.empty:
             focus_trafos_t[attr] = t_df[cols].copy()
 
-    # Cross-boundary lines that must become transformers after clustering.
-    # Identified now, before preprocessing changes bus v_nom values, so their
-    # per-unit impedances (1 MVA base) can be taken from the original voltage.
-    focus_cross_pairs = {}
+    # Cross-boundary lines that are not 380 kV at both ends. Saved now, before
+    # preprocessing rescales them to 380 kV, so they can be re-inserted with
+    # their original parameters after clustering.
+    focus_cross_lines = pd.DataFrame()
     _cb = etrago.network.lines[
         etrago.network.lines.bus0.isin(focus_buses_set)
         ^ etrago.network.lines.bus1.isin(focus_buses_set)
@@ -1242,29 +1249,29 @@ def _snapshot_focus_region(etrago, focus_region):
             _cb.bus0.map(etrago.network.buses.v_nom).eq(380.0)
             & _cb.bus1.map(etrago.network.buses.v_nom).eq(380.0)
         )
-        _cross = _cb[~_both_380]
-        _v_nom = _cross.bus0.map(etrago.network.buses.v_nom)
-        # parallel lines between the same pair: admittances add up
-        _pu = pd.DataFrame(
-            {
-                "pair": [
-                    (min(a, b), max(a, b))
-                    for a, b in zip(_cross.bus0, _cross.bus1)
-                ],
-                "y": (_v_nom**2 / _cross.x).values,
-                "g": (_v_nom**2 / _cross.r).values,
-            }
-        ).groupby("pair").sum()
-        focus_cross_pairs = {
-            pair: (1 / row.y, 1 / row.g) for pair, row in _pu.iterrows()
-        }
-        if focus_cross_pairs:
+        focus_cross_lines = _cb[~_both_380].copy()
+        _inside0 = focus_cross_lines.bus0.isin(focus_buses_set)
+        focus_cross_lines["outside_bus"] = focus_cross_lines.bus1.where(
+            _inside0, focus_cross_lines.bus0
+        )
+        focus_cross_lines["v_nom_orig"] = (
+            focus_cross_lines.bus0.where(_inside0, focus_cross_lines.bus1)
+            .map(etrago.network.buses.v_nom)
+        )
+        if not focus_cross_lines.empty:
             logger.info(
-                f"Focus region: {len(focus_cross_pairs)} cross-boundary "
-                f"line(s) will be converted to transformers after clustering."
+                f"Focus region: {len(focus_cross_lines)} cross-boundary "
+                f"line(s) will get a voltage-adapting transformer after "
+                f"clustering."
             )
 
-    return inside_buses, boundary_buses, focus_trafos, focus_trafos_t, focus_cross_pairs
+    return (
+        inside_buses,
+        boundary_buses,
+        focus_trafos,
+        focus_trafos_t,
+        focus_cross_lines,
+    )
 
 
 def _record_t_line_pairs(network, preserved_set):
@@ -1408,53 +1415,98 @@ def _restore_transformers(
     network.determine_network_topology()
 
 
-def _convert_cross_boundary_lines(network, focus_cross_pairs):
-    """Replace cross-boundary lines with Transformer objects.
+def _add_cross_boundary_transformers(network, focus_cross_lines):
+    """Re-insert cross-boundary lines at their original voltage and add a
+    voltage-adapting transformer at each boundary bus.
 
-    Cross-boundary lines connect inside (non-380 kV) buses to outside buses
-    that preprocessing normalised to 380 kV.  Keeping them as plain lines
-    would create voltage-inconsistent connections.  We convert each one to
-    a transformer with the per-unit impedance of the original line(s).
-    PyPSA expects transformer x and r on the s_nom base, hence the
-    multiplication with s_nom.
+    Preprocessing sets boundary buses to 380 kV while inside buses keep their
+    original voltage. For every boundary bus and voltage level an auxiliary
+    bus at the same location and original voltage is added. The original
+    lines are connected to it, and a near-ideal transformer links it to the
+    380 kV boundary bus. The transformer reactance is 1 % of the smallest
+    per-unit reactance of the attached lines, so it hardly changes the flows.
     """
-    cb_to_remove = []
-    cb_trafos = {}
-    for lid, r in network.lines.iterrows():
-        pair = (min(r.bus0, r.bus1), max(r.bus0, r.bus1))
-        if pair not in focus_cross_pairs:
-            continue
-        cb_to_remove.append(lid)
-        x_pu, r_pu = focus_cross_pairs[pair]
-        bus0_v = network.buses.at[r.bus0, "v_nom"]
-        bus1_v = network.buses.at[r.bus1, "v_nom"]
-        lv_bus = r.bus0 if bus0_v <= bus1_v else r.bus1
-        hv_bus = r.bus1 if bus0_v <= bus1_v else r.bus0
-        cb_trafos[f"CB_{lid}"] = {
-            "bus0": lv_bus,
-            "bus1": hv_bus,
-            "x": x_pu * float(r.s_nom),
-            "r": r_pu * float(r.s_nom),
-            "s_nom": float(r.s_nom),
-            "s_nom_extendable": bool(r.s_nom_extendable),
-            "s_max_pu": float(r.s_max_pu),
-            "capital_cost": float(r.capital_cost),
-            "lifetime": float(r.lifetime),
-            "sub_network": "",
-        }
-    if cb_to_remove:
-        network.mremove("Line", cb_to_remove)
-    if cb_trafos:
-        io.import_components_from_dataframe(
-            network,
-            pd.DataFrame.from_dict(cb_trafos, orient="index"),
-            "Transformer",
-        )
-        network.determine_network_topology()
-        logger.info(
-            f"Focus region: converted {len(cb_trafos)} cross-boundary "
-            f"line(s) to transformers."
-        )
+    if focus_cross_lines.empty:
+        return
+
+    pairs = {
+        (min(a, b), max(a, b))
+        for a, b in zip(focus_cross_lines.bus0, focus_cross_lines.bus1)
+    }
+    clustered = [
+        lid
+        for lid, r in network.lines.iterrows()
+        if (min(r.bus0, r.bus1), max(r.bus0, r.bus1)) in pairs
+    ]
+    network.mremove("Line", clustered)
+
+    lines = focus_cross_lines.copy()
+    # One auxiliary bus per boundary bus and voltage level. Numeric IDs,
+    # because bus IDs are cast to int elsewhere (e.g. adjust_PtH2_model).
+    key = lines.outside_bus + "_" + lines.v_nom_orig.astype(str)
+    first_id = network.buses.index.astype(int).max() + 1
+    aux_ids = {k: str(first_id + i) for i, k in enumerate(key.unique())}
+    lines["aux_bus"] = key.map(aux_ids)
+
+    aux_buses = (
+        lines.drop_duplicates("aux_bus")
+        .set_index("aux_bus")
+        .outside_bus.to_frame()
+    )
+    aux_buses = network.buses.loc[aux_buses.outside_bus].set_index(
+        aux_buses.index
+    )
+    aux_buses["v_nom"] = lines.groupby("aux_bus").v_nom_orig.first()
+    aux_buses["sub_network"] = ""
+    io.import_components_from_dataframe(network, aux_buses, "Bus")
+
+    lines["x_pu"] = lines.x / lines.v_nom_orig**2
+    trafos = lines.groupby("aux_bus").agg(
+        bus1=("outside_bus", "first"),
+        s_nom=("s_nom", "sum"),
+        x_pu_min=("x_pu", "min"),
+    )
+    trafos = pd.DataFrame(
+        {
+            "bus0": trafos.index.values,
+            "bus1": trafos.bus1.values,
+            "x": (0.01 * trafos.x_pu_min * trafos.s_nom).values,
+            "r": 0.0,
+            "s_nom": trafos.s_nom.values,
+            "s_nom_extendable": False,
+            "capital_cost": 0.0,
+        },
+        index="CBT_" + trafos.index,
+    )
+    io.import_components_from_dataframe(network, trafos, "Transformer")
+
+    for end in ["bus0", "bus1"]:
+        to_aux = lines[end] == lines.outside_bus
+        lines.loc[to_aux, end] = lines.loc[to_aux, "aux_bus"]
+    lines = lines.drop(
+        columns=[
+            "outside_bus",
+            "v_nom_orig",
+            "aux_bus",
+            "x_pu",
+            "sub_network",
+            "r_pu",
+            "g_pu",
+            "b_pu",
+            "x_pu_eff",
+            "r_pu_eff",
+        ],
+        errors="ignore",
+    )
+    lines.index = "CB_" + lines.index
+    io.import_components_from_dataframe(network, lines, "Line")
+
+    network.determine_network_topology()
+    logger.info(
+        f"Focus region: re-inserted {len(lines)} cross-boundary line(s) at "
+        f"original voltage and added {len(trafos)} voltage-adapting "
+        f"transformer(s)."
+    )
 
 
 def run_spatial_clustering(self):
@@ -1491,7 +1543,7 @@ def run_spatial_clustering(self):
             boundary_buses,
             focus_trafos,
             focus_trafos_t,
-            focus_cross_pairs,
+            focus_cross_lines,
         ) = _snapshot_focus_region(self, focus_region)
         preserved_set = set(inside_buses).union(boundary_buses)
 
@@ -1578,7 +1630,7 @@ def run_spatial_clustering(self):
             _restore_transformers(
                 self.network, focus_trafos, focus_trafos_t, focus_t_pairs, all_t_pairs
             )
-            _convert_cross_boundary_lines(self.network, focus_cross_pairs)
+            _add_cross_boundary_transformers(self.network, focus_cross_lines)
 
         self.buses_by_country()
         self.geolocation_buses()
