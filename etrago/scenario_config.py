@@ -377,6 +377,13 @@ def _apply_upgrading_accounting(
     accounting = technical_biogas.get("upgrading_accounting") or {}
 
     if not bool(accounting.get("active", False)):
+
+        if _digester_heat_settings(technical_biogas)["mode"] == "substrate_cost":
+            raise ScenarioConfigError(
+                "biogas_sh.digester_heat.mode 'substrate_cost' needs "
+                "upgrading_accounting to be active."
+            )
+
         return config, None
 
     cases = accounting.get("cases") or {}
@@ -413,8 +420,18 @@ def _apply_upgrading_accounting(
             "upgrading_accounting costs and energy must be non-negative."
         )
 
+    # Digester heat from extra substrate raises the cost of pooled raw gas.
+    digester = _digester_heat_settings(technical_biogas)
+    pooled_raw_cost = raw_cost + (
+        digester["substrate_cost_eur_per_mwh_hs"]
+        if digester["mode"] == "substrate_cost"
+        else 0.0
+    )
+
     # Biomethane cost per MWh_Hs of biomethane (before any CO2 credit).
-    biomethane_cost = raw_cost / efficiency + electricity + other + collection
+    biomethane_cost = (
+        pooled_raw_cost / efficiency + electricity + other + collection
+    )
 
     # CO2 at the actual project flow, per MWh of biomethane.
     co2 = accounting["co2"]
@@ -443,7 +460,9 @@ def _apply_upgrading_accounting(
         float(direct["connection_length_km"])
         / float(direct["reference_length_km"])
     )
-    direct_transport = direct_collection + connection
+    direct_transport = direct_collection + connection + (
+        pooled_raw_cost - raw_cost
+    )
 
     modified = copy.deepcopy(dict(config))
 
@@ -490,9 +509,40 @@ def _apply_upgrading_accounting(
         "direct_delivered_raw_biogas_cost_eur_per_mwh_hs": (
             raw_cost + direct_transport
         ),
+        "digester_heat_substrate_cost_eur_per_mwh_hs": (
+            pooled_raw_cost - raw_cost
+        ),
     }
 
     return modified, summary
+
+
+def _digester_heat_settings(technical_biogas: Mapping[str, Any]) -> dict:
+    """Validated technical.biogas_sh.digester_heat (mode "off" if absent)."""
+
+    cfg = technical_biogas.get("digester_heat") or {}
+    mode = str(cfg.get("mode", "off")).strip().lower()
+
+    if mode not in ("off", "gas_share", "substrate_cost"):
+        raise ScenarioConfigError(
+            "biogas_sh.digester_heat.mode must be 'off', 'gas_share' or "
+            f"'substrate_cost', got {mode!r}."
+        )
+
+    share = float(cfg.get("gas_share", 0.0))
+    cost = float(cfg.get("substrate_cost_eur_per_mwh_hs", 0.0))
+
+    if not 0.0 <= share < 1.0 or cost < 0.0:
+        raise ScenarioConfigError(
+            "biogas_sh.digester_heat needs 0 <= gas_share < 1 and "
+            "substrate_cost_eur_per_mwh_hs >= 0."
+        )
+
+    return {
+        "mode": mode,
+        "gas_share": share,
+        "substrate_cost_eur_per_mwh_hs": cost,
+    }
 
 
 def _sliding_premium_reference(
@@ -650,6 +700,22 @@ def _resolve_config_core(
             "heat_marginal_cost_eur_per_mwh"
         ]
     )
+
+    # Variable O&M of the onsite engines, on top of the fuel-equivalent cost.
+    onsite_om = float(
+        onsite.get(
+            "variable_om_eur_per_mwh_el",
+            0.0,
+        )
+    )
+
+    if onsite_om < 0:
+        raise ScenarioConfigError(
+            "price_cases.onsite.variable_om_eur_per_mwh_el must be "
+            "non-negative."
+        )
+
+    merchant_el_cost += onsite_om
 
     premium_mode = str(
         onsite.get(
@@ -1036,6 +1102,8 @@ def _resolve_config_core(
             "eeg_premium_eur_per_mwh": (
                 eeg_premium
             ),
+
+            "onsite_variable_om_eur_per_mwh_el": onsite_om,
 
             "eeg_premium_mode": premium_mode,
 
@@ -3027,6 +3095,16 @@ def apply_config_to_args(
         )
     )
 
+    # Fixed CHP costs per plant, for the report only (no effect on dispatch).
+    support_args[
+        "plant_economics"
+    ] = {
+        key: float(value)
+        for key, value in (
+            technical_biogas.get("plant_economics") or {}
+        ).items()
+    }
+
 
     # ---------------------------------------------------------------------
     # EEG support constraint
@@ -4474,6 +4552,22 @@ def apply_config_to_args(
             "eta_raw_swfl"
         ] = 1.0
 
+        # Digester heat of pooled gas: the routes that take gas away from
+        # the onsite CHP need more raw gas per MWh delivered.
+        digester = _digester_heat_settings(technical_biogas)
+
+        if digester["mode"] == "gas_share":
+
+            keep = 1.0 - digester["gas_share"]
+            resource["eta_upgrade"] *= keep
+            resource["eta_raw_swfl"] *= keep
+
+            print(
+                "DIGESTER HEAT: pooled routes need "
+                f"{1.0 / keep:.4f} MWh raw gas per MWh delivered "
+                f"(gas share {digester['gas_share']:.3f})."
+            )
+
         resource[
             "raw_swfl_generator_carrier"
         ] = str(
@@ -4610,15 +4704,34 @@ def apply_config_to_args(
         ]
     )
 
+    to_grid = storage[
+        "storage_to_public_grid"
+    ]
+
+    injection_cost = (
+        float(to_grid.get("connection_cost_eur_per_mwh", 0.0))
+        + float(to_grid.get("compression_electricity_mwh_per_mwh", 0.0))
+        * float(to_grid.get("compression_electricity_price_eur_per_mwh", 0.0))
+    )
+
+    if injection_cost < 0:
+        raise ScenarioConfigError(
+            "storage_to_public_grid injection costs must be non-negative."
+        )
+
     storage_args[
         "grid_link_marginal_cost"
     ] = float(
-        storage[
-            "storage_to_public_grid"
-        ][
+        to_grid[
             "marginal_cost_eur_per_mwh"
         ]
-    )
+    ) + injection_cost
+
+    if injection_cost > 0:
+        print(
+            "GRID INJECTION: connection and compression add "
+            f"{injection_cost:.2f} EUR/MWh to the biomethane -> grid link."
+        )
 
 
     # ---------------------------------------------------------------------

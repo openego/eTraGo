@@ -409,6 +409,14 @@ price_cases:
       # 75 / 0.45
       heat_marginal_cost_eur_per_mwh: 166.67
 
+      # Variable O&M of the onsite CHP engines, added to both electricity
+      # tranches (merchant and EEG-supported). Estimate from the project's
+      # agricultural advisers (Oct 2026): running costs 1.2-2 ct/kWh_el plus major
+      # service and overhaul of e.g. a Jenbacher 312 (550 kW: ~80 kEUR after
+      # 30-40k h, 130-150 kEUR after 60-70k h, ~8 EUR/MWh_el), together
+      # ~20-35 EUR/MWh_el; central value 25. 0 keeps the fuel-only cost.
+      variable_om_eur_per_mwh_el: 0.0
+
       # ----------------------------------------------------------------
       # Follow-on EEG market premium (Biomass Package 2025)
       # ----------------------------------------------------------------
@@ -1163,6 +1171,33 @@ technical:
     # heat demand or a burner efficiency, so no defensible deduction can be
     # calculated. To be confirmed with T+P whether 52.01 Mm3 is net or gross.
     #
+    # Digester heat when a plant's gas goes into the pool instead of its CHP:
+    # the CHP waste heat then no longer heats the digester.
+    #   mode "off":            no deduction (the 302.5 GWh are net gas)
+    #   mode "gas_share":      the pooled routes (raw gas to SWFL, upgrading)
+    #                          need 1 / (1 - gas_share) raw gas per MWh
+    #                          delivered; onsite CHP covers its own heat.
+    #   mode "substrate_cost": extra substrate instead of gas; adds
+    #                          substrate_cost per MWh of pooled raw gas
+    #                          (needs upgrading_accounting active).
+    # Advisers' example (Oct 2026): 600 kW plant, 30 % manure,
+    # ~550 t maize silage/a (~570 MWh_Hs, ~27 kEUR) for digester heat, i.e.
+    # gas_share ~0.045 or ~2 EUR per MWh of pooled gas. Per-plant values
+    # pending (farm accounts).
+    digester_heat:
+      mode: "off"
+      gas_share: 0.045
+      substrate_cost_eur_per_mwh_hs: 2.1
+
+    # Fixed annual CHP costs per plant that are avoided when a plant stops
+    # its CHP. Reported only (economics of the pool), no effect on dispatch.
+    # Values pending: consumables ~15 kEUR/a (check overlap with
+    # variable_om_eur_per_mwh_el), labour and permits not quantified yet.
+    plant_economics:
+      chp_labour_eur_per_plant_a: 0.0
+      chp_permits_eur_per_plant_a: 0.0
+      chp_consumables_eur_per_plant_a: 0.0
+
     # Onsite CHP is NOT removed globally: it stays in the EEG continuation
     # and flexibilisation scenarios. The route case tp_project_no_onsite
     # (see biogas_route_cases) is the T+P configuration without onsite CHP.
@@ -1646,6 +1681,14 @@ technical:
         efficiency: 1.0
 
         marginal_cost_eur_per_mwh: 0.0
+
+        # Injection into the high-pressure grid (Ellund): annualised
+        # connection cost per MWh injected and compressor electricity.
+        # System view: use the full technical cost, not only the share the
+        # connecting party pays. Values not known yet; 0 = not included.
+        connection_cost_eur_per_mwh: 0.0
+        compression_electricity_mwh_per_mwh: 0.0
+        compression_electricity_price_eur_per_mwh: 0.0
 
 
       # -----------------------------------------------------------------------

@@ -5184,17 +5184,13 @@ def _biogas_sh_resource(
             )
 
 
-    # Direct raw-biogas delivery currently has no conversion step.
-    if not np.isclose(
-        eta_raw_swfl,
-        1.0,
-        rtol=0.0,
-        atol=1.0e-9,
-    ):
+    # Direct raw-biogas delivery has no conversion step; values below 1.0
+    # only account for the digester heat of pooled gas (digester_heat).
+    if eta_raw_swfl > 1.0 + 1.0e-9:
 
         raise ValueError(
             "Biogas.SH direct raw-biogas -> SWFL route "
-            "must currently use eta_raw_swfl = 1.0. "
+            "needs eta_raw_swfl <= 1.0. "
             f"Received {eta_raw_swfl}."
         )
 
@@ -6379,17 +6375,12 @@ def _biogas_sh_resource_linopy(
             )
 
 
-    if not np.isclose(
-        eta_raw_swfl,
-        1.0,
-        rtol=0.0,
-        atol=1.0e-9,
-    ):
+    # No conversion before the SWFL fuel bus; values below 1.0 only account
+    # for the digester heat of pooled gas (biogas_sh.digester_heat).
+    if eta_raw_swfl > 1.0 + 1.0e-9:
 
         raise ValueError(
-            "Direct raw-biogas -> SWFL currently requires "
-            "eta_raw_swfl = 1.0 because no upgrading or "
-            "conversion occurs before the SWFL fuel bus. "
+            "Direct raw-biogas -> SWFL needs eta_raw_swfl <= 1.0. "
             f"Received {eta_raw_swfl}."
         )
 

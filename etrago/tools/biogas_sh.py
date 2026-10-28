@@ -5843,6 +5843,10 @@ def apply_biogas_sh_assets(
     ] = installed_el_capacity
 
     support_cfg[
+        "onsite_plants"
+    ] = added_el
+
+    support_cfg[
         "fleet_supported_hours_per_year"
     ] = fleet_supported_hours
 
