@@ -1553,7 +1553,19 @@ def run_spatial_clustering(self):
         # Add identity mappings so focus buses survive get_clustering_from_busmap
         # as individual 1-bus clusters.
         if len(inside_buses) > 0 or len(boundary_buses) > 0:
-            for bus in inside_buses.union(boundary_buses):
+            focus_buses = inside_buses.union(boundary_buses)
+
+            # Cluster labels are "0", "1", "2", ... and can be equal to the ID
+            # of a focus bus. Then the cluster and the focus bus would be
+            # merged. Give those clusters a new label that no bus uses.
+            new_label = self.network.buses.index.astype(int).max() + 1
+            for label in busmap.unique():
+                if label in focus_buses:
+                    busmap[busmap == label] = str(new_label)
+                    medoid_idx = medoid_idx.rename(index={int(label): new_label})
+                    new_label += 1
+
+            for bus in focus_buses:
                 busmap[str(bus)] = str(bus)
 
         clustering, busmap = postprocessing(
