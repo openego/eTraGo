@@ -297,42 +297,6 @@ def adjust_no_electric_network(
     return network, busmap
 
 
-def correct_transformer_line_costs(network, clustering):
-    """Remove the length scaling of transformer costs in clustered lines.
-
-    Transformers are converted into 1-km lines (prefix "T") that keep their
-    capital cost per MW. When such a line crosses clusters, PyPSA scales its
-    cost with new length / original length, i.e. with the full length of the
-    cluster line. Its share of the capacity-weighted cost is reset to the
-    unscaled transformer cost.
-    """
-    linemap = clustering.linemap
-    trafo = linemap.index[linemap.index.astype(str).str.startswith("T")]
-    if trafo.empty:
-        return
-
-    orig = network.lines
-    lines = clustering.network.lines
-    group_s_nom = orig.loc[linemap.index, "s_nom"].groupby(linemap).sum()
-    weight = orig.loc[trafo, "s_nom"] / group_s_nom[linemap[trafo]].values
-    new_length = lines.loc[linemap[trafo], "length"].values
-    excess = (
-        orig.loc[trafo, "capital_cost"]
-        * (new_length / orig.loc[trafo, "length"] - 1)
-        * weight
-    )
-    excess = excess.groupby(linemap[trafo]).sum()
-    lines.loc[excess.index, "capital_cost"] -= excess
-    logger.info(
-        "Capital cost of %s clustered lines corrected for %s transformers "
-        "(max. %.0f -> %.0f EUR/MW)",
-        len(excess),
-        len(trafo),
-        (lines.loc[excess.index, "capital_cost"] + excess).max(),
-        lines.loc[excess.index, "capital_cost"].max(),
-    )
-
-
 def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
     """
     Main function of the EHV-Clustering approach. Creates a new clustered
@@ -818,7 +782,6 @@ def preprocessing(etrago, apply_on="grid_model"):
                     "bus1",
                     "x",
                     "s_nom",
-                    "s_nom_min",
                     "capital_cost",
                     "sub_network",
                     "s_max_pu",
@@ -829,7 +792,7 @@ def preprocessing(etrago, apply_on="grid_model"):
             .assign(
                 x=network.transformers.x
                 * (380.0 / transformer_voltages.max(axis=1)) ** 2,
-                length=1,
+                length=0.001,
                 v_nom=380.0,
             )
             .set_index("T" + trafo_index),
@@ -997,8 +960,6 @@ def postprocessing(
             "line_length_factor"
         ],
     )
-
-    correct_transformer_line_costs(network, clustering)
 
     # drop timeseries for links which are non-existant in clustered net anymore
     for attr, df in clustering.network.links_t.items():
