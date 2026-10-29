@@ -3779,6 +3779,38 @@ def fixed_storage_unit_soc_at_the_end(n, sns):
     m.add_constraints(lhs, "=", rhs, name=f"{c}-energy_balance_end")
 
 
+def add_electrolyzer_location_constraints_linopy(n):
+    """
+    Keeps the capacity of each market group (electrolysers, and with them
+    H2-to-power links and H2 stores) at the market result while the grid
+    model chooses the nodes
+
+    sum(p_nom or e_nom of the group) = market capacity of the group
+    """
+    groups = getattr(n, "location_groups", None)
+    if not groups:
+        return
+
+    count = 0
+    for i, ((component, _), (names, target)) in enumerate(groups.items()):
+        attr = "e_nom" if component == "Store" else "p_nom"
+        var = n.model.variables[f"{component}-{attr}"]
+        names = var.indexes[f"{component}-ext"].intersection(names)
+        if names.empty:
+            continue
+        n.model.add_constraints(
+            var.loc[names].sum() == target,
+            name=f"location_{component}_{i}",
+        )
+        count += 1
+
+    logger.info(
+        "Added %s location constraints for electrolysers and the H2 loop "
+        "(market totals)",
+        count,
+    )
+
+
 def fixed_storage_unit_soc_at_horizon_end(self, n, sns):
     """
     Sets soc of seasonal storage units (reservoir) at the end of each horizon
@@ -3884,6 +3916,8 @@ class Constraints:
                     fixed_storage_unit_soc_at_horizon_end(
                         self, network, snapshots
                     )
+                if self.apply_on == "grid_model":
+                    add_electrolyzer_location_constraints_linopy(network)
                 add_chp_constraints_linopy(network, snapshots)
                 drop_small_rhs_linopy(network, snapshots)
                 drop_small_bounds_linopy(network, snapshots)

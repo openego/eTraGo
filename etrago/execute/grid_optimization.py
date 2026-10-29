@@ -257,6 +257,57 @@ def fix_market_electrolyzer_investments(self):
 
     old_grid_capacity = grid_links.loc[market_idx, "p_nom"].copy()
 
+    if self.args["method"]["market_optimization"].get(
+        "optimize_electrolyzer_location_in_grid", False
+    ):
+        # In the market model all electrolysers of one zone bus and one H2
+        # bus are equivalent, so their split between nodes is arbitrary.
+        # Keep only the total of each group (market zone, or market zone and
+        # H2 bus) and let the grid optimisation choose the nodes
+        # (constraint in tools/constraints.py).
+        market_args = self.args["method"]["market_optimization"]
+        group = market_links.loc[market_idx, "bus0"].astype(str)
+        if market_args.get("electrolyzer_location_group", "zone") == "zone_h2":
+            group = (
+                group
+                + "|"
+                + market_links.loc[market_idx, "bus1"]
+                .astype(str)
+                .str.replace(r"_zone.*$", "", regex=True)
+            )
+        groups = {
+            key: (list(idx), float(market_capacity[idx].sum()))
+            for key, idx in group.groupby(group).groups.items()
+        }
+        self.network.location_groups = {
+            ("Link", key): value for key, value in groups.items()
+        }
+        grid_links.loc[market_idx, "p_nom_extendable"] = True
+
+        # A linear model puts the whole group on the cheapest node, so the
+        # capacity per node is limited to a share of the group total (at
+        # least an even split, so small groups stay feasible).
+        max_share = market_args.get("electrolyzer_location_max_share", 1.0)
+        if max_share < 1.0:
+            for links, target in groups.values():
+                grid_links.loc[links, "p_nom_max"] = _cap_per_node(
+                    target,
+                    grid_links.loc[links, "p_nom_min"],
+                    grid_links.loc[links, "p_nom_max"],
+                    max_share,
+                )
+
+        logger.info(
+            "Electrolyzer locations are optimised in the grid model: "
+            "%s links in %s groups keep the market total of %.3f MW "
+            "(max. %.0f %% of a group per node).",
+            len(market_idx),
+            len(groups),
+            market_capacity.sum(),
+            100 * max_share,
+        )
+        return
+
     # Transfer the market investment decision.
     grid_links.loc[market_idx, "p_nom"] = market_capacity
 
@@ -301,6 +352,17 @@ CONVERSION_LINK_CARRIERS = [
 ]
 
 
+# With optimize_electrolyzer_location_in_grid these move with the
+# electrolysers: only their market total per group is kept.
+H2_LOOP_CARRIERS = ("H2_to_power", "H2_overground", "H2_underground")
+
+
+def _optimize_h2_location(self):
+    return self.args["method"]["market_optimization"].get(
+        "optimize_electrolyzer_location_in_grid", False
+    )
+
+
 def _market_bus(self, buses):
     """Map grid buses to market buses (shared H2 nodes may have been split
     into '<node>_zone<z>' copies in the market model; those are merged)."""
@@ -320,13 +382,43 @@ def _distribute(target, cap_min, cap_max):
     return cap_min + extra * weight / weight.sum()
 
 
-def _fix_component(self, grid_df, market_df, carriers, cap, keys):
+def _cap_per_node(target, cap_min, cap_max, max_share):
+    """Upper limit per node for a group whose total is kept at ``target``:
+    ``max_share`` of the total, raised to the lowest common level that still
+    lets the nodes (with their own maxima) reach the total."""
+    cap_min = cap_min.fillna(0.0)
+    cap_max = cap_max.fillna(np.inf)
+    level = max_share * target
+    for _ in range(len(cap_max)):
+        # nodes limited by their own maximum are full, the others share
+        # the rest equally
+        full = cap_max <= level
+        if full.all():
+            break
+        new = (target - cap_max[full].sum()) / (~full).sum()
+        if new <= level:
+            break
+        level = new
+    return np.minimum(cap_max, np.maximum(level, cap_min))
+
+
+def _fix_component(self, grid_df, market_df, carriers, cap, keys,
+                   component=None, free_carriers=()):
     """Fix extendable grid components to the market capacity of their group.
 
     A group is (market bus of each key column, carrier). Returns the number
     of fixed components, the fixed market capacity and the number of grid
     groups without a market counterpart (these stay extendable).
+
+    Groups of ``free_carriers`` are not fixed: they stay extendable and only
+    their total is kept at the market result (``location_groups``, constraint
+    in tools/constraints.py), so the grid model chooses the nodes. Used to
+    move the H2 loop (H2-to-power, H2 stores) together with the
+    electrolysers when ``optimize_electrolyzer_location_in_grid`` is set.
     """
+    max_share = self.args["method"]["market_optimization"].get(
+        "electrolyzer_location_max_share", 1.0
+    )
     ext = grid_df[
         grid_df.carrier.isin(carriers)
         & grid_df[f"{cap}_extendable"].fillna(False).astype(bool)
@@ -358,6 +450,22 @@ def _fix_component(self, grid_df, market_df, carriers, cap, keys):
         if key not in mkt_cap.index:
             unmatched += 1
             continue
+        if key[-1] in free_carriers:
+            cap_min = grid_df.loc[idx, f"{cap}_min"].fillna(0.0)
+            target = max(float(mkt_cap[key]), cap_min.sum())
+            if max_share < 1.0:
+                grid_df.loc[idx, f"{cap}_max"] = _cap_per_node(
+                    target, cap_min, grid_df.loc[idx, f"{cap}_max"], max_share
+                )
+            if not hasattr(self.network, "location_groups"):
+                self.network.location_groups = {}
+            self.network.location_groups[(component, key)] = (
+                list(idx),
+                target,
+            )
+            fixed += len(idx)
+            total += mkt_cap[key]
+            continue
         new = _distribute(
             mkt_cap[key],
             grid_df.loc[idx, f"{cap}_min"],
@@ -387,18 +495,19 @@ def fix_market_storage_investments(self):
         )
         return
 
+    free = H2_LOOP_CARRIERS if _optimize_h2_location(self) else ()
     jobs = [
-        ("battery", self.network.storage_units,
+        ("battery", "StorageUnit", self.network.storage_units,
          self.market_model.storage_units, STORAGE_UNIT_CARRIERS, "p_nom",
          ["bus"]),
-        ("stores", self.network.stores, self.market_model.stores,
+        ("stores", "Store", self.network.stores, self.market_model.stores,
          STORE_CARRIERS, "e_nom", ["bus"]),
-        ("store links", self.network.links, self.market_model.links,
+        ("store links", "Link", self.network.links, self.market_model.links,
          STORE_LINK_CARRIERS, "p_nom", ["bus0", "bus1"]),
     ]
-    for name, grid_df, market_df, carriers, cap, keys in jobs:
+    for name, component, grid_df, market_df, carriers, cap, keys in jobs:
         n, total, unmatched = _fix_component(
-            self, grid_df, market_df, carriers, cap, keys
+            self, grid_df, market_df, carriers, cap, keys, component, free
         )
         logger.info(
             "Fixed %s %s to the market investment (%.1f %s in total); "
@@ -433,6 +542,8 @@ def fix_market_conversion_investments(self):
         CONVERSION_LINK_CARRIERS,
         "p_nom",
         ["bus0", "bus1"],
+        "Link",
+        H2_LOOP_CARRIERS if _optimize_h2_location(self) else (),
     )
     logger.info(
         "Fixed %s gas/H2 conversion links to the market investment "
