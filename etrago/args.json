@@ -1,20 +1,31 @@
 {
-    "db": "oep",
+    "db": "db",
     "gridversion": null,
-    "method": { 
-        "type": "lopf",  
+    "method": {
+        "type": "lopf",
         "n_iter": 4,
         "formulation": "linopy",
-        "market_optimization":
-            {
-                "active": true,
-                "market_zones": "status_quo",
-                "rolling_horizon": {
-                    "planning_horizon": 168,
-                    "overlap": 120
-                 },
-                 "redispatch": true
-             },
+        "market_optimization": {
+            "active": true,
+            "market_zones": "status_quo",
+            "rolling_horizon": {
+                "planning_horizon": 168,
+                "overlap": 120
+            },
+            "redispatch": true,
+            "fix_electrolyzer_investments_in_grid": true,
+            "optimize_electrolyzer_location_in_grid": true,
+            "electrolyzer_location_group": "zone_h2",
+            "electrolyzer_location_max_share": 0.25,
+            "interzonal_line_limits": true,
+            "interzonal_capacity_factor": 0.7,
+            "split_h2_nodes_by_zone": true,
+            "scale_uc_to_snapshot_step": true,
+            "fix_interzonal_capacity_in_market": true,
+            "fix_storage_investments_in_grid": true,
+            "fix_h2_conversion_investments_in_grid": true,
+            "seasonal_store_tolerance": 0.01
+        },
         "distribution_grids": false
     },
     "pf_post_lopf": {
@@ -25,7 +36,19 @@
     "start_snapshot": 1,
     "end_snapshot": 168,
     "solver": "gurobi",
-    "solver_options": {},
+    "solver_options": {
+        "BarConvTol": 1e-5,
+        "FeasibilityTol": 1e-5,
+        "method": 2,
+        "crossover": 0,
+        "logFile": "solver_log.log",
+        "threads": 4,
+        "BarHomogeneous": 1,
+        "MIPGap": 0.001,
+        "ScaleFlag": 2,
+        "SoftMemLimit": 120,
+        "NumericFocus": 3
+    },
     "model_formulation": "kirchhoff",
     "scn_name": "eGon2035",
     "scn_extension": null,
@@ -66,10 +89,10 @@
         "busmap": false,
         "cpu_cores": 4
     },
-    "network_clustering":  {
+    "network_clustering": {
         "method": {
             "focus_region": null,
-            "per_country": true, 
+            "per_country": true,
             "algorithm": "kmedoids-dijkstra",
             "remove_stubs": false,
             "use_reduced_coordinates": false,
@@ -104,8 +127,8 @@
     },
     "skip_snapshots": 5,
     "temporal_disaggregation": {
-    	"active": false,
-    	"no_slices": 8
+        "active": false,
+        "no_slices": 8
     },
     "branch_capacity_factor": {
         "HV": 0.5,
