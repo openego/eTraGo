@@ -41,23 +41,25 @@ fi
 CONFIG="$SCRIPT_DIR/args.json"
 
 ZONES=(
-    "status_quo"
-    "DE2"
-    "DE3"
-    "DE4"
-    "DE5"
+     #"status_quo"
+     #"DE2"
+     "DE3"
+     #"DE4"
+     "DE5"
 )
 
-AC_CLUSTERS="150"
-FOCUS_CLUSTERS="100"
-SNAPSHOTS="10"
+AC_CLUSTERS="100"
+FOCUS_CLUSTERS="50"
+SNAPSHOTS="168"
 
 # Optional overrides from the command line, e.g.
 #   RUN_ZONES="DE3" RUN_SNAPSHOTS=48 ./run_all_market_zones.sh
+#   RUN_START=8017 RUN_SNAPSHOTS=8760 (= December; RUN_SNAPSHOTS is the last hour)
 if [ -n "${RUN_ZONES:-}" ]; then
     read -ra ZONES <<< "$RUN_ZONES"
 fi
 SNAPSHOTS="${RUN_SNAPSHOTS:-$SNAPSHOTS}"
+START_SNAPSHOT="${RUN_START:-1}"
 
 # Transfer capacity between bidding zones in the market model
 # LINE_LIMITS: "true"  = hourly limits of the underlying lines (branch
@@ -65,12 +67,24 @@ SNAPSHOTS="${RUN_SNAPSHOTS:-$SNAPSHOTS}"
 #              "false" = old eTraGo behaviour (sum of line ratings)
 # CAPACITY_FACTOR: extra factor on links between two German zones
 #              (1.0 = off, e.g. 0.7 = 70 % of the line limit tradable)
+# LINE_LIMITS_SCOPE: links that get the line limits: "all", "german"
+#              (at least one German zone) or "internal" (two German zones)
 LINE_LIMITS="true"
+LINE_LIMITS_SCOPE="${LINE_LIMITS_SCOPE:-german}"
 CAPACITY_FACTOR="0.7"
 
 # H2_to_power, H2_to_CH4 and CH4_to_H2 keep the market investment in the
 # grid optimisation ("false" = the grid stage decides them again)
-FIX_H2_CONVERSION="true"
+FIX_H2_CONVERSION="${FIX_H2_CONVERSION:-true}"
+
+# Electrolysers keep the market total per zone and H2 bus, the grid
+# optimisation chooses the nodes ("false" = market locations are kept);
+# H2-to-power and H2 stores move with them
+# ELY_LOCATION_GROUP: "zone" or "zone_h2" (zone and H2 bus)
+# ELY_LOCATION_MAX_SHARE: max. share of a group total per node (1.0 = off)
+OPT_ELY_LOCATION="${OPT_ELY_LOCATION:-true}"
+ELY_LOCATION_GROUP="${ELY_LOCATION_GROUP:-zone_h2}"
+ELY_LOCATION_MAX_SHARE="${ELY_LOCATION_MAX_SHARE:-0.25}"
 
 # Preserve the original configuration
 CONFIG_BACKUP="$(mktemp)"
@@ -108,9 +122,14 @@ for ZONE in "${ZONES[@]}"; do
     AC_CLUSTERS="$AC_CLUSTERS" \
     FOCUS_CLUSTERS="$FOCUS_CLUSTERS" \
     SNAPSHOTS="$SNAPSHOTS" \
+    START_SNAPSHOT="$START_SNAPSHOT" \
     LINE_LIMITS="$LINE_LIMITS" \
+    LINE_LIMITS_SCOPE="$LINE_LIMITS_SCOPE" \
     CAPACITY_FACTOR="$CAPACITY_FACTOR" \
     FIX_H2_CONVERSION="$FIX_H2_CONVERSION" \
+    OPT_ELY_LOCATION="$OPT_ELY_LOCATION" \
+    ELY_LOCATION_GROUP="$ELY_LOCATION_GROUP" \
+    ELY_LOCATION_MAX_SHARE="$ELY_LOCATION_MAX_SHARE" \
     CONFIG="$CONFIG" \
     python - <<'PY'
 import json
@@ -158,6 +177,10 @@ line_limits = os.environ["LINE_LIMITS"].strip().lower()
 if line_limits not in ("true", "false"):
     raise SystemExit(f"ERROR: LINE_LIMITS must be true or false, found {line_limits!r}.")
 market["interzonal_line_limits"] = line_limits == "true"
+line_limits_scope = os.environ["LINE_LIMITS_SCOPE"].strip().lower()
+if line_limits_scope not in ("all", "german", "internal"):
+    raise SystemExit(f"ERROR: LINE_LIMITS_SCOPE must be all, german or internal, found {line_limits_scope!r}.")
+market["interzonal_line_limits_scope"] = line_limits_scope
 try:
     capacity_factor = float(os.environ["CAPACITY_FACTOR"])
 except ValueError:
@@ -171,7 +194,23 @@ if fix_conversion not in ("true", "false"):
     raise SystemExit(f"ERROR: FIX_H2_CONVERSION must be true or false, found {fix_conversion!r}.")
 market["fix_h2_conversion_investments_in_grid"] = fix_conversion == "true"
 
-args["start_snapshot"] = 1
+opt_ely_location = os.environ["OPT_ELY_LOCATION"].strip().lower()
+if opt_ely_location not in ("true", "false"):
+    raise SystemExit(f"ERROR: OPT_ELY_LOCATION must be true or false, found {opt_ely_location!r}.")
+market["optimize_electrolyzer_location_in_grid"] = opt_ely_location == "true"
+ely_group = os.environ["ELY_LOCATION_GROUP"].strip().lower()
+if ely_group not in ("zone", "zone_h2"):
+    raise SystemExit(f"ERROR: ELY_LOCATION_GROUP must be zone or zone_h2, found {ely_group!r}.")
+market["electrolyzer_location_group"] = ely_group
+try:
+    max_share = float(os.environ["ELY_LOCATION_MAX_SHARE"])
+except ValueError:
+    raise SystemExit("ERROR: ELY_LOCATION_MAX_SHARE must be a number.")
+if not 0.0 < max_share <= 1.0:
+    raise SystemExit(f"ERROR: ELY_LOCATION_MAX_SHARE must be in (0, 1], found {max_share}.")
+market["electrolyzer_location_max_share"] = max_share
+
+args["start_snapshot"] = int(os.environ["START_SNAPSHOT"])
 args["end_snapshot"] = int(os.environ["SNAPSHOTS"])
 args["skip_snapshots"] = 5
 
@@ -267,8 +306,12 @@ print("  focus AC clusters:", n_clusters_focus)
 print("  snapshots:", args["start_snapshot"], "-", args["end_snapshot"])
 print("  snapshot_step:", market["snapshot_step"])
 print("  interzonal_line_limits:", market["interzonal_line_limits"])
+print("  interzonal_line_limits_scope:", market["interzonal_line_limits_scope"])
 print("  interzonal_capacity_factor:", market["interzonal_capacity_factor"])
 print("  fix_h2_conversion_investments_in_grid:", market["fix_h2_conversion_investments_in_grid"])
+print("  optimize_electrolyzer_location_in_grid:", market["optimize_electrolyzer_location_in_grid"])
+print("  electrolyzer_location_group:", market["electrolyzer_location_group"])
+print("  electrolyzer_location_max_share:", market["electrolyzer_location_max_share"])
 print("  skip_snapshots:", args["skip_snapshots"])
 print("  focus districts:", len(focus_region))
 print("  cluster_within_focus:", cluster_within_focus)
