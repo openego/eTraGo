@@ -661,17 +661,41 @@ class ScenarioMetrics:
                 su_ts = mkt.series(comp, "start_up").reindex(columns=st.index, fill_value=0)
                 start += (su_ts.sum() * st.start_up_cost.fillna(0)).sum()
 
-        # Grid-stage investments (calc_investment_cost of eTraGo).
-        gl = g.static("links")
-        ext_links = gl[gl.get("p_nom_extendable", pd.Series(False, index=gl.index)).astype(bool)
-                       & (gl.carrier != "DC") & ~gl.index.str.contains("ramp")]
-        link_inv = ((ext_links.p_nom_opt - ext_links.p_nom_min.fillna(0)) * ext_links.capital_cost).sum()
-        gsu = g.static("storage_units")
-        ext_su = gsu[gsu.get("p_nom_extendable", pd.Series(False, index=gsu.index)).astype(bool)]
-        su_inv = ((ext_su.p_nom_opt - ext_su.p_nom_min.fillna(0)) * ext_su.capital_cost).sum()
-        gst = g.static("stores")
-        ext_st = gst[gst.get("e_nom_extendable", pd.Series(False, index=gst.index)).astype(bool)]
-        st_inv = (ext_st.e_nom_opt * ext_st.capital_cost).sum()
+        # Investments (calc_investment_cost of eTraGo). Components that are
+        # still extendable in the grid stage are counted there; components
+        # fixed to the market result (fix_storage_investments_in_grid) carry
+        # the investment of the pre-market model instead.
+        def extendable(df, col):
+            if df.empty or col not in df:
+                return pd.Series(False, index=df.index)
+            return df[col].fillna(False).astype(bool)
+
+        def link_invest(links):
+            ext = links[extendable(links, "p_nom_extendable") & (links.carrier != "DC")
+                        & (links.carrier != "power_to_H2") & ~links.index.str.contains("ramp")]
+            return ((ext.p_nom_opt - ext.p_nom_min.fillna(0)).clip(lower=0) * ext.capital_cost).sum()
+
+        def su_invest(su):
+            ext = su[extendable(su, "p_nom_extendable")]
+            return ((ext.p_nom_opt - ext.p_nom_min.fillna(0)).clip(lower=0) * ext.capital_cost).sum()
+
+        def store_invest(st):
+            ext = st[extendable(st, "e_nom_extendable")]
+            base = ext["e_nom_min"].fillna(0) if "e_nom_min" in ext else 0.0
+            return ((ext.e_nom_opt - base).clip(lower=0) * ext.capital_cost).sum()
+
+        pre = self.pre
+        gl, gsu, gst = g.static("links"), g.static("storage_units"), g.static("stores")
+        fixed = not extendable(gsu, "p_nom_extendable").any() and not extendable(gst, "e_nom_extendable").any()
+        self.storage_invest_source = "pre-market model" if fixed else "grid optimisation"
+        if fixed:
+            su_inv = su_invest(pre.static("storage_units"))
+            st_inv = store_invest(pre.static("stores"))
+            link_inv = link_invest(pre.static("links"))
+        else:
+            su_inv = su_invest(gsu)
+            st_inv = store_invest(gst)
+            link_inv = link_invest(gl)
         ely = self.electrolysis
         ely_inv = (ely.p_nom_opt * ely.capital_cost).sum()
 
@@ -686,7 +710,7 @@ class ScenarioMetrics:
             "AC grid expansion": self.lines_total["ac_invest_meur"],
             "DC grid expansion": self.lines_total["dc_invest_meur"],
             "Electrolysers": ely_inv / MEUR,
-            "Batteries (grid stage)": su_inv / MEUR,
+            "Batteries": su_inv / MEUR,
             "Other storage & sector links": (st_inv + link_inv) / MEUR,
         }
         self.costs = pd.Series(items)

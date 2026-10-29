@@ -904,9 +904,10 @@ class ScenarioReport:
                 "differs between runs for reasons unrelated to the bidding zones. Compare configurations on "
                 "the cost <em>excluding</em> gas imports.", "warn") + body
         self.add("costs", "Costs",
-                 "System cost = market dispatch + start-up + redispatch + annualised investments of the "
-                 "grid stage (lines, DC links, batteries, stores) + electrolysers decided in the pre-market "
-                 "model. Wholesale cost and congestion rent show how money is redistributed between "
+                 "System cost = market dispatch + start-up + redispatch + annualised investments: lines and "
+                 "DC links from the grid optimisation, electrolysers from the pre-market model, batteries and "
+                 f"other stores from the {getattr(m, 'storage_invest_source', 'grid optimisation')}. "
+                 "Wholesale cost and congestion rent show how money is redistributed between "
                  "consumers, producers and grid operators.", body)
 
     # ------------------------------------------------------------------
