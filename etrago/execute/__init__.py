@@ -602,10 +602,21 @@ def optimize_with_rolling_horizon(
                 )
             ]
 
-            # Set e_initial from pre_market model for seasonal stores
-            n.stores.e_initial[seasonal_stores] = pre_market.stores_t.e.loc[
-                snapshots[start - 1], seasonal_stores
-            ]
+            # Seasonal stores start the first window from the pre_market
+            # state of charge and every further window from the market state
+            # of charge of the previous window. Resetting them to the
+            # pre_market value in every window would let the stitched market
+            # results gain or lose energy at each window boundary.
+            if start != 0:
+                n.stores.loc[seasonal_stores, "e_initial"] = n.stores_t.e.loc[
+                    snapshots[start - 1], seasonal_stores
+                ]
+            else:
+                n.stores.loc[seasonal_stores, "e_initial"] = (
+                    pre_market.stores_t.e.loc[
+                        snapshots[start - 1], seasonal_stores
+                    ]
+                )
 
             # Set e at the end of the horizon
             # by setting e_max_pu and e_min_pu
