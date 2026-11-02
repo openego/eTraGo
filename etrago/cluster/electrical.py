@@ -787,7 +787,7 @@ def preprocessing(etrago, apply_on="grid_model"):
             .assign(
                 x=network.transformers.x
                 * (380.0 / transformer_voltages.max(axis=1)) ** 2,
-                length=1,
+                length=0.001,
                 v_nom=380.0,
             )
             .set_index("T" + trafo_index),
