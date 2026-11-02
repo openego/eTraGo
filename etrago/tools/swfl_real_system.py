@@ -705,6 +705,23 @@ def apply_swfl_real_system(
 
 
     # ==================================================================
+    # 11b. OPTIONAL BIOMASS BOILER (transformation plan, phase 3)
+    # ==================================================================
+
+    biomass_cfg = settings.get("biomass_boiler", {}) or {}
+
+    if _as_bool(biomass_cfg.get("active", False), False):
+
+        add_biomass_boiler(
+            network=network,
+            cfg=biomass_cfg,
+            heat_bus=swfl_heat_bus,
+            x=x,
+            y=y,
+        )
+
+
+    # ==================================================================
     # 12. FUTURE LARGE SWFL HEAT PUMPS
     # ==================================================================
 
@@ -3460,6 +3477,74 @@ def add_reserve_gas_boiler(network, cfg: Dict[str, Any], gas_bus: str, heat_bus:
         efficiency=eff,
         marginal_cost=float(cfg.get("marginal_cost", 0.0)),
         capital_cost=float(cfg.get("capital_cost", 0.0)),
+    )
+
+
+def add_biomass_boiler(
+    network,
+    cfg: Dict[str, Any],
+    heat_bus: str,
+    x: float,
+    y: float,
+) -> None:
+    """
+    Add the SWFL biomass boiler (Altholz / Restholz).
+
+        biomass supply (fuel price) -> biomass bus -> boiler Link -> heat bus
+
+    The supply is unlimited; the boiler Link limits what is burned. Its
+    availability sets p_max_pu, and the variable O&M per MWh of heat is
+    charged on the fuel side of the Link (efficiency x O&M). The fuel is
+    not on the natural-gas bus, so the fossil CO2 cap does not count it.
+    """
+    name = str(cfg.get("name", "swfl_real_biomass_boiler"))
+    bus = str(cfg.get("fuel_bus", "swfl_real_biomass_bus"))
+    supply = str(cfg.get("supply_generator", "swfl_real_biomass_supply"))
+
+    heat_cap = float(cfg["heat_capacity_mw"])
+    eff = float(cfg["efficiency"])
+    price = float(cfg["fuel_price_eur_per_mwh_fuel"])
+    vom_heat = float(cfg["variable_om_eur_per_mwh_heat"])
+    availability = float(cfg["availability"])
+
+    ensure_carrier(network, "biomass_wood")
+    ensure_carrier(network, "swfl_biomass_supply")
+    ensure_carrier(network, "swfl_biomass_boiler")
+
+    ensure_bus(network=network, name=bus, carrier="biomass_wood", x=x, y=y)
+
+    remove_components(network, "Generator", [supply])
+    remove_components(network, "Link", [name])
+
+    network.add(
+        "Generator",
+        supply,
+        bus=bus,
+        carrier="swfl_biomass_supply",
+        p_nom=10000.0,
+        p_nom_extendable=False,
+        marginal_cost=price,
+    )
+
+    network.add(
+        "Link",
+        name,
+        bus0=bus,
+        bus1=heat_bus,
+        carrier="swfl_biomass_boiler",
+        p_nom=heat_cap / eff,
+        p_nom_extendable=False,
+        p_min_pu=0.0,
+        p_max_pu=availability,
+        efficiency=eff,
+        marginal_cost=vom_heat * eff,
+        capital_cost=0.0,
+    )
+
+    print(
+        f"SWFL BIOMASS BOILER: {heat_cap:g} MWth, efficiency {eff:g}, "
+        f"availability {availability:g}, fuel {price:g} EUR/MWh_fuel, "
+        f"O&M {vom_heat:g} EUR/MWh_heat."
     )
 
 

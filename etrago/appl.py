@@ -769,6 +769,15 @@ args = {
         },
 
         # ------------------------------------------------------------------
+        # Optional SWFL biomass boiler (transformation plan, phase 3)
+        # ------------------------------------------------------------------
+        # Values come from technical.swfl.biomass_boiler in config.yaml and
+        # are switched on by the unit case (plan_2035).
+        "biomass_boiler": {
+            "active": False,
+        },
+
+        # ------------------------------------------------------------------
         # Future SWFL large heat pumps
         # ------------------------------------------------------------------
         # First remove existing eGon heat pumps inside the selected MV districts.

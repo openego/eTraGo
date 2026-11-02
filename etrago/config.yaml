@@ -641,6 +641,25 @@ swfl_unit_cases:
       - "swfl_real_ehk2"
     reserve_gas_boiler: false
 
+  # SWFL transformation plan, phase 3 (2031-2035): the coal boiler K11 is
+  # gone (coal exit by 2030), a 70 MWth biomass boiler (Altholz / Restholz)
+  # is added, and the heat pumps stop when the Foerde water is below 4 degC.
+  # Switches on technical.swfl.biomass_boiler and
+  # technical.swfl.heat_pump_source_temperature for this case only.
+  plan_2035:
+    description: "Transformation plan 2035: K5/K12/K13, EHK1/2, biomass boiler, Foerde temperature limit; no K11."
+    central_gas_to_power: true
+    boilers:
+      - "swfl_real_k5"
+      - "swfl_real_k12"
+      - "swfl_real_k13"
+    resistive_heaters:
+      - "swfl_real_ehk1"
+      - "swfl_real_ehk2"
+    reserve_gas_boiler: false
+    biomass_boiler: true
+    heat_pump_source_temperature: true
+
 # -----------------------------------------------------------------------------
 # BIOMETHANE ELIGIBILITY AT SWFL
 # -----------------------------------------------------------------------------
@@ -1151,6 +1170,23 @@ technical:
       heat_capacity_mw: 203.0
 
       efficiency: 1.0
+
+    # -------------------------------------------------------------------------
+    # Biomass boiler (SWFL transformation plan, phase 3, 2031-2035)
+    # -------------------------------------------------------------------------
+    # 70 MWth boiler on Altholz / Restholz. Only built in unit cases with
+    # biomass_boiler: true (plan_2035). The plan says it "can contribute", so
+    # it is optional. Fuel is a separate unlimited supply at the average price
+    # below; PLACEHOLDER until SWFL gives a price. The fossil CO2 cap counts
+    # only natural gas, so the boiler burns zero fossil CO2 (Altholz has a small
+    # fossil share that is ignored). No capital cost: existing units carry none.
+    # Variable O&M covers ash disposal and flue-gas cleaning.
+    biomass_boiler:
+      heat_capacity_mw: 70.0
+      efficiency: 0.85
+      fuel_price_eur_per_mwh_fuel: 10.0
+      variable_om_eur_per_mwh_heat: 4.5
+      availability: 0.90
 
 
   # ===========================================================================

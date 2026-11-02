@@ -3447,6 +3447,57 @@ def apply_config_to_args(
 
 
     # =====================================================================
+    # 8b. BIOMASS BOILER (transformation plan, phase 3)
+    # =====================================================================
+    #
+    # Only built when the SWFL unit case sets biomass_boiler: true.
+    # =====================================================================
+
+    biomass_data = technical_swfl.get("biomass_boiler") or {}
+
+    biomass = _mutable_mapping(
+        swfl,
+        "biomass_boiler",
+        "args.swfl_real_system",
+    )
+
+    biomass["active"] = bool(units.get("biomass_boiler", False))
+
+    if biomass["active"]:
+
+        if not biomass_data:
+            raise ScenarioConfigError(
+                "Unit case sets biomass_boiler but technical.swfl."
+                "biomass_boiler is missing."
+            )
+
+        for key in (
+            "heat_capacity_mw",
+            "efficiency",
+            "fuel_price_eur_per_mwh_fuel",
+            "variable_om_eur_per_mwh_heat",
+            "availability",
+        ):
+            biomass[key] = float(biomass_data[key])
+
+        if not 0.0 < biomass["efficiency"] <= 1.0:
+            raise ScenarioConfigError(
+                "technical.swfl.biomass_boiler.efficiency must be in (0, 1]."
+            )
+
+        if not 0.0 < biomass["availability"] <= 1.0:
+            raise ScenarioConfigError(
+                "technical.swfl.biomass_boiler.availability must be in (0, 1]."
+            )
+
+        print(
+            f"SWFL BIOMASS BOILER: {biomass['heat_capacity_mw']:g} MWth, "
+            f"eff {biomass['efficiency']:g}, fuel "
+            f"{biomass['fuel_price_eur_per_mwh_fuel']:g} EUR/MWh_fuel."
+        )
+
+
+    # =====================================================================
     # 9. BIOMETHANE-ELIGIBLE SWFL BOILERS
     # =====================================================================
     #
@@ -3550,7 +3601,10 @@ def apply_config_to_args(
     source_temp_cfg = technical_swfl.get("heat_pump_source_temperature") or {}
 
     swfl["heat_pump_source_temperature"] = {
-        "active": bool(source_temp_cfg.get("active", False)),
+        "active": bool(
+            source_temp_cfg.get("active", False)
+            or units.get("heat_pump_source_temperature", False)
+        ),
         **{k: v for k, v in source_temp_cfg.items() if k != "active"},
     }
 
@@ -3718,7 +3772,13 @@ def apply_config_to_args(
     if bool(certified.get("active", False)):
 
         price = float(certified.get("price_eur_per_mwh_hs", 92.9))
-        units = [str(unit) for unit in certified.get("eligible_units", [])]
+        # Units that are not operational in the selected case (K11 in
+        # plan_2035) cannot buy certified biomethane.
+        units = [
+            str(unit)
+            for unit in certified.get("eligible_units", [])
+            if str(unit) in selected_boilers
+        ]
 
         if price < 0.0 or not units:
             raise ScenarioConfigError(
