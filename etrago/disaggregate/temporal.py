@@ -37,6 +37,7 @@ if "READTHEDOCS" not in os.environ:
     from etrago.execute.grid_optimization import (
         add_redispatch_generators,
         fix_chp_generation,
+        get_redispatch_timeseries,
     )
     from etrago.tools.constraints import Constraints
 
@@ -225,6 +226,13 @@ def dispatch_disaggregation(self):
             self.network_tsa.storage_units.cyclic_state_of_charge
         )
         self.network.stores.e_cyclic = self.network_tsa.stores.e_cyclic
+
+        # Update the redispatch time series to the temporally fully resolved
+        # network
+        if self.args["method"]["market_optimization"]["active"]:
+            self.redispatch_timeseries = get_redispatch_timeseries(
+                self.network
+            )
 
         if self.args["export_results_path"]:
             path = self.args["export_results_path"]

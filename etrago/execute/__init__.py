@@ -178,6 +178,13 @@ def run_lopf(etrago, extra_functionality, method):
         if status != "ok":
             raise Exception("LOPF not solved.")
 
+    # Store the time series of the redispatch components of the optimized
+    # network, None if redispatch is not considered
+    if etrago.args["method"]["market_optimization"]["active"]:
+        etrago.redispatch_timeseries = get_redispatch_timeseries(
+            etrago.network
+        )
+
     y = time.time()
     z = (y - x) / 60
 
@@ -947,8 +954,8 @@ def pf_post_lopf(etrago, calc_losses=False):
 
     # Merge redispatch components into their original components, each power
     # plant is represented by one component in the power flow. The time
-    # series of the redispatch components are kept for the results.
-    etrago.redispatch_timeseries = get_redispatch_timeseries(etrago.network)
+    # series of the redispatch components are kept in
+    # etrago.redispatch_timeseries.
     etrago.network = merge_redispatch_components(etrago.network)
 
     network = etrago.network

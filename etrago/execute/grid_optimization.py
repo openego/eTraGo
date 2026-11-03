@@ -602,8 +602,10 @@ def get_redispatch_timeseries(network):
 
     The dispatch, the marginal costs and the limits of all '<name> ramp_up'
     and '<name> ramp_down' generators and links are returned. They are stored
-    before the redispatch components are merged for the power flow and are
-    used to calculate the redispatch costs and volumes.
+    in etrago.redispatch_timeseries after the grid optimization and the
+    temporal disaggregation, so they are kept when the redispatch components
+    are merged for the power flow. They are used to calculate the redispatch
+    costs and volumes.
 
     Parameters
     ----------

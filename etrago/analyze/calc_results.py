@@ -48,9 +48,11 @@ __author__ = "ulfmueller, ClaraBuettner, KathiEsterl"
 def _redispatch_timeseries(self):
     """Return the time series of the redispatch components
 
-    If the redispatch components were merged into their original components
-    for the power flow, the time series stored before are used. Otherwise
-    they are taken from self.network.
+    The time series stored in self.redispatch_timeseries are used. They are
+    set after the grid optimization (run_lopf) and the temporal
+    disaggregation if the market optimization is active. If they are not set,
+    e.g. for a network imported from csv files, they are taken from
+    self.network.
 
     Returns
     -------
@@ -1068,8 +1070,7 @@ def total_redispatch(self, only_de=True, plot=False):
     """Calculate the redispatch volume and potential
 
     The time series of the redispatch components are taken from
-    etrago.redispatch_timeseries after a run with power flow, otherwise from
-    etrago.network, see _redispatch_timeseries.
+    etrago.redispatch_timeseries, see _redispatch_timeseries.
 
     Parameters
     ----------
