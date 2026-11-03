@@ -597,6 +597,55 @@ def add_redispatch_generators(
     #                                        ])].index, inplace=True)
 
 
+def get_redispatch_timeseries(network):
+    """Return the time series of the redispatch components
+
+    The dispatch, the marginal costs and the limits of all '<name> ramp_up'
+    and '<name> ramp_down' generators and links are returned. They are stored
+    before the redispatch components are merged for the power flow and are
+    used to calculate the redispatch costs and volumes.
+
+    Parameters
+    ----------
+    network : pypsa.Network
+        Network including redispatch components
+
+    Returns
+    -------
+    dict or None
+        {'Generator': {'static', 'p', 'marginal_cost', 'p_max_pu',
+        'p_min_pu'}, 'Link': {'static', 'p0', 'p1', 'marginal_cost',
+        'p_max_pu', 'p_min_pu'}}. 'static' holds the rows of the redispatch
+        components in network.generators or network.links, all other entries
+        are dfs with snapshots as index and redispatch components as columns.
+        Components without redispatch are not included. None if the network
+        does not include redispatch components.
+
+    """
+    timeseries = {}
+
+    for component, series in [
+        ("Generator", ["p"]),
+        ("Link", ["p0", "p1"]),
+    ]:
+        df = network.df(component)
+        ramps = df.index[df.index.str.endswith((" ramp_up", " ramp_down"))]
+        if ramps.empty:
+            continue
+
+        pnl = network.pnl(component)
+        timeseries[component] = {
+            s: pnl[s].reindex(columns=ramps, fill_value=0.0) for s in series
+        }
+        timeseries[component]["static"] = df.loc[ramps].copy()
+        for attr in ["marginal_cost", "p_max_pu", "p_min_pu"]:
+            timeseries[component][attr] = network.get_switchable_as_dense(
+                component, attr
+            )[ramps]
+
+    return timeseries if timeseries else None
+
+
 def merge_redispatch_components(network):
     """Merge redispatch components into their original component
 

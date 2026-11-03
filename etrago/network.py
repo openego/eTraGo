@@ -179,7 +179,9 @@ class Etrago:
 
         self.network_tsa = Network()
 
-        self.network_redispatch = Network()
+        # Time series of the redispatch components, only set if they are
+        # merged into their original components for the power flow
+        self.redispatch_timeseries = None
 
         self.disaggregated_network = Network()
 

@@ -34,7 +34,10 @@ if "READTHEDOCS" not in os.environ:
     import numpy as np
     import pandas as pd
 
-    from etrago.execute.grid_optimization import merge_redispatch_components
+    from etrago.execute.grid_optimization import (
+        get_redispatch_timeseries,
+        merge_redispatch_components,
+    )
     from etrago.tools.constraints import (
         Constraints,
         _get_crossborder_components,
@@ -943,12 +946,10 @@ def pf_post_lopf(etrago, calc_losses=False):
     args = etrago.args
 
     # Merge redispatch components into their original components, each power
-    # plant is represented by one component in the power flow. The network
-    # including the separate redispatch time series is kept for the results.
-    merged_network = merge_redispatch_components(etrago.network)
-    if merged_network is not etrago.network:
-        etrago.network_redispatch = etrago.network
-        etrago.network = merged_network
+    # plant is represented by one component in the power flow. The time
+    # series of the redispatch components are kept for the results.
+    etrago.redispatch_timeseries = get_redispatch_timeseries(etrago.network)
+    etrago.network = merge_redispatch_components(etrago.network)
 
     network = etrago.network
 
