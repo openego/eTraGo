@@ -630,14 +630,14 @@ def run_etrago(args, json_path):
     if args['network_clustering']['electricity_grid']['active'] == False:
         from cluster.electrical import unify_foreign_buses
         busmap = unify_foreign_buses(etrago)
+        # TODO: clustering of foreign buses to one per country
         
-    
     if args["csv_export"]:
         path = args["csv_export"] + "/02-nach-cluster"
         etrago.export_to_csv(path)
     
-    # define calculation case for power flow
-    import_dc_links_results(etrago, egon_path)
+    # define calculation case for power flow to foreign countries
+    exchange, dst = import_dc_links_results(etrago, egon_path)
     
     if args["csv_export"]:
         path = args["csv_export"] + "/03-mit-dc-results"
@@ -654,7 +654,7 @@ def run_etrago(args, json_path):
     # those are anyhow only considered indirectly within lpf via links
     # as they are not part of the main sub network
     etrago.drop_sectors(['CH4', 'H2_saltcavern', 'H2_grid', 'H2_for_ind', 'dsm', 'central_heat',
-     'rural_heat', 'central_heat_store', 'rural_heat_store', 'Li ion'])
+      'rural_heat', 'central_heat_store', 'rural_heat_store', 'Li ion'])
 
     if args["csv_export"]:
         path = args["csv_export"] + "/07-dropped-sectors"
@@ -665,15 +665,15 @@ def run_etrago(args, json_path):
 
 if __name__ == "__main__":
     
-    import sys
+    # import sys
 
-    old_stdout = sys.stdout
-    log_file = open('console.log',"w")
-    sys.stdout = log_file
+    # old_stdout = sys.stdout
+    # log_file = open('console.log',"w")
+    # sys.stdout = log_file
 
     print(datetime.datetime.now())
     
-    spatial_resolution = [30] #[50, 300, 1000, 5000, 8000, 10000]
+    spatial_resolution = [100] #[50, 300, 1000, 5000, 8000, 10000]
     
     for i in range (0, len(spatial_resolution)):
             
@@ -683,11 +683,11 @@ if __name__ == "__main__":
         #args['csv_export'] = 'Zooming-Tests/Server-Tests/no-AC-clustering'
         args['csv_export'] = 'Zooming-Tests/lokale_tests/AC-'+str(args['network_clustering']['electricity_grid']['n_clusters'])
         
-        old_stdout = sys.stdout
+        # old_stdout = sys.stdout
         path_log = args['csv_export']
         os.makedirs(path_log, exist_ok=True)
-        log_file = open(args['csv_export']+'/console.log',"w")
-        sys.stdout = log_file
+        # log_file = open(args['csv_export']+'/console.log',"w")
+        # sys.stdout = log_file
         
         print(datetime.datetime.now())
         
@@ -700,8 +700,10 @@ if __name__ == "__main__":
         
         print(datetime.datetime.now())
         
-        sys.stdout = old_stdout
-        log_file.close()
+        print(etrago.network.generators_t.p["slack_balancing_generator"].describe())
+        
+        # sys.stdout = old_stdout
+        # log_file.close()
         
         if hasattr(etrago, "session"):
             etrago.session.close()
