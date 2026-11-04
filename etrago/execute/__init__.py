@@ -790,272 +790,62 @@ def run_pf_post_lopf(self):
 
     if self.args["pf_post_lopf"]["active"]:
         pf_post_lopf(self)
-
+        
 def run_power_flow(etrago):
-    """
-    Function that prepares and runs non-linar load flow using PyPSA pf.
-    Pf is only applied on german network with crossborder flows considered
-    due to the active behavior of links (foreign DC links).
-    To return a network containing the whole grid, the optimised solution of
-    the foreign components is added afterwards."""
-    
-    def drop_foreign_components(network):
-        """
-        Function that drops foreign components which are only connected via
-        DC-links and saves their optimization results in pd.DataFrame.
-
-        Parameters
-        ----------
-        network : pypsa.Network object
-            Container for all network components.
-
-        Returns
-        -------
-        None.
-
-        """
-
-        # Create series for constant loads
-        constant_loads = network.loads[network.loads.p_set != 0]["p_set"]
-        for load in constant_loads.index:
-            network.loads_t.p_set[load] = constant_loads[load]
-        network.loads.p_set = 0
-
-        n_bus = pd.Series(index=network.sub_networks.index)
-
-        for i in network.sub_networks.index:
-            n_bus[i] = len(network.buses.index[network.buses.sub_network == i])
-
-        sub_network_DE = n_bus.index[n_bus == n_bus.max()]
-
-        foreign_bus = network.buses[
-            (network.buses.sub_network != sub_network_DE.values[0])
-            & (network.buses.country != "DE")
-        ]
-
-        foreign_comp = {
-            "Bus": network.buses[network.buses.index.isin(foreign_bus.index)],
-            "Generator": network.generators[
-                network.generators.bus.isin(foreign_bus.index)
-            ],
-            "Load": network.loads[network.loads.bus.isin(foreign_bus.index)],
-            "Transformer": network.transformers[
-                network.transformers.bus0.isin(foreign_bus.index)
-            ],
-            "StorageUnit": network.storage_units[
-                network.storage_units.bus.isin(foreign_bus.index)
-            ],
-            "Store": network.stores[
-                network.stores.bus.isin(foreign_bus.index)
-            ],
-        }
-
-        foreign_series = {
-            "Bus": network.buses_t.copy(),
-            "Generator": network.generators_t.copy(),
-            "Load": network.loads_t.copy(),
-            "Transformer": network.transformers_t.copy(),
-            "StorageUnit": network.storage_units_t.copy(),
-            "Store": network.stores_t.copy(),
-        }
-
-        for comp in sorted(foreign_series):
-            attr = sorted(foreign_series[comp])
-            for a in attr:
-                if (
-                    not foreign_series[comp][a].empty
-                    and not (foreign_series[comp][a] == 0.0).all().all()
-                ):
-                    if a != "p_max_pu":
-                        if a in ["q_set", "e_max_pu", "e_min_pu"]:
-                            g_in_q_set = foreign_comp[comp][
-                                foreign_comp[comp].index.isin(
-                                    foreign_series[comp][a].columns
-                                )
-                            ]
-                            foreign_series[comp][a] = foreign_series[comp][a][
-                                g_in_q_set.index
-                            ]
-                        else:
-                            foreign_series[comp][a] = foreign_series[comp][a][
-                                foreign_comp[comp].index
-                            ]
-
-                    else:
-                        foreign_series[comp][a] = foreign_series[comp][a][
-                            foreign_comp[comp][
-                                foreign_comp[comp].index.isin(
-                                    network.generators_t.p_max_pu.columns
-                                )
-                            ].index
-                        ]
-
-        # Drop components
-        network.buses = network.buses.drop(foreign_bus.index)
-        network.generators = network.generators[
-            network.generators.bus.isin(network.buses.index)
-        ]
-        network.loads = network.loads[
-            network.loads.bus.isin(network.buses.index)
-        ]
-        network.transformers = network.transformers[
-            network.transformers.bus0.isin(network.buses.index)
-        ]
-        network.storage_units = network.storage_units[
-            network.storage_units.bus.isin(network.buses.index)
-        ]
-        network.stores = network.stores[
-            network.stores.bus.isin(network.buses.index)
-        ]
-
-        return foreign_bus, foreign_comp, foreign_series
-
     x = time.time()
     network = etrago.network
     args = etrago.args
 
+    #  create series for constant loads
+    constant_loads = network.loads[network.loads.p_set != 0]["p_set"]
+    for load in constant_loads.index:
+        network.loads_t.p_set[load] = constant_loads[load]
+    network.loads.p_set = 0
+
     network.determine_network_topology()
 
-    # execute pf only on sub_network in Germany
-    foreign_bus, foreign_comp, foreign_series = drop_foreign_components(
-        network
-    )
-
-    # Assign generators control strategy
+    # assign generators control strategies
     network.buses["control"] = "PQ"
-    ac_bus = network.buses[network.buses.carrier == "AC"]
-    network.generators.control[network.generators.bus.isin(ac_bus.index)] = (
-        "PV"
-    )
-    network.generators.control[
-        network.generators.carrier == "load shedding"
-    ] = "PQ"
-    # Assign storage units control strategy
-    network.storage_units.control[
-        network.storage_units.bus.isin(ac_bus.index)
-    ] = "PV"
+    ac_bus = network.buses.index[network.buses.carrier == "AC"]
+    network.generators.loc[network.generators.bus.isin(ac_bus), "control"] = "PV"
+    network.generators.loc[network.generators.carrier == "load shedding", "control"] = "PQ"
+    network.storage_units.loc[network.storage_units.bus.isin(ac_bus), "control"] = "PV"
 
-    # Delete very small p_set and q_set values to avoid problems when solving
-    network.generators_t["p_set"][
-        np.abs(network.generators_t["p_set"]) < 0.001
-    ] = 0
-    network.generators_t["q_set"][
-        np.abs(network.generators_t["q_set"]) < 0.001
-    ] = 0
-    network.loads_t["p_set"][np.abs(network.loads_t["p_set"]) < 0.001] = 0
-    network.loads_t["q_set"][np.abs(network.loads_t["q_set"]) < 0.001] = 0
-    network.storage_units_t["p_set"][
-        np.abs(network.storage_units_t["p_set"]) < 0.001
-    ] = 0
-    network.stores_t["p_set"][
-        np.abs(network.stores_t["p_set"]) < 0.001
-    ] = 0
-    network.links_t["p_set"][
-        np.abs(network.links_t["p_set"]) < 0.001
-    ] = 0
-    
+    # delete very small p_set and q_set values to avoid problems when solving
+    for pnl, attr in [
+        (network.generators_t, "p_set"), (network.generators_t, "q_set"),
+        (network.loads_t, "p_set"), (network.loads_t, "q_set"),
+        (network.storage_units_t, "p_set"), (network.stores_t, "p_set"),
+        (network.links_t, "p_set"),
+    ]:
+        df = pnl[attr]
+        df[df.abs() < 0.001] = 0
+
+    # slack within main subnetwork
+    import networkx as nx
+    main_subnet_id = network.buses.sub_network.value_counts().idxmax()
+    main_subnet = network.sub_networks.at[main_subnet_id, "obj"]
+    centrality = nx.betweenness_centrality(main_subnet.graph())
+    slack_bus = max(centrality, key=centrality.get)
+    network.add("Generator", "slack_balancing_generator", bus=slack_bus,
+                control="Slack", p_set=0, p_nom=1e6, carrier="slack")
+        
+    dc_idx = network.links.index[network.links.carrier == "DC"]
+    network.links_t.efficiency = network.links_t.efficiency.drop(
+        columns=network.links_t.efficiency.columns.intersection(dc_idx))
+
     if args["csv_export"]:
         path = args["csv_export"] + "/04-vor-lpf"
         etrago.export_to_csv(path)
-        
-    # find main subnetwork
-    # this represents the whole network in DE withouth links to foreign countries
-    bus_counts = network.buses.sub_network.value_counts()
-    main_subnet_id = bus_counts.idxmax()
-    main_subnet = network.sub_networks.at[main_subnet_id, "obj"]
     
-    # define slack bus
-    import networkx as nx
-    # Graph des Subnetzes holen
-    graph = main_subnet.graph()
-    # Betweenness Centrality: wie oft liegt ein Bus auf dem kürzesten
-    # Pfad zwischen anderen Bussen -> gutes Maß für "elektrische Zentralität"
-    centrality = nx.betweenness_centrality(graph)
-    slack_bus = max(centrality, key=centrality.get)
-
-    network.add(
-        "Generator",
-        "slack_balancing_generator",
-        bus=slack_bus,
-        control="Slack",
-        p_set=0,
-        p_nom=1e6,
-        carrier="slack",
-    )
-    
-    # document main subnetwork components
-    print()
-    print('##### LPF #####')
-    print('Components in Main Subnetwork for LPF:')
-    buses_idx   = main_subnet.buses_i()
-    lines_idx   = main_subnet.lines_i()
-    trafos_idx  = main_subnet.transformers_i()
-    gens_idx    = main_subnet.generators_i()
-    loads_idx   = main_subnet.loads_i()
-    storage_idx = main_subnet.storage_units_i()
-    print(f"Subnetwork {main_subnet_id}:")
-    print(f"  Buses:         {len(buses_idx)}")
-    print(f"  Lines:         {len(lines_idx)}")
-    print(f"  Links:         0 (not included)")
-    print(f"  Transformers:  {len(trafos_idx)}")
-    print(f"  Generators:    {len(gens_idx)}")
-    print(f"  Loads:         {len(loads_idx)}")
-    print(f"  Storage Units: {len(storage_idx)}")
-    print()
-    
-    # execute lpf  
-    main_subnet.lpf(snapshots=network.snapshots)
-
-    y = time.time()
-    z = (y - x) / 60
-    print("Time for PF [min]:", round(z, 2))
+    # Linear Power Flow including DC links
+    network.lpf(snapshots=network.snapshots)
     
     if args["csv_export"]:
         path = args["csv_export"] + "/05-nach-lpf"
         etrago.export_to_csv(path)
-        
-    # set results for links accordingly: p_set -> p0
-    network.links_t.p0 = network.links_t.p_set.copy()
-    efficiency = network.get_switchable_as_dense("Link", "efficiency")
-    network.links_t.p1 = -1 * (network.links_t.p0 * efficiency)
-    
-    # re-import foreign components
-    for comp in sorted(foreign_comp):
-        network.import_components_from_dataframe(foreign_comp[comp], comp)
 
-        for attr in sorted(foreign_series[comp]):
-            network.import_series_from_dataframe(
-                foreign_series[comp][attr], comp, attr
-            )
-    # p_set -> p for the foreign components
-    p_set_to_p_map = {
-        "Generator":   ("generators_t",    "p_set", "p"),
-        "StorageUnit": ("storage_units_t",  "p_set", "p"),
-        "Store":       ("stores_t",         "p_set", "p"),
-    }
-
-    for comp, (container_name, set_attr, result_attr) in p_set_to_p_map.items():
-        container = getattr(network, container_name)
-        p_set = container[set_attr]
-        comp_index = foreign_comp[comp].index
-
-        # nur die reimportierten Foreign-Assets betreffen
-        cols = p_set.columns.intersection(comp_index)
-        if len(cols) == 0:
-            continue
-
-        if result_attr not in container or container[result_attr].empty:
-            container[result_attr] = pd.DataFrame(
-                index=network.snapshots, columns=cols, dtype=float
-            )
-
-        # fehlende Spalten im Ergebnis-DataFrame ergänzen
-        missing_cols = cols.difference(container[result_attr].columns)
-        for c in missing_cols:
-            container[result_attr][c] = np.nan
-
-        container[result_attr][cols] = p_set[cols]
-
+    print("Time for PF [min]:", round((time.time() - x) / 60, 2))
     return network
 
 
