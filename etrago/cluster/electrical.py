@@ -1274,6 +1274,56 @@ def _snapshot_focus_region(etrago, focus_region):
     )
 
 
+def _snapshot_germany(etrago):
+    """Like ``_snapshot_focus_region``, but the 'focus region' is all of
+    Germany: every German AC bus keeps its identity (full resolution), there
+    are no boundary buses, and only foreign AC buses are clustered (via
+    ``unify_foreign_buses``).
+
+    Returns the same tuple as ``_snapshot_focus_region``.
+    """
+    net = etrago.network
+    inside_buses = net.buses[
+        (net.buses.carrier == "AC") & (net.buses.country == "DE")
+    ].index.astype(str)
+    boundary_buses = pd.Index([], dtype=str)
+    inside_set = set(inside_buses)
+    logger.info(
+        f"Foreign-only clustering: {len(inside_buses)} German AC buses are "
+        f"kept at full resolution."
+    )
+
+    # Transformers within Germany are restored from original data later
+    trafo_mask = net.transformers.bus0.isin(inside_set) & net.transformers.bus1.isin(
+        inside_set
+    )
+    focus_trafos = net.transformers[trafo_mask].copy()
+    focus_trafos_t = {}
+    for attr in net.transformers_t:
+        t_df = net.transformers_t[attr]
+        cols = t_df.columns.intersection(focus_trafos.index)
+        if not cols.empty:
+            focus_trafos_t[attr] = t_df[cols].copy()
+
+    # Cross-border lines (DE <-> abroad) not at 380 kV on both ends
+    focus_cross_lines = pd.DataFrame()
+    _cb = net.lines[net.lines.bus0.isin(inside_set) ^ net.lines.bus1.isin(inside_set)]
+    if not _cb.empty:
+        _both_380 = _cb.bus0.map(net.buses.v_nom).eq(380.0) & _cb.bus1.map(
+            net.buses.v_nom
+        ).eq(380.0)
+        focus_cross_lines = _cb[~_both_380].copy()
+        _inside0 = focus_cross_lines.bus0.isin(inside_set)
+        focus_cross_lines["outside_bus"] = focus_cross_lines.bus1.where(
+            _inside0, focus_cross_lines.bus0
+        )
+        focus_cross_lines["v_nom_orig"] = focus_cross_lines.bus0.where(
+            _inside0, focus_cross_lines.bus1
+        ).map(net.buses.v_nom)
+
+    return inside_buses, boundary_buses, focus_trafos, focus_trafos_t, focus_cross_lines
+
+
 def _record_t_line_pairs(network, preserved_set):
     """Record T-line endpoint pairs before clustering renames them.
 
@@ -1552,6 +1602,16 @@ def run_spatial_clustering(self):
             self.disaggregated_network = self.network.copy(with_time=False)
 
         focus_region = self.args["network_clustering"]["method"]["focus_region"]
+        foreign_only = self.args["network_clustering"]["electricity_grid"].get(
+            "foreign_only", False
+        )
+        if foreign_only and not self.args["network_clustering"]["method"][
+            "per_country"
+        ]:
+            raise ValueError(
+                "'foreign_only' requires network_clustering/method/per_country=True"
+            )
+        keep_topology = bool(focus_region) or foreign_only
 
         # Snapshot focus-region state before preprocessing modifies the network.
         (
@@ -1560,19 +1620,24 @@ def run_spatial_clustering(self):
             focus_trafos,
             focus_trafos_t,
             focus_cross_lines,
-        ) = _snapshot_focus_region(self, focus_region)
+        ) = (
+            _snapshot_germany(self)
+            if foreign_only
+            else _snapshot_focus_region(self, focus_region)
+        )
         preserved_set = set(inside_buses).union(boundary_buses)
 
         elec_network, weight, n_clusters, busmap_foreign = preprocessing(
             self, inside_buses=inside_buses
         )
 
-        if focus_region:
+        if keep_topology:
             # Record T-line pairs after preprocessing, before aggregatelines
             # renames them to integer IDs.
             focus_t_pairs, all_t_pairs = _record_t_line_pairs(
                 self.network, preserved_set
             )
+        if focus_region and not foreign_only:
             elec_network, weight = _apply_focus_weighting(
                 self,
                 elec_network,
@@ -1583,7 +1648,14 @@ def run_spatial_clustering(self):
                 n_clusters,
             )
 
-        if self.args["network_clustering"]["method"]["algorithm"] == "kmeans":
+        if foreign_only:
+            # German buses stay as they are (identity mapping below),
+            # foreign buses are handled by busmap_foreign in postprocessing.
+            logger.info("Foreign-only clustering: skip clustering of German buses")
+            busmap = pd.Series(dtype=str)
+            medoid_idx = pd.Series(dtype=str)
+
+        elif self.args["network_clustering"]["method"]["algorithm"] == "kmeans":
             if not self.args["network_clustering"]["electricity_grid"][
                 "k_elec_busmap"
             ]:
@@ -1642,10 +1714,21 @@ def run_spatial_clustering(self):
         self.update_busmap(busmap)
         self.network = clustering.network
 
-        if focus_region:
+        if keep_topology:
             _restore_transformers(
                 self.network, focus_trafos, focus_trafos_t, focus_t_pairs, all_t_pairs
             )
+            if foreign_only and not focus_cross_lines.empty:
+                # The foreign end of a cross-border line no longer exists
+                # after clustering -> point it to its foreign cluster bus.
+                focus_cross_lines = focus_cross_lines.copy()
+                bm = pd.Series(busmap, dtype=object).astype(str)
+                bm.index = bm.index.astype(str)
+                for col in ["bus0", "bus1", "outside_bus"]:
+                    focus_cross_lines[col] = (
+                        focus_cross_lines[col].astype(str).map(bm)
+                        .fillna(focus_cross_lines[col].astype(str))
+                    )
             _add_cross_boundary_transformers(self.network, focus_cross_lines)
 
         self.buses_by_country()
@@ -1655,14 +1738,21 @@ def run_spatial_clustering(self):
         # which sets slack bus(es).
         set_control_strategies(self.network)
 
-        logger.info(
-            "Network clustered to {} buses with ".format(
-                self.args["network_clustering"]["electricity_grid"][
-                    "n_clusters"
-                ]
+        if foreign_only:
+            logger.info(
+                "Network clustered abroad only: {} AC buses in total".format(
+                    (self.network.buses.carrier == "AC").sum()
+                )
             )
-            + self.args["network_clustering"]["method"]["algorithm"]
-        )
+        else:
+            logger.info(
+                "Network clustered to {} buses with ".format(
+                    self.args["network_clustering"]["electricity_grid"][
+                        "n_clusters"
+                    ]
+                )
+                + self.args["network_clustering"]["method"]["algorithm"]
+            )
 
         if self.args["export_results_path"]:
             export_clustering_results(self)
