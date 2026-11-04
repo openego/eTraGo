@@ -1260,13 +1260,13 @@ class ComparisonReport:
     def flex(self):
         rows = []
         for k, m in self.M.items():
-            ez = m.ely_by_zone.gw
-            sh = ez.get(m.focus_zone, 0.0)
-            rows.append({"sh": sh, "other": ez.sum() - sh})
+            # Split by SH buses (not by bidding zone), so the zone size does not matter.
+            sh = m.focus["ely_gw"]
+            rows.append({"sh": sh, "other": m.ely_by_zone.gw.sum() - sh})
         df = pd.DataFrame(rows, index=self.labels())
         f1 = self.fig("cmp-ely", C.bars(self.labels(), [
-            {"name": "Zone containing SH", "values": df.sh.values, "color": "@s3"},
-            {"name": "Other German zones", "values": df.other.values, "color": "@s1"}],
+            {"name": "Schleswig-Holstein", "values": df.sh.values, "color": "@s3"},
+            {"name": "Rest of Germany", "values": df.other.values, "color": "@s1"}],
             unit="GW", stacked=True, height=320))
         bat = [m.bat_by_zone[["existing_gw", "new_gw"]].sum().sum() for m in self.M.values()]
         f2 = self.single("cmp-bat", bat, "GW", 1)
@@ -1277,7 +1277,7 @@ class ComparisonReport:
             for c, k in zip(fs.columns, self.M)], unit="TWh", horizontal=True, height=420))
         body = H.grid(
             H.fig_block(f1, "Electrolyser capacity in Germany",
-                        "Split into the zone that contains Schleswig-Holstein and the rest of Germany."),
+                        "Split into Schleswig-Holstein (buses inside the federal state) and the rest of Germany."),
             H.fig_block(f2, "Battery power in Germany (grid model)"),
             H.fig_block(f3, "Use of flexibility options in the market (Germany)", wide=True),
         )
