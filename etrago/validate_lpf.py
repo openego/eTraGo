@@ -1,6 +1,13 @@
 """
 Validierung der run_power_flow-Pipeline (eTraGo, Zooming-Branch).
 
+Vorab (ganz am Anfang des Reports)
+  * Slack-Tabelle nach LPF (nur AC-Busse, Bilanzlücke p - p_set);
+    DE-Slack muss ≤ SLACK_ATOL sein, Auslands-/Nicht-AC-Slacks nur Info
+  * Energie je Komponentenart und Carrier für Komponenten in DE:
+    p_set vor Clustering (1), p_set nach Clustering (2), p nach LPF (5;
+    Nicht-AC weiter p_set, da das LPF dort nur Artefakte liefert)
+
 Geprüft wird je Stufe
   * Komponentenzahlen je Scope (Gesamt / AC / AC-DE / AC-Ausland / Nicht-AC)
   * Konsistenz der Scopes (AC-DE + AC-Ausland = AC, AC + Nicht-AC = Gesamt)
@@ -28,7 +35,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-RES = 150
+RES = 100
 BASE_PATH = f"Zooming-Tests/lokale_tests/AC-{RES}/"
 OUTPUT_DIR = BASE_PATH  # Der PDF-Report wird hier gespeichert
 ATOL = 1e-3  # MW
@@ -62,6 +69,21 @@ DISPATCH = {
     "Link": ("links", "p0"),
     "StorageUnit": ("storage_units", "p"),
     "Store": ("stores", "p"),
+}
+
+# Slack-Statistik (allererster Abschnitt des Reports): Stufe nach dem LPF
+SLACK_STAGE = "5"
+SLACK_ATOL = 1.0  # MW, Toleranz für die Bilanzlücke p - p_set am DE-Slack
+
+# Carrier-Übersicht (Report-Anfang): Stufen und ausgewertete Größe
+SUMMARY_STAGES = (("1", "p_set"), ("2", "p_set"), ("5", "p"))
+# Komponente -> Ergebnisgröße für "p" (Links: p0, bezogen auf bus0)
+SUMMARY_COMPONENTS = {
+    "Generator": "p",
+    "Load": "p",
+    "StorageUnit": "p",
+    "Store": "p",
+    "Link": "p0",
 }
 
 SCOPES = {
@@ -181,14 +203,14 @@ def classify_net(net):
 # p_set / p
 # --------------------------------------------------------------------------- #
 def p_set_ts(net, comp):
-    attr = DISPATCH[comp][0]
+    attr = COMPONENTS[comp]
     return getattr(net, attr + "_t").get("p_set", pd.DataFrame())
 
 
 def effective_p_set(net, comp, ids):
     """Statischer p_set als Default, überschrieben durch vorhandene Zeitreihe.
     Nur für die übergebenen Assets (spart Speicher)."""
-    attr = DISPATCH[comp][0]
+    attr = COMPONENTS[comp]
     df = getattr(net, attr)
     ids = pd.Index(ids)
 
@@ -205,6 +227,205 @@ def effective_p_set(net, comp, ids):
     if len(common):
         eff[common] = ts[common]
     return eff
+
+
+# --------------------------------------------------------------------------- #
+# Slack-Statistik (allererster Abschnitt des Reports)
+# --------------------------------------------------------------------------- #
+def print_slack_summary(rep, nets, stage_key=SLACK_STAGE):
+    """Kompakte Slack-Tabelle der LPF-Stufe (nur AC-Busse).
+
+    Slack = control == "Slack" oder der explizit angelegte "slack_balancing_generator".
+    Ausgewertet wird die Bilanzlücke Δ = p - p_set: Ein Slack-Generator behält
+    seine eigene Erzeugung (p_set), nur die Differenz ist Ausgleich.
+
+    Prüfung (zählt als Fehlschlag): Slacks an DE-Bussen mit max |Δ| > SLACK_ATOL.
+    Auslands-Slacks werden nur angezeigt (für DE-Leitungsflüsse irrelevant).
+    Slacks an Nicht-AC-Bussen (Gas, Wärme) werden nur gezählt: Dort ist jeder Bus
+    ein eigenes SubNetwork, PyPSA wählt automatisch einen Slack, das LPF ist dort
+    physikalisch bedeutungslos.
+    """
+    banner(f"Slack nach LPF (Stufe {stage_key}: {STAGE_BY_KEY[stage_key].title})")
+    print(f"  Erstellt: {datetime.now()}\n")
+
+    net = nets[stage_key]
+    gens = net.generators
+    is_slack = pd.Series(False, index=gens.index)
+    if "control" in gens.columns:
+        is_slack |= gens["control"] == "Slack"
+    if "slack_balancing_generator" in gens.index:
+        is_slack.loc["slack_balancing_generator"] = True
+    slack_ids = gens.index[is_slack.to_numpy()]
+
+    if len(slack_ids) == 0:
+        rep.emit("Slack", None, "kein Slack-Generator gefunden", 4)
+        return
+
+    bus_carrier = gens.loc[slack_ids, "bus"].map(net.buses["carrier"])
+    ac_ids = slack_ids[(bus_carrier == "AC").to_numpy()]
+    n_other = len(slack_ids) - len(ac_ids)
+
+    p = net.generators_t.get("p", pd.DataFrame())
+    rows = []
+    for gid in ac_ids:
+        bus = gens.at[gid, "bus"]
+        row = {
+            "Generator": gid,
+            "Land": net.buses.at[bus, "country"] if "country" in net.buses else "",
+            "Carrier": gens.at[gid, "carrier"] if "carrier" in gens.columns else "",
+        }
+        if gid in p.columns:
+            ps = effective_p_set(net, "Generator", [gid])[gid]
+            d = p[gid].reindex(net.snapshots) - ps
+            row.update({
+                "p_set mean": ps.mean(),
+                "Δ min": d.min(),
+                "Δ mean": d.mean(),
+                "Δ max": d.max(),
+                "max |Δ|": d.abs().max(),
+            })
+        else:
+            row.update({k: np.nan for k in ("p_set mean", "Δ min", "Δ mean", "Δ max", "max |Δ|")})
+        rows.append(row)
+
+    if rows:
+        tab = pd.DataFrame(rows).set_index("Generator").sort_values("max |Δ|", ascending=False)
+        print("  Δ = p - p_set [MW] = Ausgleich durch den Slack (nur AC-Busse)\n")
+        text = tab.to_string(float_format=lambda x: f"{x:,.3f}")
+        print("\n".join("    " + line for line in text.splitlines()))
+        print()
+
+        ok = tab["max |Δ|"] <= SLACK_ATOL          # NaN -> nicht ok
+        is_de = tab["Land"] == "DE"
+        de, foreign = tab[is_de], tab[~is_de]
+        if len(de):
+            n_ok = int(ok[is_de].sum())
+            rep.emit("Slack DE", n_ok == len(de),
+                     f"{n_ok}/{len(de)} DE-Slacks mit max |Δ| ≤ {SLACK_ATOL} MW"
+                     + ("" if n_ok == len(de) else f", max |Δ| = {de['max |Δ|'].max():,.1f} MW"), 4)
+        else:
+            rep.emit("Slack DE", False, "kein Slack an einem DE-AC-Bus gefunden", 4)
+        if len(foreign):
+            n_ok = int(ok[~is_de].sum())
+            msg = f"{n_ok}/{len(foreign)} Auslands-Slacks mit max |Δ| ≤ {SLACK_ATOL} MW"
+            if n_ok < len(foreign):
+                bad = foreign.index[~ok[~is_de].to_numpy()]
+                msg += f" | Restlücke bei {ids_str(bad)} (nur Info, für DE irrelevant)"
+            rep.emit("Slack Ausl.", None, msg, 4)
+
+    if n_other:
+        rep.emit("Slack sonst", None,
+                 f"{n_other} Slacks an Nicht-AC-Bussen (Gas/Wärme, je Bus ein SubNetwork): "
+                 "nicht ausgewertet, LPF dort ohne Bedeutung", 4)
+
+
+# --------------------------------------------------------------------------- #
+# Carrier-Übersicht DE (steht ganz am Anfang des Reports)
+# --------------------------------------------------------------------------- #
+def carrier_energy_de(net, value):
+    """Energie [GWh] je (Komponente, Carrier) für Komponenten in DE.
+
+    In DE = Scopes ac_de + other_de, d.h. alle Bus-Enden liegen in DE
+    (grenzüberschreitende Links zählen nicht dazu).
+    value: "p_set" (effektives p_set) oder "p".
+           Bei "p" wird nur für AC-Komponenten das Ergebnis genommen (Links: p0).
+           Nicht-AC (Gas, Wärme, H2) bleibt bei p_set, da das LPF dort je Bus
+           einen automatischen Slack setzt und p überschreibt (Artefakt).
+    Gewichtung mit snapshot_weightings.generators, damit Stufen mit
+    unterschiedlicher zeitlicher Auflösung vergleichbar sind.
+    Rückgabe: (Series mit MultiIndex (Komponente, Carrier), {Komponente: Anzahl ohne Ergebnis-Spalte})
+    """
+    scopes, _ = classify_net(net)
+    w = net.snapshot_weightings["generators"].reindex(net.snapshots).fillna(1.0)
+    out, missing = {}, {}
+
+    for comp, res_attr in SUMMARY_COMPONENTS.items():
+        attr = COMPONENTS[comp]
+        df = getattr(net, attr)
+        ids_ac = scopes[comp]["ac_de"]
+        ids_other = scopes[comp]["other_de"]
+        ids = ids_ac.union(ids_other)
+        if len(ids) == 0:
+            continue
+
+        if value == "p_set":
+            ts = effective_p_set(net, comp, ids)
+        else:
+            res = getattr(net, attr + "_t").get(res_attr, pd.DataFrame())
+            missing[comp] = len(ids_ac.difference(res.columns))
+            parts = []
+            if len(ids_ac):
+                parts.append(res.reindex(index=net.snapshots, columns=ids_ac).fillna(0.0))
+            if len(ids_other):
+                parts.append(effective_p_set(net, comp, ids_other))
+            ts = pd.concat(parts, axis=1)
+
+        if "carrier" in df.columns:
+            carriers = df.loc[ids, "carrier"].fillna("").astype(str)
+        else:
+            carriers = pd.Series("", index=ids)
+
+        energy = ts.mul(w, axis=0).sum().groupby(carriers).sum() / 1e3
+        for carrier, val in energy.items():
+            out[(comp, carrier)] = val
+
+    s = pd.Series(out, dtype=float)
+    if len(s):
+        s.index = pd.MultiIndex.from_tuples(s.index, names=["Komponente", "Carrier"])
+    return s, missing
+
+
+def print_carrier_summary(nets):
+    banner("Energie je Komponente und Carrier in DE [GWh]")
+    print("  Spalten:")
+    for key, value in SUMMARY_STAGES:
+        print(f"    {key} {value:<6} = Stufe {key}: {STAGE_BY_KEY[key].title}")
+    print("  Vorzeichen: Generator/Speicher > 0 = Einspeisung, Load > 0 = Verbrauch,")
+    print("              Link = p_set bzw. p0 (Entnahme an bus0).")
+    print("  In DE: alle Bus-Enden in DE (grenzüberschreitende Links nicht enthalten).")
+    print("  Σ = Summe je Komponentenart. Slack erscheint in Stufe 5 als eigener Carrier.")
+    print("  p: nur AC-Komponenten aus dem LPF-Ergebnis; Nicht-AC (Gas/Wärme/H2) weiter")
+    print("     p_set, da das LPF dort je Bus einen automatischen Slack setzt (Artefakt).")
+    print("  Transport-Links (z.B. CH4-Pipelines) sind durch Clustering nicht")
+    print("     summenerhaltend (interne Flüsse entfallen, Gegenflüsse saldieren sich).\n")
+
+    cols, notes = {}, []
+    for key, value in SUMMARY_STAGES:
+        s, missing = carrier_energy_de(nets[key], value)
+        cols[f"{key} {value}"] = s
+        for comp, n in missing.items():
+            if n:
+                notes.append(
+                    f"Stufe {key}: {n} {comp} ohne {SUMMARY_COMPONENTS[comp]}-Spalte (als 0 gewertet)"
+                )
+
+    tab = pd.DataFrame(cols).fillna(0.0)
+    if tab.empty:
+        print("    keine Komponenten in DE gefunden")
+        return
+
+    names = list(tab.columns)
+    for a, b in zip(names[:-1], names[1:]):
+        tab[f"Δ {b.split()[0]}-{a.split()[0]}"] = tab[b] - tab[a]
+
+    # je Komponentenart: Carrier-Zeilen + Summenzeile
+    parts = []
+    for comp in SUMMARY_COMPONENTS:
+        if comp not in tab.index.get_level_values(0):
+            continue
+        sub = tab.loc[[comp]]
+        total = sub.sum().to_frame().T
+        total.index = pd.MultiIndex.from_tuples([(comp, "Σ")], names=tab.index.names)
+        parts += [sub, total]
+    tab = pd.concat(parts)
+
+    text = tab.to_string(float_format=lambda x: f"{x:,.1f}")
+    print("\n".join("    " + line for line in text.splitlines()))
+
+    if notes:
+        print()
+        for t in notes:
+            print(f"    – {t}")
 
 
 # --------------------------------------------------------------------------- #
@@ -278,6 +499,8 @@ def check_p_set(rep, net, scopes):
             has_ts = ids.intersection(ts.columns)
             vals = ts[has_ts].reindex(net.snapshots)
             nan_assets = has_ts[vals.isna().any().to_numpy()]
+            # NEU: Spalte vorhanden, aber durchgehend 0
+            zero_ts = has_ts[(vals.fillna(1).abs() <= 1e-9).all().to_numpy()]
 
             # Assets ohne Zeitreihe: statischer p_set als Fallback
             df = getattr(net, attr)
@@ -302,6 +525,8 @@ def check_p_set(rep, net, scopes):
             if len(static_nan):
                 msg += f" | weder Zeitreihe noch statischer Wert: {len(static_nan)}, z.B. {ids_str(static_nan)}"
             rep.emit(comp, n_gaps == 0, msg)
+            if len(zero_ts):
+                msg += f" | Zeitreihe komplett 0: {len(zero_ts)}"
 
 
 def check_dispatch(rep, net, scopes, scope_keys=("ac_de", "ac_foreign")):
@@ -375,6 +600,13 @@ def check_transition(rep, ref, new, ref_scopes, scope_keys, label):
             changed_assets = common[changed.any().to_numpy()] if len(common) else common
             if len(changed_assets):
                 rep.emit(comp, False, f"p_set verändert bei {len(changed_assets)}/{len(common)}, z.B. {ids_str(changed_assets)}")
+            if len(common):
+                became_zero = common[
+                    ((a.abs() > ATOL).any() & (b.abs() <= ATOL).all()).to_numpy()
+                ]
+                if len(became_zero):
+                    rep.emit(comp, False,
+                             f"{len(became_zero)} Reihen ≠0 -> komplett 0, z.B. {ids_str(became_zero)}")
 
 
 def p_set_totals(net):
@@ -418,7 +650,7 @@ def check_p_set_totals(rep, ref, new, label, allow_changes=()):
             tol = ATOL + 1e-6 * max(x.abs().max(), y.abs().max(), 0.0)
             if d.isna().any() or d.max() > tol:
                 text = f"{key[1]!r}: Σ {x.sum():.1f} -> {y.sum():.1f}, max Δ pro Snapshot {d.max():.3f}{note}"
-                (expected if key in allow_changes else bad).append(text)
+                (expected if (key[0], key[1].split("|")[0]) in allow_changes else bad).append(text)
         n_ok = len(keys) - len(bad) - len(expected)
         rep.emit(comp, not bad, f"{n_ok}/{len(keys)} Carrier mit erhaltener Summe" + (f", {len(bad)} abweichend:" if bad else ""))
         for t in bad:
@@ -443,11 +675,13 @@ STAGES = [
     Stage("1", "01-vor-cluster", "vor Clustering", "pset"),
     Stage("2", "02-nach-cluster", "nach Clustering", "pset"),
     Stage("3", "03-mit-dc-results", "nach Clustering mit DC-Results", "pset"),
-    Stage("4", "04-vor-lpf", "vor LPF (Ausland entfernt)", "pset", ("ac_foreign", "other_foreign")),
-    Stage("5", "05-nach-lpf", "nach LPF (Ausland noch entfernt)", "dispatch", ("ac_foreign", "other_foreign")),
-    Stage("6", "06-final-results", "final (Ausland wieder hinzugefügt)", "dispatch"),
+    # Ausland bleibt in der aktuellen run_power_flow im Netz -> keine leeren Scopes erwartet
+    Stage("4", "04-vor-lpf", "vor LPF", "pset"),
+    Stage("5", "05-nach-lpf", "nach LPF", "dispatch"),
+    Stage("6", "06-final-results", "final", "dispatch"),
     Stage("7", "07-dropped-sectors", "nur AC (andere Sektoren gedroppt)", "dispatch", ("other",)),
 ]
+STAGE_BY_KEY = {s.key: s for s in STAGES}
 
 # (Referenz, neu, Scopes der Referenz, die erhalten bleiben müssen, Label)
 TRANSITIONS = [
@@ -459,7 +693,10 @@ TRANSITIONS = [
 
 # (Referenz, neu, Label, erwartete Änderungen)
 TOTAL_TRANSITIONS = [
-    ("1", "2", "1 -> 2: Summe p_set je Carrier muss durch Clustering erhalten bleiben", ()),
+    # CH4-Links sind Pipelines (Transportflüsse): beim Clustering entfallen interne
+    # Flüsse und Gegenflüsse saldieren sich -> Summe ist keine Erhaltungsgröße.
+    ("1", "2", "1 -> 2: Summe p_set je Carrier muss durch Clustering erhalten bleiben "
+               "(außer Transport-Links CH4)", (("Link", "CH4"),)),
     ("2", "3", "2 -> 3: nur DC-Links dürfen sich durch den DC-Import ändern", (("Link", "DC"),)),
 ]
 
@@ -467,6 +704,11 @@ TOTAL_TRANSITIONS = [
 def run_validation(nets):
     rep = Report()
     classified = {}
+
+    # Ganz am Anfang: Slack-Tabelle (DE-Slack wird geprüft, Rest nur Info),
+    # danach Carrier-Übersicht DE (rein informativ)
+    print_slack_summary(rep, nets)
+    print_carrier_summary(nets)
 
     ref_snapshots = nets[STAGES[0].key].snapshots
     for stage in STAGES:
@@ -518,7 +760,7 @@ class Tee:
 
 def save_text_as_pdf(text, path, title="", font_size=7, wrap=175, lines_per_page=58):
     """Schreibt Text in einer Monospace-Schrift (DejaVu Sans Mono, in matplotlib
-    enthalten, kennt ✓ ✗ – Δ ≠) als mehrseitiges A4-Querformat-PDF."""
+    enthalten, kennt ✓ ✗ – Δ ≠ Σ) als mehrseitiges A4-Querformat-PDF."""
     from matplotlib.backends.backend_pdf import PdfPages
     from matplotlib.figure import Figure
 
@@ -585,7 +827,7 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
+
 '''
 import validate_lpf as v
 
@@ -600,4 +842,7 @@ n_vor_lpf      = nets["4"]
 n_nach_lpf     = nets["5"]
 n_final        = nets["6"]
 n_dropped      = nets["7"]
+
+# nur die Carrier-Übersicht:
+# v.print_carrier_summary(nets)
 '''
