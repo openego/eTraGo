@@ -156,10 +156,8 @@ def run_lopf(etrago, extra_functionality, method):
             extra_functionality=extra_functionality,
         )
         if status != "ok":
-            logger.warning(
-                f"""Optimization failed with status {status}
-                and condition {condition}"""
-            )
+            logger.warning(f"""Optimization failed with status {status}
+                and condition {condition}""")
             etrago.network.model.print_infeasibilities()
             import pdb
 
@@ -441,10 +439,8 @@ def optimize_with_rolling_horizon(
     for i, start in enumerate(starting_points):
         end = min(len(snapshots), start + horizon)
         sns = snapshots[start:end]
-        logger.info(
-            f"""Optimizing network for snapshot horizon
-            [{sns[0]}:{sns[-1]}] ({i+1}/{len(starting_points)})."""
-        )
+        logger.info(f"""Optimizing network for snapshot horizon
+            [{sns[0]}:{sns[-1]}] ({i+1}/{len(starting_points)}).""")
 
         if not n.stores.empty:
             stores_no_dsm = n.stores[
@@ -590,10 +586,8 @@ def optimize_with_rolling_horizon(
             )
 
             if status != "ok":
-                logger.warning(
-                    f"""Optimization failed with status {status}
-                    and condition {condition}"""
-                )
+                logger.warning(f"""Optimization failed with status {status}
+                    and condition {condition}""")
                 n.model.print_infeasibilities()
                 import pdb
 
