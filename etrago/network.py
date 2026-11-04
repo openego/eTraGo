@@ -29,7 +29,9 @@ import os
 
 from pypsa.components import Network
 from sqlalchemy.orm import sessionmaker
+import pypsa
 import pandas as pd
+import numpy as np
 
 if "READTHEDOCS" not in os.environ:
     from etrago.tools import db
@@ -598,40 +600,38 @@ class Etrago:
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
     
-def import_egon_results_network(etrago, path):
     
-    import pypsa
-    import numpy as np
+def import_egon_results_network(etrago, path):
 
     # import eGo results
-    ego = pypsa.Network(path + "desaggregated/lowflex_network_peak_week.nc")
+    ego = pypsa.Network(path + "desaggregated/new_lowflex_peak_week.nc")
 
     # take over the entire network (incl. buses, lines, snapshots, ...)
     etrago.network = ego
     network = etrago.network
     
-    # Remove DC links within DE 
+    # remove DC links within DE 
     # anyhow no components attached
     buses_to_remove = ["13824", "13665", "13478", "12770"]
     links_to_remove = network.links.index[
         network.links["bus0"].isin(buses_to_remove) |
         network.links["bus1"].isin(buses_to_remove)
     ]
-    # Remove links individually
+    # remove links individually
     for link in links_to_remove:
         network.remove("Link", link)
     
-    # Remove buses individually
+    # remove buses individually
     for bus in buses_to_remove:
         if bus in network.buses.index:
             network.remove("Bus", bus)
     
-    # set country of buses with missing indication to DE
-    missing_country = (
-        network.buses["country"].isna()
-            | network.buses["country"].isin(["", "None", "nan"])
-        )
-    network.buses.loc[missing_country, "country"] = "DE"
+    # # set country of buses with missing indication to DE
+    # missing_country = (
+    #     network.buses["country"].isna()
+    #         | network.buses["country"].isin(["", "None", "nan"])
+    #     )
+    # network.buses.loc[missing_country, "country"] = "DE"
     
     # set country of lines based on the countries of their buses
     bus0_country = network.lines["bus0"].map(network.buses["country"])
@@ -684,108 +684,207 @@ def import_egon_results_network(etrago, path):
             if attr not in keep_attrs:
                 del container[attr]
                 
-                
-def import_dc_links_results(etrago, path):
-    # p_set for DC-links must be defined specifically
-    # because DC-links results are not in the imported ego network
-    
-    def _country_pair(c0, c1):
-        """Canonical, direction-independent country pair."""
-        return tuple(sorted((c0, c1)))
-    
-    import pypsa
-    import numpy as np
-    
-    # import clustered results
-    clus_network = pypsa.Network(path + "clustered")
-    
-    # find out foreign countries per DC link
-    clus = clus_network.links[clus_network.links.carrier == "DC"].copy()
-    bus_country = clus_network.buses["country"]
-    clus["country0"] = clus["bus0"].map(bus_country)
-    clus["country1"] = clus["bus1"].map(bus_country)
-    
-    # direction-independent country pair per link
-    clus["pair"] = clus.apply(
-        lambda r: _country_pair(r["country0"], r["country1"]), axis=1
+    # dc-links: drop time-variant efficiency
+    eff_t = network.links_t.efficiency
+    dc_idx = network.links.index[network.links.carrier == "DC"]
+    network.links_t.efficiency = eff_t.drop(
+        columns=eff_t.columns.intersection(dc_idx)
     )
-    # sign convention: p0 is the flow from country0 -> country1.
-    # we define the "reference direction" as pair[0] -> pair[1].
-    # if country0 matches pair[0], keep the sign (+1),
-    # otherwise country0 == pair[1] -> flip direction (-1).
-    clus["sign"] = clus.apply(
-        lambda r: 1 if r["country0"] == r["pair"][0] else -1, axis=1
-    )
-    
-    # full p0 time series (all snapshots, irregular resolution)
-    full_ts = clus_network.links_t.p0.reindex(columns=clus.index, fill_value=0)
-    signed_ts = full_ts.mul(clus["sign"], axis=1)    
-    
-    # aggregate per country pair -> net flow pair[0] -> pair[1]
-    exchange_full = signed_ts.T.groupby(clus["pair"]).sum().T
 
-    # target snapshots are already the desired hourly snapshots
+    # check: other links efficiency
+    eff_t = network.links_t.efficiency
+    bad = eff_t.columns[(eff_t.isna() | (eff_t <= 0)).any()]
+    if len(bad) > 0:
+        logger.warning(
+            "Links mit Effizienz-Zeitreihe <= 0 oder NaN: "
+            f"{network.links.loc[bad, 'carrier'].value_counts().to_dict()}"
+        )
+        
+        
+def import_dc_links_results(etrago, path):
+    # transfer cross-border link flows from the clustered network into the
+    # etrago network as fixed set points (links_t.p_set) for a power flow
+    # as the imported disaggregated network does not contains those results
+    # therefore sum up flows between all countries
+    # and distribute results among resulting DC links in our network
+
+    clus_network = pypsa.Network(path + "clustered")
     target_snapshots = etrago.network.snapshots
 
-    # expand to hourly target snapshots: each target timestamp gets the
-    # value of the most recent preceding clustered snapshot
-    # (snapshot_weightings == 5 confirms this segmentation)
-    exchange_hourly = (
-        exchange_full.reindex(exchange_full.index.union(target_snapshots))
-        .sort_index()
-        .ffill()
-        .reindex(target_snapshots)
+    # check snapshots of both network
+    missing = target_snapshots.difference(clus_network.snapshots)
+    if len(missing) > 0:
+        raise ValueError(
+            f"{len(missing)} target snapshots are missing in the source "
+            f"network, e.g. {list(missing[:3])}. Resolutions do not match."
+        )
+
+    def _pair_and_sign(net, links):
+        # identify country pairs and define sign per link
+        # +1 if the link's own direction (bus0 -> bus1) points in the pair's reference direction pair[0] -> pair[1]
+        # special case: links within one country (reference direction is defined geographically as west -> east)
+
+        c = net.buses["country"]
+        x = net.buses["x"]
+
+        # country at each end of the link
+        c0, c1 = links.bus0.map(c), links.bus1.map(c)
+
+        # direction-independent pair
+        pair = pd.Series(
+            [tuple(sorted((a, b))) for a, b in zip(c0, c1)], index=links.index
+        )
+
+        # default rule: +1 if the link starts in the first country of the pair
+        sign = pd.Series(
+            np.where(c0 == pair.str[0], 1.0, -1.0), index=links.index
+        )
+
+        # same-country links: +1 if the link points from west to east
+        same = c0 == c1
+        sign[same] = np.where(
+            links.loc[same, "bus0"].map(x) <= links.loc[same, "bus1"].map(x),
+            1.0,
+            -1.0,
+        )
+
+        # buses without a country produce pairs containing NaN; these can
+        # never be matched between the networks, so make them visible
+        if c0.isna().any() or c1.isna().any():
+            logger.warning(
+                f"{int((c0.isna() | c1.isna()).sum())} DC links with a bus "
+                f"without country: "
+                f"{links.index[c0.isna() | c1.isna()].tolist()}"
+            )
+        return pair, sign
+
+    # source network: net flow per country pair
+    clus = clus_network.links[clus_network.links.carrier == "DC"].copy()
+    clus["pair"], clus["sign"] = _pair_and_sign(clus_network, clus)
+
+    # p0 = power withdrawn at bus0 = flow from bus0 to bus1 (positive means
+    # bus0 -> bus1); only target snapshots
+    p0 = clus_network.links_t.p0.reindex(
+        index=target_snapshots, columns=clus.index
     )
-    
-    # DC links in the etrago network
-    dc_links = etrago.network.links[etrago.network.links.carrier == "DC"].copy()
-    bus_country = etrago.network.buses["country"]
-    dc_links["country0"] = dc_links["bus0"].map(bus_country)
-    dc_links["country1"] = dc_links["bus1"].map(bus_country)
-    dc_links["pair"] = dc_links.apply(
-        lambda r: _country_pair(r["country0"], r["country1"]), axis=1
-    )
-    dc_links["sign"] = dc_links.apply(
-        lambda r: 1 if r["country0"] == r["pair"][0] else -1, axis=1
+    if p0.isna().any().any():
+        logger.warning(
+            f"Source network: p0 missing for "
+            f"{int(p0.isna().any().sum())} DC links, set to 0"
+        )
+
+    # snapshots x pairs, value = net flow pair[0] -> pair[1] in MW.
+    exchange = (
+        p0.fillna(0)
+        .mul(clus["sign"], axis=1)
+        .T.groupby(clus["pair"])
+        .sum()
+        .T
     )
 
-    # share of each link in its country pair, proportional to p_nom
-    pair_p_nom = dc_links.groupby("pair")["p_nom"].transform("sum")
+    # optimised capacity per pair in the source network
+    clus_cap = clus.groupby("pair")["p_nom_opt"].sum()
+
+    # target network: same classification of its DC links
+    dc_links = etrago.network.links[
+        etrago.network.links.carrier == "DC"
+    ].copy()
+    dc_links["pair"], dc_links["sign"] = _pair_and_sign(
+        etrago.network, dc_links
+    )
+
+    # pairs that exist in only one of the networks cannot be mapped:
+    only_src = set(clus["pair"]) - set(dc_links["pair"])
+    only_dst = set(dc_links["pair"]) - set(clus["pair"])
+    if only_src:
+        logger.warning(
+            f"Country pairs only in source network (flow is lost): {only_src}"
+        )
+    if only_dst:
+        logger.warning(
+            f"Country pairs only in target network (p_set stays 0): {only_dst}"
+        )
+
+    # capacities in the target network
+    # distribution key within a pair: each link's share of the pair's
+    # existing p_nom; if all links of a pair have p_nom = 0, split equally
+    old_sum = dc_links.groupby("pair")["p_nom"].transform("sum")
     n_links = dc_links.groupby("pair")["p_nom"].transform("size")
+    key = (dc_links["p_nom"] / old_sum).where(old_sum > 0, 1 / n_links)
 
-    # fall back to equal distribution if the p_nom sum of a pair is zero
+    # optimised pair capacity from the source, split by the key
+    pair_cap = dc_links["pair"].map(clus_cap)
+    new_p_nom = (pair_cap * key).where(pair_cap.notna())
+
+    # never reduce an existing capacity; pairs without source keep p_nom
+    dc_links["p_nom"] = np.maximum(new_p_nom, dc_links["p_nom"]).fillna(
+        dc_links["p_nom"]
+    )
+
+    # write back: fixed capacities, no extension
+    etrago.network.links.loc[dc_links.index, "p_nom"] = dc_links["p_nom"]
+    etrago.network.links.loc[dc_links.index, "p_nom_extendable"] = False
+
+    # split each pair's flow onto its target links
+    pair_p_nom = dc_links.groupby("pair")["p_nom"].transform("sum")
     dc_links["share"] = (dc_links["p_nom"] / pair_p_nom).where(
         pair_p_nom > 0, 1 / n_links
     )
-    
-    # capacity limits per link (flow direction bus0 -> bus1)
+
+    # technical limits per link in its own direction bus0 -> bus1
     upper = dc_links["p_nom"] * dc_links["p_max_pu"]
     lower = dc_links["p_nom"] * dc_links["p_min_pu"]
 
+    p_set = etrago.network.links_t.p_set
     for link_id, row in dc_links.iterrows():
         pair = row["pair"]
-        if pair not in exchange_hourly.columns:
+
+        # pair unknown in the source -> explicitly 0, so that no stale or
+        # NaN value from earlier steps remains in p_set
+        if pair not in exchange.columns:
+            p_set.loc[target_snapshots, link_id] = 0.0
             continue
-        # flow in reference direction (pair[0]->pair[1]), flipped to match
-        # the actual direction of the etrago link, scaled by the link's
-        # p_nom share within its country pair
-        
-        # desired flow in the actual direction of the etrago link
-        desired = exchange_hourly[pair].to_numpy() * row["sign"] * row["share"]
-        
-        # limit to the technical capacity of the link
+
+        # flow of this link in its own direction:
+        #   exchange[pair]  ... pair flow in reference direction
+        #   * sign          ... turn it into this link's direction
+        #   * share         ... this link's part of the pair flow
+        desired = exchange[pair].to_numpy() * row["sign"] * row["share"]
+
+        # safety net: respect the link's capacity
         values = np.clip(desired, lower[link_id], upper[link_id])
-        
-        # report curtailed power (MW) so the mismatch is visible
+
+        # if clipping happened, the pair sum no longer matches the source;
+        # report it so the resulting imbalance is traceable
         curtailed = np.abs(desired - values)
         if curtailed.max() > 1e-6:
             logger.warning(
                 f"DC link {link_id} ({pair}): p_set limited to capacity in "
                 f"{(curtailed > 1e-6).sum()} snapshots, "
-                f"max curtailment {curtailed.max():.1f} MW"
+                f"max {curtailed.max():.1f} MW"
             )
-        
-        etrago.network.links_t.p_set.loc[target_snapshots, link_id] = values
+
+        p_set.loc[target_snapshots, link_id] = values
+    etrago.network.links_t.p_set = p_set
+
+    # check: recompute pair flows from the written p_set
+    dst = (
+        p_set.loc[target_snapshots, dc_links.index]
+        .mul(dc_links["sign"], axis=1)
+        .T.groupby(dc_links["pair"])
+        .sum()
+        .T
+    )
+    common = exchange.columns.intersection(dst.columns)
+    dev = (dst[common] - exchange[common]).abs().max()
+    if dev.max() > 1:
+        logger.warning(
+            f"Pair sums deviate from source (MW):\n{dev[dev > 1].round(1)}"
+        )
+
+    return exchange, dst
+
+
         
     
     
