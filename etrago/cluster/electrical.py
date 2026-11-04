@@ -808,7 +808,7 @@ def preprocessing(etrago, inside_buses=None, apply_on="grid_model"):
             .assign(
                 x=network.transformers.x
                 * (380.0 / transformer_voltages.max(axis=1)) ** 2,
-                length=1,
+                length=0.001,
                 v_nom=380.0,
             )
             .set_index("T" + trafo_index),
@@ -1441,44 +1441,59 @@ def _add_cross_boundary_transformers(network, focus_cross_lines):
     network.mremove("Line", clustered)
 
     lines = focus_cross_lines.copy()
+    # restrict to lines which do not have matching voltage level
+    v_out = network.buses.loc[lines.outside_bus, "v_nom"].values
+    needs_trafo = ~np.isclose(lines.v_nom_orig.astype(float), v_out)
     # One auxiliary bus per boundary bus and voltage level. Numeric IDs,
     # because bus IDs are cast to int elsewhere (e.g. adjust_PtH2_model).
     key = lines.outside_bus + "_" + lines.v_nom_orig.astype(str)
     first_id = network.buses.index.astype(int).max() + 1
     aux_ids = {k: str(first_id + i) for i, k in enumerate(key.unique())}
     lines["aux_bus"] = key.map(aux_ids)
+    
+    if aux_ids:
 
-    aux_buses = (
-        lines.drop_duplicates("aux_bus")
-        .set_index("aux_bus")
-        .outside_bus.to_frame()
-    )
-    aux_buses = network.buses.loc[aux_buses.outside_bus].set_index(
-        aux_buses.index
-    )
-    aux_buses["v_nom"] = lines.groupby("aux_bus").v_nom_orig.first()
-    aux_buses["sub_network"] = ""
-    io.import_components_from_dataframe(network, aux_buses, "Bus")
-
-    lines["x_pu"] = lines.x / lines.v_nom_orig**2
-    trafos = lines.groupby("aux_bus").agg(
-        bus1=("outside_bus", "first"),
-        s_nom=("s_nom", "sum"),
-        x_pu_min=("x_pu", "min"),
-    )
-    trafos = pd.DataFrame(
-        {
-            "bus0": trafos.index.values,
-            "bus1": trafos.bus1.values,
-            "x": (0.01 * trafos.x_pu_min * trafos.s_nom).values,
-            "r": 0.0,
-            "s_nom": trafos.s_nom.values,
-            "s_nom_extendable": False,
-            "capital_cost": 0.0,
-        },
-        index="CBT_" + trafos.index,
-    )
-    io.import_components_from_dataframe(network, trafos, "Transformer")
+        aux_buses = (
+            lines.drop_duplicates("aux_bus")
+            .set_index("aux_bus")
+            .outside_bus.to_frame()
+        )
+        aux_buses = network.buses.loc[aux_buses.outside_bus].set_index(
+            aux_buses.index
+        )
+        aux_buses["v_nom"] = lines.groupby("aux_bus").v_nom_orig.first()
+        aux_buses["sub_network"] = ""
+        io.import_components_from_dataframe(network, aux_buses, "Bus")
+    
+        lines["x_pu"] = lines.x / lines.v_nom_orig**2
+        
+        lines["s_cap"] = lines.s_nom.where(
+            ~lines.s_nom_extendable.astype(bool),
+            lines.s_nom_max.where(
+                lines.s_nom_max < float("inf"), 10 * lines.s_nom.clip(lower=1000)
+            ),
+        )
+        trafos = lines.groupby("aux_bus").agg(
+            bus1=("outside_bus", "first"),
+            s_nom=("s_cap", "sum"),
+            x_pu_min=("x_pu", "min"),
+        )
+        trafos["s_nom"] = (1.5 * trafos.s_nom).clip(lower=1.0)
+        x_trafo = 0.01 * trafos.x_pu_min * trafos.s_nom
+        
+        trafos = pd.DataFrame(
+            {
+                "bus0": trafos.index.values,
+                "bus1": trafos.bus1.values,
+                "x": (0.01 * trafos.x_pu_min * trafos.s_nom).values,
+                "r": (0.1 * x_trafo).values,
+                "s_nom": trafos.s_nom.values,
+                "s_nom_extendable": False,
+                "capital_cost": 0.0,
+            },
+            index="CBT_" + trafos.index,
+        )
+        io.import_components_from_dataframe(network, trafos, "Transformer")
 
     for end in ["bus0", "bus1"]:
         to_aux = lines[end] == lines.outside_bus
@@ -1495,6 +1510,7 @@ def _add_cross_boundary_transformers(network, focus_cross_lines):
             "b_pu",
             "x_pu_eff",
             "r_pu_eff",
+            "s_cap",
         ],
         errors="ignore",
     )
