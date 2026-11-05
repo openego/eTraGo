@@ -138,17 +138,6 @@ def dispatch_disaggregation(self):
                 temp_disagg_soc(n, n_tsa)
             )
 
-        # Avoid infeasibilies in e-Mobility stores
-        e_mob_stores = n.stores[n.stores.carrier == "battery_storage"]
-        max_e_first_hour = (
-            n.stores_t.e_max_pu.iloc[0]
-            .loc[e_mob_stores.index]
-            .mul(e_mob_stores.e_nom)
-        )
-
-        index = e_mob_stores[e_mob_stores.e_initial > max_e_first_hour].index
-        n.stores.loc[index, "e_initial"] = max_e_first_hour.loc[index]
-
         # Copy extension results
         n.lines["s_nom"] = n_tsa.lines["s_nom_opt"]
         n.lines["s_nom_extendable"] = False

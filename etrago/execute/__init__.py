@@ -468,6 +468,15 @@ def optimize_with_rolling_horizon(
                     ]
                 )
 
+            # Set e_initial of e-mobility stores from the previous horizon,
+            # the first horizon keeps the e_initial from the data model
+            # which was clipped to the SoC band in adjust_network()
+            emob_stores = n.stores.index[n.stores.carrier == "battery_storage"]
+            if start != 0:
+                n.stores.loc[emob_stores, "e_initial"] = n.stores_t.e.loc[
+                    snapshots[start - 1], emob_stores
+                ]
+
             # Select seasonal stores
             seasonal_stores = n.stores.index[
                 n.stores.carrier.isin(
