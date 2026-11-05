@@ -180,6 +180,11 @@ class Etrago:
 
         self.network_tsa = Network()
 
+        # Time series of the redispatch components, set after the grid
+        # optimization (run_lopf) and the temporal disaggregation if the
+        # market optimization is active
+        self.redispatch_timeseries = None
+
         self.disaggregated_network = Network()
 
         self.__re_carriers = [
