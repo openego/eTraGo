@@ -612,7 +612,7 @@ def import_egon_results_network(etrago, path):
     
     # remove DC links within DE 
     # anyhow no components attached
-    buses_to_remove = ["13824", "13665", "13478", "12770"]
+    buses_to_remove = ["13824", "13665", "13478", "12770", "7255", "1225", "21645"]
     links_to_remove = network.links.index[
         network.links["bus0"].isin(buses_to_remove) |
         network.links["bus1"].isin(buses_to_remove)
