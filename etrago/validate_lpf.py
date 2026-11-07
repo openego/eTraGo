@@ -35,7 +35,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-RES = 100
+RES = 8000
 BASE_PATH = f"Zooming-Tests/lokale_tests/AC-{RES}/"
 OUTPUT_DIR = BASE_PATH  # Der PDF-Report wird hier gespeichert
 ATOL = 1e-3  # MW
@@ -828,21 +828,17 @@ def main():
 if __name__ == "__main__":
     main()
 
-'''
-import validate_lpf as v
 
-nets = v.main()            # lädt alles, validiert und gibt die Netzwerke zurück
-# oder nur laden:
-# nets = v.load_networks()
-
-n_vor_cluster  = nets["1"]
-n_nach_cluster = nets["2"]
-n_dc_results   = nets["3"]
-n_vor_lpf      = nets["4"]
-n_nach_lpf     = nets["5"]
-n_final        = nets["6"]
-n_dropped      = nets["7"]
-
-# nur die Carrier-Übersicht:
-# v.print_carrier_summary(nets)
-'''
+#   import validate_lpf as v
+#   nets = v.load_networks()        # nur laden
+#   v.run_and_save(nets)            # validieren + PDF
+#   # nets = v.main()               # beides auf einmal
+#   # v.print_carrier_summary(nets) # nur die Carrier-Übersicht
+#
+#   n_vor_cluster  = nets["1"]
+#   n_nach_cluster = nets["2"]
+#   n_dc_results   = nets["3"]
+#   n_vor_lpf      = nets["4"]
+#   n_nach_lpf     = nets["5"]
+#   n_final        = nets["6"]
+#   n_dropped      = nets["7"]
