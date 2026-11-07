@@ -620,6 +620,8 @@ def run_etrago(args, json_path):
     egon_path = "results_for_lpf/"
     import_egon_results_network(etrago, egon_path)
     
+    network_vor_cluster = etrago.network.copy()
+    
     if args["csv_export"]:
         path = args["csv_export"] + "/01-vor-cluster"
         etrago.export_to_csv(path)
@@ -631,6 +633,18 @@ def run_etrago(args, json_path):
     if args["csv_export"]:
         path = args["csv_export"] + "/02-nach-cluster"
         etrago.export_to_csv(path)
+        
+    from isolated_buses import attach_isolated_buses
+    
+    # isolierte AC-Busse an das Hauptnetz hängen (Anbindung wie vor dem Clustering)
+    iso_report = attach_isolated_buses(
+        etrago.network,
+        network_before=network_vor_cluster,   # Netz vor dem Clustering, siehe unten
+        busmap=etrago.busmap["busmap"],       # Original-Bus -> Cluster-Bus, falls vorhanden
+    )
+    print(" ")
+    iso_report
+    print(" ")
     
     # define calculation case for power flow to foreign countries
     exchange, dst = import_dc_links_results(etrago, egon_path)
@@ -691,8 +705,6 @@ if __name__ == "__main__":
         sys.stdout = log_file
         
         print(datetime.datetime.now())
-        
-        etrago = run_etrago(args, json_path=None)
 
         try:            
             etrago = run_etrago(args, json_path=None)
