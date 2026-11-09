@@ -543,9 +543,22 @@ def set_interzonal_transfer_limits(self, net, busmap, line_names):
     the grid model. Optionally an additional factor is applied to links
     between two German market zones (``interzonal_capacity_factor``) as a
     simple NTC-like reduction for loop flows.
+
+    ``interzonal_line_limits_scope`` selects the links that get the line
+    limits: "all", "german" (links with at least one German zone) or
+    "internal" (links between two German zones). The other links keep their
+    static p_max_pu, so the derating of foreign lines
+    (branch_capacity_factor) does not reduce trade between two foreign
+    zones.
     """
     settings = self.args["method"]["market_optimization"]
     use_lines = settings.get("interzonal_line_limits", True)
+    scope = settings.get("interzonal_line_limits_scope", "all")
+    if scope not in ("all", "german", "internal"):
+        raise ValueError(
+            "interzonal_line_limits_scope must be 'all', 'german' or "
+            f"'internal', found {scope!r}"
+        )
     factor = float(settings.get("interzonal_capacity_factor", 1.0))
     if not use_lines and factor == 1.0:
         return
@@ -562,6 +575,22 @@ def set_interzonal_transfer_limits(self, net, busmap, line_names):
     zone0 = lines.bus0.astype(str).map(bm)
     zone1 = lines.bus1.astype(str).map(bm)
     s_max_pu = src.get_switchable_as_dense("Line", "s_max_pu")
+    german = set(
+        bm.reindex(
+            src.buses.index[
+                (src.buses.carrier == "AC") & (src.buses.country == "DE")
+            ].astype(str)
+        ).dropna()
+    )
+    # number of German ends per link: 0 = abroad-abroad, 2 = DE-DE
+    n_german = links.bus0.astype(str).isin(german).astype(int) + links.bus1.astype(
+        str
+    ).isin(german).astype(int)
+    in_scope = {
+        "all": n_german >= 0,
+        "german": n_german >= 1,
+        "internal": n_german == 2,
+    }[scope]
 
     p_max_pu = pd.DataFrame(index=net.snapshots, columns=names, dtype=float)
     for name, link in links.iterrows():
@@ -570,7 +599,7 @@ def set_interzonal_transfer_limits(self, net, busmap, line_names):
             ((zone0 == a) & (zone1 == b)) | ((zone0 == b) & (zone1 == a))
         ]
         s_nom = lines.loc[sel, "s_nom"]
-        if use_lines and len(sel) and s_nom.sum() > 0:
+        if use_lines and in_scope[name] and len(sel) and s_nom.sum() > 0:
             p_max_pu[name] = (
                 s_max_pu[sel].mul(s_nom, axis=1).sum(axis=1) / s_nom.sum()
             ).reindex(net.snapshots).values
@@ -578,17 +607,7 @@ def set_interzonal_transfer_limits(self, net, busmap, line_names):
             p_max_pu[name] = float(link.p_max_pu)
 
     if factor != 1.0:
-        german = set(
-            bm.reindex(
-                src.buses.index[
-                    (src.buses.carrier == "AC") & (src.buses.country == "DE")
-                ].astype(str)
-            ).dropna()
-        )
-        internal = links.index[
-            links.bus0.astype(str).isin(german)
-            & links.bus1.astype(str).isin(german)
-        ]
+        internal = links.index[n_german == 2]
         p_max_pu[internal] *= factor
         logger.info(
             "Interzonal capacity factor %.2f applied to %s German links",
@@ -609,9 +628,11 @@ def set_interzonal_transfer_limits(self, net, busmap, line_names):
     )
     summary = (p_max_pu.mean() * links.p_nom).sum() / links.p_nom.sum()
     logger.info(
-        "Interzonal transfer limits set for %s links "
-        "(capacity-weighted mean p_max_pu %.3f, was %.3f)",
+        "Interzonal transfer limits set for %s links, line limits on %s "
+        "of them (scope %s; capacity-weighted mean p_max_pu %.3f, was %.3f)",
         len(names),
+        int(in_scope.sum()) if use_lines else 0,
+        scope,
         summary,
         (links.p_max_pu * links.p_nom).sum() / links.p_nom.sum(),
     )
