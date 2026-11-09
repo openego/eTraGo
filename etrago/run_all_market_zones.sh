@@ -83,8 +83,22 @@ FIX_H2_CONVERSION="${FIX_H2_CONVERSION:-true}"
 # ELY_LOCATION_GROUP: "zone" or "zone_h2" (zone and H2 bus)
 # ELY_LOCATION_MAX_SHARE: max. share of a group total per node (1.0 = off)
 OPT_ELY_LOCATION="${OPT_ELY_LOCATION:-true}"
-ELY_LOCATION_GROUP="${ELY_LOCATION_GROUP:-zone_h2}"
+ELY_LOCATION_GROUP="${ELY_LOCATION_GROUP:-zone}"
 ELY_LOCATION_MAX_SHARE="${ELY_LOCATION_MAX_SHARE:-0.25}"
+
+# H2 network of the focus region (eGon2035 has no H2 transport)
+# ELY_SITE_LIMIT: "data" (1 MW per site in eGon2035) or "egon_dev"
+#              (120 MW at HV/MV, 5000 MW at EHV substations)
+# CONNECT_FOCUS_H2: "false", "retrofit" (H2 links along the CH4 pipelines
+#              touching the focus region) or "nearest" (new pipelines)
+# CONNECT_FOCUS_CAVERNS: link focus salt caverns to the nearest focus H2 bus
+# H2_RETROFIT_SHARE: max. H2 capacity as share of the CH4 pipeline capacity
+# H2_RETROFIT_COST: annualised retrofit cost [EUR/MW/km/a]
+ELY_SITE_LIMIT="${ELY_SITE_LIMIT:-egon_dev}"
+CONNECT_FOCUS_H2="${CONNECT_FOCUS_H2:-retrofit}"
+CONNECT_FOCUS_CAVERNS="${CONNECT_FOCUS_CAVERNS:-false}"
+H2_RETROFIT_SHARE="${H2_RETROFIT_SHARE:-0.6}"
+H2_RETROFIT_COST="${H2_RETROFIT_COST:-8.3}"
 
 # Preserve the original configuration
 CONFIG_BACKUP="$(mktemp)"
@@ -130,6 +144,11 @@ for ZONE in "${ZONES[@]}"; do
     OPT_ELY_LOCATION="$OPT_ELY_LOCATION" \
     ELY_LOCATION_GROUP="$ELY_LOCATION_GROUP" \
     ELY_LOCATION_MAX_SHARE="$ELY_LOCATION_MAX_SHARE" \
+    ELY_SITE_LIMIT="$ELY_SITE_LIMIT" \
+    CONNECT_FOCUS_H2="$CONNECT_FOCUS_H2" \
+    CONNECT_FOCUS_CAVERNS="$CONNECT_FOCUS_CAVERNS" \
+    H2_RETROFIT_SHARE="$H2_RETROFIT_SHARE" \
+    H2_RETROFIT_COST="$H2_RETROFIT_COST" \
     CONFIG="$CONFIG" \
     python - <<'PY'
 import json
@@ -209,6 +228,28 @@ except ValueError:
 if not 0.0 < max_share <= 1.0:
     raise SystemExit(f"ERROR: ELY_LOCATION_MAX_SHARE must be in (0, 1], found {max_share}.")
 market["electrolyzer_location_max_share"] = max_share
+
+site_limit = os.environ["ELY_SITE_LIMIT"].strip().lower()
+if site_limit not in ("data", "egon_dev"):
+    raise SystemExit(f"ERROR: ELY_SITE_LIMIT must be data or egon_dev, found {site_limit!r}.")
+market["electrolyzer_site_limit"] = site_limit
+connect_h2 = os.environ["CONNECT_FOCUS_H2"].strip().lower()
+if connect_h2 not in ("false", "retrofit", "nearest"):
+    raise SystemExit(f"ERROR: CONNECT_FOCUS_H2 must be false, retrofit or nearest, found {connect_h2!r}.")
+market["connect_focus_h2"] = False if connect_h2 == "false" else connect_h2
+connect_caverns = os.environ["CONNECT_FOCUS_CAVERNS"].strip().lower()
+if connect_caverns not in ("true", "false"):
+    raise SystemExit(f"ERROR: CONNECT_FOCUS_CAVERNS must be true or false, found {connect_caverns!r}.")
+market["connect_focus_saltcaverns"] = connect_caverns == "true"
+try:
+    retrofit_share = float(os.environ["H2_RETROFIT_SHARE"])
+    retrofit_cost = float(os.environ["H2_RETROFIT_COST"])
+except ValueError:
+    raise SystemExit("ERROR: H2_RETROFIT_SHARE and H2_RETROFIT_COST must be numbers.")
+if not 0.0 < retrofit_share <= 1.0 or retrofit_cost < 0.0:
+    raise SystemExit("ERROR: H2_RETROFIT_SHARE must be in (0, 1] and H2_RETROFIT_COST >= 0.")
+market["h2_retrofit_capacity_share"] = retrofit_share
+market["h2_retrofit_capital_cost"] = retrofit_cost
 
 args["start_snapshot"] = int(os.environ["START_SNAPSHOT"])
 args["end_snapshot"] = int(os.environ["SNAPSHOTS"])
@@ -312,6 +353,11 @@ print("  fix_h2_conversion_investments_in_grid:", market["fix_h2_conversion_inve
 print("  optimize_electrolyzer_location_in_grid:", market["optimize_electrolyzer_location_in_grid"])
 print("  electrolyzer_location_group:", market["electrolyzer_location_group"])
 print("  electrolyzer_location_max_share:", market["electrolyzer_location_max_share"])
+print("  electrolyzer_site_limit:", market["electrolyzer_site_limit"])
+print("  connect_focus_h2:", market["connect_focus_h2"])
+print("  connect_focus_saltcaverns:", market["connect_focus_saltcaverns"])
+print("  h2_retrofit_capacity_share:", market["h2_retrofit_capacity_share"])
+print("  h2_retrofit_capital_cost:", market["h2_retrofit_capital_cost"])
 print("  skip_snapshots:", args["skip_snapshots"])
 print("  focus districts:", len(focus_region))
 print("  cluster_within_focus:", cluster_within_focus)

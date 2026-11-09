@@ -74,6 +74,23 @@ args = {
             # Gas/H2 conversion links (H2_to_power, H2_to_CH4, CH4_to_H2)
             # keep the market investment in the grid optimisation as well
             "fix_h2_conversion_investments_in_grid": True,
+            # Limit of electrolysers/fuel cells at H2_grid buses: "data"
+            # (1 MW in eGon2035) or "egon_dev" (120 MW at HV/MV, 5000 MW at
+            # EHV substations, rule of the current eGon-data code)
+            "electrolyzer_site_limit": "data",
+            # H2 transport for the focus region (eGon2035 has none): False,
+            # "retrofit" (H2 links along the CH4 pipelines touching the focus
+            # region) or "nearest" (new pipeline from each focus H2 bus to the
+            # nearest H2 bus outside); salt caverns are linked to the nearest
+            # focus H2 bus in both modes
+            "connect_focus_h2": False,
+            "connect_focus_saltcaverns": True,
+            # Retrofit: max. H2 capacity as share of the CH4 pipeline capacity
+            # and annualised cost [EUR/MW/km/a] (assumption: half of new build)
+            "h2_retrofit_capacity_share": 0.6,
+            "h2_retrofit_capital_cost": 8.3,
+            # Annualised cost of new H2 pipelines [EUR/MW/km/a] (assumption)
+            "h2_pipeline_capital_cost": 16.6,
         },
         "distribution_grids": False,  # False or path to file with edisgo results
     },

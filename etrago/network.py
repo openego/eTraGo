@@ -85,6 +85,7 @@ from etrago.execute.sclopf import (
 )
 from etrago.tools.distribution_grids import add_simplified_distribution_grids
 from etrago.tools.extendable import extendable
+from etrago.tools.focus_h2 import connect_focus_h2, set_electrolyzer_site_limit
 from etrago.tools.io import (
     NetworkScenario,
     add_ch4_h2_correspondence,
@@ -578,6 +579,10 @@ class Etrago:
                 "grid_max_abs_foreign"
             ],
         )
+
+        set_electrolyzer_site_limit(self)
+
+        connect_focus_h2(self)
 
         self.convert_capital_costs()
 
