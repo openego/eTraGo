@@ -73,6 +73,11 @@ LINE_LIMITS="true"
 LINE_LIMITS_SCOPE="${LINE_LIMITS_SCOPE:-german}"
 CAPACITY_FACTOR="0.7"
 
+# Links that keep their existing capacity in the market model (no
+# market-driven build-out): "all", "german" (at least one German zone; links
+# between two foreign zones may still be expanded), "internal" or "false"
+FIX_INTERZONAL="${FIX_INTERZONAL:-german}"
+
 # H2_to_power, H2_to_CH4 and CH4_to_H2 keep the market investment in the
 # grid optimisation ("false" = the grid stage decides them again)
 FIX_H2_CONVERSION="${FIX_H2_CONVERSION:-true}"
@@ -140,6 +145,7 @@ for ZONE in "${ZONES[@]}"; do
     LINE_LIMITS="$LINE_LIMITS" \
     LINE_LIMITS_SCOPE="$LINE_LIMITS_SCOPE" \
     CAPACITY_FACTOR="$CAPACITY_FACTOR" \
+    FIX_INTERZONAL="$FIX_INTERZONAL" \
     FIX_H2_CONVERSION="$FIX_H2_CONVERSION" \
     OPT_ELY_LOCATION="$OPT_ELY_LOCATION" \
     ELY_LOCATION_GROUP="$ELY_LOCATION_GROUP" \
@@ -207,6 +213,11 @@ except ValueError:
 if not 0.0 < capacity_factor <= 1.0:
     raise SystemExit(f"ERROR: CAPACITY_FACTOR must be in (0, 1], found {capacity_factor}.")
 market["interzonal_capacity_factor"] = capacity_factor
+
+fix_interzonal = os.environ["FIX_INTERZONAL"].strip().lower()
+if fix_interzonal not in ("all", "german", "internal", "false"):
+    raise SystemExit(f"ERROR: FIX_INTERZONAL must be all, german, internal or false, found {fix_interzonal!r}.")
+market["fix_interzonal_capacity_in_market"] = False if fix_interzonal == "false" else fix_interzonal
 
 fix_conversion = os.environ["FIX_H2_CONVERSION"].strip().lower()
 if fix_conversion not in ("true", "false"):
@@ -349,6 +360,7 @@ print("  snapshot_step:", market["snapshot_step"])
 print("  interzonal_line_limits:", market["interzonal_line_limits"])
 print("  interzonal_line_limits_scope:", market["interzonal_line_limits_scope"])
 print("  interzonal_capacity_factor:", market["interzonal_capacity_factor"])
+print("  fix_interzonal_capacity_in_market:", market["fix_interzonal_capacity_in_market"])
 print("  fix_h2_conversion_investments_in_grid:", market["fix_h2_conversion_investments_in_grid"])
 print("  optimize_electrolyzer_location_in_grid:", market["optimize_electrolyzer_location_in_grid"])
 print("  electrolyzer_location_group:", market["electrolyzer_location_group"])

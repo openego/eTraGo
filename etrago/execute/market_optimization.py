@@ -316,10 +316,14 @@ def build_market_model(self, unit_commitment=False):
 
     self.pre_market_model = net
 
-    if self.args["method"]["market_optimization"].get(
+    fix_scope = self.args["method"]["market_optimization"].get(
         "fix_interzonal_capacity_in_market", False
-    ):
-        fix_interzonal_capacity(net)
+    )
+    if fix_scope:
+        fix_scope = "all" if fix_scope is True else fix_scope
+        fix_interzonal_capacity(
+            net, scope=fix_scope, german=_german_zones(self, busmap)
+        )
 
     gas_clustering_market_model(self)
 
@@ -485,24 +489,77 @@ def build_shortterm_market_model(self, unit_commitment=False):
     self.geolocation_buses(apply_on="market_model")
 
 
-def fix_interzonal_capacity(network):
-    """Make all links between two electricity market zones non-extendable.
+INTERZONAL_SCOPES = ("all", "german", "internal")
+
+
+def _german_zones(self, busmap):
+    """Market-zone buses that contain German AC buses.
+
+    The country label of a zone bus is not reliable (the DE/LU zone can be
+    labelled "LU"), so German zones are taken from the busmap of the German
+    AC buses of the full network.
+    """
+    src = self.network_tsa
+    bm = pd.Series(busmap).astype(str)
+    return set(
+        bm.reindex(
+            src.buses.index[
+                (src.buses.carrier == "AC") & (src.buses.country == "DE")
+            ].astype(str)
+        ).dropna()
+    )
+
+
+def _n_german_ends(links, german):
+    """Number of German ends per link: 0 = abroad-abroad, 2 = DE-DE."""
+    return links.bus0.astype(str).isin(german).astype(int) + links.bus1.astype(
+        str
+    ).isin(german).astype(int)
+
+
+def _in_scope(n_german, scope):
+    return {
+        "all": n_german >= 0,
+        "german": n_german >= 1,
+        "internal": n_german == 2,
+    }[scope]
+
+
+def fix_interzonal_capacity(network, scope="all", german=None):
+    """Make links between two electricity market zones non-extendable.
 
     The transshipment links between German zones and the interconnectors to
     neighbouring zones inherit ``p_nom_extendable`` from the AC lines / DC
     links. A market does not build transmission capacity, and expanding it in
     the pre-market model removes exactly the congestion a zone split is meant
     to price. Capacities are kept at their existing value (p_nom).
+
+    ``scope`` selects the links that are fixed: "all", "german" (links with
+    at least one German zone) or "internal" (links between two German
+    zones). Links outside the scope keep their extendability, so the market
+    model may still expand links between two foreign zones (which avoids
+    load shedding abroad that only comes from a missing build-out there).
+    ``german`` is the set of German zone buses (needed unless scope="all").
     """
+    if scope not in INTERZONAL_SCOPES:
+        raise ValueError(
+            "fix_interzonal_capacity_in_market must be True, False, 'all', "
+            f"'german' or 'internal', found {scope!r}"
+        )
     ac = network.buses.index[network.buses.carrier == "AC"]
-    sel = network.links.index[
+    links = network.links[
         network.links.bus0.isin(ac) & network.links.bus1.isin(ac)
     ]
+    if scope != "all":
+        links = links[_in_scope(_n_german_ends(links, german or set()), scope)]
+    sel = links.index
     was = int(network.links.loc[sel, "p_nom_extendable"].sum())
     network.links.loc[sel, "p_nom_extendable"] = False
     logger.info(
         "Inter-zonal and border links fixed to existing capacity in the "
-        "market model (%s links, %s of them were extendable, %.1f GW)",
+        "market model (scope %s: %s links, %s of them were extendable, "
+        "%.1f GW)",
+        scope,
         len(sel),
         was,
         network.links.loc[sel, "p_nom"].sum() / 1e3,
@@ -554,7 +611,7 @@ def set_interzonal_transfer_limits(self, net, busmap, line_names):
     settings = self.args["method"]["market_optimization"]
     use_lines = settings.get("interzonal_line_limits", True)
     scope = settings.get("interzonal_line_limits_scope", "all")
-    if scope not in ("all", "german", "internal"):
+    if scope not in INTERZONAL_SCOPES:
         raise ValueError(
             "interzonal_line_limits_scope must be 'all', 'german' or "
             f"'internal', found {scope!r}"
@@ -575,22 +632,9 @@ def set_interzonal_transfer_limits(self, net, busmap, line_names):
     zone0 = lines.bus0.astype(str).map(bm)
     zone1 = lines.bus1.astype(str).map(bm)
     s_max_pu = src.get_switchable_as_dense("Line", "s_max_pu")
-    german = set(
-        bm.reindex(
-            src.buses.index[
-                (src.buses.carrier == "AC") & (src.buses.country == "DE")
-            ].astype(str)
-        ).dropna()
-    )
-    # number of German ends per link: 0 = abroad-abroad, 2 = DE-DE
-    n_german = links.bus0.astype(str).isin(german).astype(int) + links.bus1.astype(
-        str
-    ).isin(german).astype(int)
-    in_scope = {
-        "all": n_german >= 0,
-        "german": n_german >= 1,
-        "internal": n_german == 2,
-    }[scope]
+    german = _german_zones(self, busmap)
+    n_german = _n_german_ends(links, german)
+    in_scope = _in_scope(n_german, scope)
 
     p_max_pu = pd.DataFrame(index=net.snapshots, columns=names, dtype=float)
     for name, link in links.iterrows():
