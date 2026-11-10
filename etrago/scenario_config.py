@@ -2615,6 +2615,28 @@ def apply_config_to_args(
         ] = "custom"
 
 
+    # Onsite CHP capacity per plant (Post-EEG and follow-on without flex):
+    # the EEG-2014 Hoechstbemessungsleistung or the installed capacity.
+    capacity_column = str(
+        technical_biogas.get(
+            "onsite_capacity_column",
+            "hbl_95_mwel",
+        )
+    ).strip()
+
+    if capacity_column not in (
+        "hbl_95_mwel",
+        "installed_electric_capacity_mwel",
+    ):
+        raise ScenarioConfigError(
+            "technical.biogas_sh.onsite_capacity_column must be "
+            "'hbl_95_mwel' or 'installed_electric_capacity_mwel'."
+        )
+
+    biogas[
+        "electric_capacity_column"
+    ] = capacity_column
+
     biogas[
         "add_local_generation"
     ] = add_local_generation

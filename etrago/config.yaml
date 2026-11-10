@@ -1220,6 +1220,18 @@ technical:
     # ~550 t maize silage/a (~570 MWh_Hs, ~27 kEUR) for digester heat, i.e.
     # gas_share ~0.045 or ~2 EUR per MWh of pooled gas. Per-plant values
     # pending (farm accounts).
+    # Onsite CHP capacity per plant in Post-EEG and follow-on without flex.
+    #   "hbl_95_mwel" (default, 16.4 MW for Cluster I): the operators' column
+    #       "HBL pauschal (95 %)", the EEG-2014 Hoechstbemessungsleistung.
+    #       That is a cap on the paid annual average output of the current EEG
+    #       period, not an engine size, and probably not the limit of a
+    #       follow-on award (paid hours on the installed capacity instead).
+    #   "installed_electric_capacity_mwel" (21.0 MW): the installed engines.
+    #       More defensible for the follow-on case; use as sensitivity.
+    # The flex case is sized as max(installed, annual el / flex_design_hours)
+    # and is not affected.
+    onsite_capacity_column: "hbl_95_mwel"
+
     digester_heat:
       mode: "off"
       gas_share: 0.045
