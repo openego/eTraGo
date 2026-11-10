@@ -3051,6 +3051,12 @@ def add_central_heat_units(
                 carrier_heat,
             )
 
+            # KWKG bonus per MWh_el as a negative cost per MWh of fuel
+            # input (technical.swfl.chp_coupling.kwkg; 0 when off).
+            kwkg_bonus = float(
+                chp.get("kwkg_bonus_eur_per_mwh_el", 0.0)
+            )
+
             # Electricity Link: p_nom is fuel-input capacity.
             network.add(
                 "Link",
@@ -3065,9 +3071,17 @@ def add_central_heat_units(
                 efficiency=chp_el_efficiency,
                 marginal_cost=float(
                     unit.get("marginal_cost", 0.0)
-                ),
+                )
+                - kwkg_bonus * chp_el_efficiency,
                 capital_cost=0.0,
             )
+
+            if kwkg_bonus > 0:
+
+                print(
+                    f"KWKG: {chp_el_link} bonus {kwkg_bonus:.1f} EUR/MWh_el "
+                    f"= {kwkg_bonus * chp_el_efficiency:.2f} EUR/MWh fuel."
+                )
 
             # Heat Link: p_nom is fuel-input capacity such that the
             # useful heat output equals the unit's heat capacity.

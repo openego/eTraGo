@@ -3294,6 +3294,17 @@ def apply_config_to_args(
             f"'coupled', got {chp_mode!r}."
         )
 
+    kwkg_cfg = chp_coupling.get("kwkg") or {}
+
+    kwkg_active = bool(kwkg_cfg.get("active", False))
+
+    if kwkg_active and chp_mode != "coupled":
+
+        raise ScenarioConfigError(
+            "technical.swfl.chp_coupling.kwkg needs chp_coupling.mode "
+            "'coupled' (the bonus applies to the CHP electricity Link)."
+        )
+
     for asset in central_heat["boilers"]:
 
         if isinstance(asset, MutableMapping):
@@ -3338,6 +3349,36 @@ def apply_config_to_args(
             for asset in central_heat["boilers"]
             if isinstance(asset, MutableMapping)
         }
+
+        # Optional KWKG CHP bonus on the electricity Link of the listed units.
+        kwkg_bonus, kwkg_units = 0.0, set()
+
+        if kwkg_active:
+
+            kwkg_bonus = float(kwkg_cfg.get("bonus_eur_per_mwh_el", 0.0))
+            kwkg_units = {str(u) for u in (kwkg_cfg.get("units") or [])}
+
+            if kwkg_bonus < 0:
+
+                raise ScenarioConfigError(
+                    "technical.swfl.chp_coupling.kwkg.bonus_eur_per_mwh_el "
+                    "must be >= 0."
+                )
+
+            unknown = kwkg_units - {str(u) for u in chp_units_cfg}
+
+            if unknown:
+
+                raise ScenarioConfigError(
+                    "technical.swfl.chp_coupling.kwkg.units "
+                    f"{sorted(unknown)} are not coupled CHP units "
+                    f"{sorted(map(str, chp_units_cfg))}."
+                )
+
+            print(
+                f"KWKG: CHP bonus {kwkg_bonus:.1f} EUR/MWh_el on "
+                f"{sorted(kwkg_units)}."
+            )
 
         coupled_units = []
 
@@ -3388,6 +3429,9 @@ def apply_config_to_args(
                 "c_v": c_v,
                 "carrier_el": carrier_el,
                 "carrier_heat": carrier_heat,
+                "kwkg_bonus_eur_per_mwh_el": (
+                    kwkg_bonus if unit_name in kwkg_units else 0.0
+                ),
             }
 
             coupled_units.append(

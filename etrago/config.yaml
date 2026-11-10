@@ -977,6 +977,29 @@ technical:
             c_m: 1.09
             c_v: 0.01
 
+      # KWKG CHP bonus (KWK-Zuschlag) -- OFF by default, sensitivity.
+      #
+      # The KWKG pays a fixed bonus per MWh of CHP electricity on top of the
+      # spot price, for 30,000 full-load hours, at most 3,500 h per year
+      # (from 2025), and not in hours with negative prices. K13 (in service
+      # 2024, 97 MW_el, above 50 MW so a fixed rate, no tender) can still have
+      # hours left in 2035; K12 (2016) has used its hours, so it is not listed.
+      # The planned reform (BMWE key points, Sept 2026) keeps support for
+      # plants commissioned until 2035 and pays nothing below 30 EUR/MWh.
+      #
+      # Modelled as a negative marginal cost on the electricity Link of each
+      # listed unit (only with chp_coupling mode "coupled"):
+      #     marginal_cost -= bonus_eur_per_mwh_el * electric_efficiency
+      # (Link cost is per MWh of fuel input). The 3,500 h/a cap and the price
+      # floor are NOT enforced: the market stage solves weekly windows and the
+      # CHP runs only a few hundred hours a year; check the paid hours in the
+      # results. bonus_eur_per_mwh_el: 34.0 is the KWKG 2023 rate for the
+      # share above 2 MW (3.4 ct/kWh); verify against sections 7-8 KWKG.
+      kwkg:
+        active: false
+        bonus_eur_per_mwh_el: 34.0
+        units: ["swfl_real_k13"]
+
 
     # -------------------------------------------------------------------------
     # Extendable heat store at the SWFL heat bus  -- OFF by default
