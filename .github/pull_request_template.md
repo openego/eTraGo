@@ -35,7 +35,7 @@ If needed:
 During your review, please check the following:
 
 - [ ] Is the code clean, readable, documented and efficient? Are there any oddities or obvious inefficiencies?
-- [ ] Does the code work as expected? _(should already be verified by contributor)_
+- [ ] Does the code work as expected? _(with regard to the remarks by the contributor)_
 - [ ] Do all github tests pass? (see CI results)
 - [ ] Individual checks the contributer requested are performed
 
