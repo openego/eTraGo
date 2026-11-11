@@ -5581,13 +5581,20 @@ def _biogas_sh_resource(
         )
 
 
+    if arg.get("budget_block_hours") is not None:
+        raise NotImplementedError(
+            "budget_block_hours is only implemented for linopy; set it "
+            "to null for pyomo runs."
+        )
+
     setattr(
         model,
         constraint_name,
         Constraint(
             expr=(
-                expression
-                <= raw_limit_mwh
+                expression == raw_limit_mwh
+                if bool(arg.get("use_all_biogas", False))
+                else expression <= raw_limit_mwh
             )
         ),
     )
@@ -6628,8 +6635,12 @@ def _biogas_sh_resource_linopy(
 
 
     # ==================================================================
-    # 7. LINOPY GENERATOR-DISPATCH VARIABLE
+    # 7. RAW-BIOGAS USE PER SNAPSHOT (MWh_Hs, weighted)
     # ==================================================================
+    #
+    #   onsite electricity / eta_el + onsite heat / eta_heat
+    #   + biomethane / eta_upgrade + raw biogas to SWFL / eta_raw_swfl
+    #
 
     gen_p = get_var(
         network,
@@ -6637,155 +6648,101 @@ def _biogas_sh_resource_linopy(
         "p",
     )
 
-
-    expression = 0
-
+    groups = [
+        (electricity_generators, eta_el),
+        (heat_generators, eta_heat),
+        (ch4_generators, eta_upgrade),
+        (raw_swfl_generators, eta_raw_swfl),
+    ]
 
     # ==================================================================
-    # 8. ONSITE ELECTRICITY
+    # 8. BUDGET BLOCKS
     # ==================================================================
     #
-    # Includes both merchant and EEG-supported tranches.
-    #
-    # Required raw biogas:
-    #
-    #     electricity / eta_el
-    #
-    if electricity_generators:
+    # The budget applies to fixed time blocks counted from the first
+    # snapshot of the network, not to the whole optimisation window.
+    # In the rolling-horizon market stage each window keeps only its first
+    # (planning_horizon - overlap) hours; with a whole-window budget the
+    # kept hours could use far more gas than the plants produce. Blocks
+    # that divide that step line up across windows, so the stitched
+    # result respects the budget. The block length also limits how far
+    # the gas can be shifted in time (plant and central gas stores).
+    # budget_block_hours = None restores one budget per window.
 
-        for snapshot in snapshots:
+    block_hours = arg.get("budget_block_hours")
 
-            expression = (
-                expression
-
-                +
-
-                gen_p.loc[
-                    snapshot,
-                    electricity_generators,
-                ].sum()
-
-                * float(
-                    weights.loc[
-                        snapshot
-                    ]
-                )
-
-                / eta_el
+    market = self.args.get("method", {}).get("market_optimization", {}) or {}
+    rolling = market.get("rolling_horizon", {}) or {}
+    if block_hours is not None and market.get("active") and rolling:
+        step = float(rolling["planning_horizon"]) - float(rolling["overlap"])
+        if step % float(block_hours) > 1e-9:
+            raise ValueError(
+                f"budget_block_hours ({block_hours}) must divide the "
+                f"rolling-horizon step ({step:g} h)."
             )
 
+    origin = pd.Timestamp(network.snapshots[0])
+
+    if block_hours is None:
+        block_of = pd.Series(0, index=snapshots)
+    else:
+        block_hours = float(block_hours)
+        hours_from_origin = (
+            (pd.DatetimeIndex(snapshots) - origin).total_seconds() / 3600.0
+        )
+        block_of = pd.Series(
+            (hours_from_origin // block_hours).astype(int),
+            index=snapshots,
+        )
+
+    use_all = bool(arg.get("use_all_biogas", False))
 
     # ==================================================================
-    # 9. ONSITE HEAT
+    # 9. ADD ONE CONSTRAINT PER BLOCK
     # ==================================================================
 
-    if heat_generators:
+    n_blocks = 0
 
-        for snapshot in snapshots:
+    for block, block_snapshots in block_of.groupby(block_of):
 
-            expression = (
-                expression
+        block_snapshots = block_snapshots.index
+        block_hours_represented = float(
+            weights.loc[block_snapshots].sum()
+        )
 
-                +
+        expression = 0
 
-                gen_p.loc[
-                    snapshot,
-                    heat_generators,
-                ].sum()
+        for generators, eta in groups:
 
-                * float(
-                    weights.loc[
-                        snapshot
-                    ]
+            if not generators:
+                continue
+
+            for snapshot in block_snapshots:
+                expression = (
+                    expression
+                    + gen_p.loc[snapshot, generators].sum()
+                    * float(weights.loc[snapshot])
+                    / eta
                 )
 
-                / eta_heat
-            )
+        define_constraints(
+            network,
+            expression,
+            "==" if use_all else "<=",
+            annual_raw_biogas_mwh * block_hours_represented / 8760.0,
+            "Generator",
+            f"biogas_sh_resource_regional_{block}",
+        )
 
+        n_blocks += 1
 
-    # ==================================================================
-    # 10. UPGRADED BIOMETHANE
-    # ==================================================================
-    #
-    # Generator output is biomethane energy.
-    #
-    # Raw-biogas requirement:
-    #
-    #     biomethane / eta_upgrade
-    #
-    if ch4_generators:
-
-        for snapshot in snapshots:
-
-            expression = (
-                expression
-
-                +
-
-                gen_p.loc[
-                    snapshot,
-                    ch4_generators,
-                ].sum()
-
-                * float(
-                    weights.loc[
-                        snapshot
-                    ]
-                )
-
-                / eta_upgrade
-            )
-
-
-    # ==================================================================
-    # 11. DIRECT RAW BIOGAS -> SWFL
-    # ==================================================================
-    #
-    # The new Generator already represents raw-biogas energy.
-    #
-    # Therefore:
-    #
-    #     raw requirement
-    #         = raw SWFL dispatch / 1.0
-    #
-    # Do NOT use eta_upgrade here.
-    #
-    if raw_swfl_generators:
-
-        for snapshot in snapshots:
-
-            expression = (
-                expression
-
-                +
-
-                gen_p.loc[
-                    snapshot,
-                    raw_swfl_generators,
-                ].sum()
-
-                * float(
-                    weights.loc[
-                        snapshot
-                    ]
-                )
-
-                / eta_raw_swfl
-            )
-
-
-    # ==================================================================
-    # 12. ADD REGIONAL RESOURCE CONSTRAINT
-    # ==================================================================
-
-    define_constraints(
-        network,
-        expression,
-        "<=",
-        raw_limit_mwh,
-        "Generator",
-        "biogas_sh_resource_regional",
+    print(
+        f"  budget blocks:              {n_blocks} "
+        f"({'window' if block_hours is None else f'{block_hours:g} h'})"
     )
+
+    if use_all:
+        print("  use_all_biogas: all raw biogas must be used (==)")
 
 
     # ==================================================================

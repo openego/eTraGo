@@ -1664,6 +1664,22 @@ technical:
 
       ignore_missing_components: false
 
+      # true: the routes must use all available raw biogas (= instead of <=).
+      # The plants produce at a constant rate and the feedstock cost is
+      # largely fixed, so the model decides only where the gas goes, not
+      # whether it is produced. Each rolling-horizon window must use its
+      # share of the annual potential.
+      use_all_biogas: false
+
+      # Length of the budget blocks (h). The raw-biogas budget applies to
+      # each block separately, counted from the first snapshot, so gas can
+      # be shifted at most within a block (plant and central gas stores).
+      # Must divide the rolling-horizon step (planning_horizon - overlap,
+      # 48 h) so the stitched market result respects the budget.
+      # null = one budget per optimisation window (old behaviour; lets the
+      # market stage use more gas than produced in the kept hours).
+      budget_block_hours: 48
+
 
     # -------------------------------------------------------------------------
     # Public natural-gas grid -> SWFL connection

@@ -514,6 +514,15 @@ def optimize_with_rolling_horizon(
     market_ef_args = None
 
     starting_points = range(0, len(snapshots), horizon - overlap)
+
+    # Original store bounds. Every window pins the seasonal stores at its
+    # last snapshot (terminal target). Without a reset these pins stay in
+    # stores_t and lie inside the next windows (overlap), where the retries
+    # cannot relax them; several tight interior pins taken from the coarser
+    # pre-market solution can make a window infeasible.
+    if not n.stores.empty:
+        original_e_min_pu = n.stores_t.e_min_pu.copy()
+        original_e_max_pu = n.stores_t.e_max_pu.copy()
     for i, start in enumerate(starting_points):
         end = min(len(snapshots), start + horizon)
         sns = snapshots[start:end]
@@ -562,6 +571,18 @@ def optimize_with_rolling_horizon(
             n.stores.e_initial[seasonal_stores] = pre_market.stores_t.e.loc[
                 snapshots[start - 1], seasonal_stores
             ]
+
+            # Drop the terminal pins of earlier windows inside this window.
+            for current, original, default in (
+                (n.stores_t.e_min_pu, original_e_min_pu, 0.0),
+                (n.stores_t.e_max_pu, original_e_max_pu, 1.0),
+            ):
+                stale = current.columns.intersection(seasonal_stores)
+                current.loc[sns, stale] = (
+                    original.reindex(index=sns, columns=stale)
+                    .fillna(default)
+                    .values
+                )
 
             # Set e at the end of the horizon
             # by setting e_max_pu and e_min_pu

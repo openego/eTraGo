@@ -4711,6 +4711,20 @@ def apply_config_to_args(
             ]
         )
 
+        resource["use_all_biogas"] = bool(
+            resource_settings.get("use_all_biogas", False)
+        )
+
+        block_hours = resource_settings.get("budget_block_hours")
+        if block_hours is not None:
+            block_hours = float(block_hours)
+            if block_hours <= 0:
+                raise ScenarioConfigError(
+                    "technical.biogas_sh.resource_constraint."
+                    "budget_block_hours must be positive or null."
+                )
+        resource["budget_block_hours"] = block_hours
+
     else:
 
         extra_functionality.pop(

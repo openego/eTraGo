@@ -38,7 +38,10 @@ from scenario_config import (
     write_resolved_config,
 )
 
-CONFIG_PATH = Path(__file__).resolve().with_name("config.yaml")
+CONFIG_PATH = Path(
+    os.environ.get("ETRAGO_CONFIG")
+    or Path(__file__).resolve().with_name("config.yaml")
+)
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -178,7 +181,7 @@ args = {
         "Method": 2,
         "BarConvTol": 1e-5,
         "BarHomogeneous": 1,
-        "Crossover": 0,
+        "Crossover": -1,  # automatic; 0 left barrier solutions without a clean vertex
         "Threads": 8,  # was 4; servers here have 8 physical cores
         "ScaleFlag": 2,  # aggressive scaling for wide coefficient ranges
     },
@@ -1630,9 +1633,7 @@ def run_etrago(args, json_path):
         <https://www.pypsa.org/doc/components.html#network>`_
 
     """
-    config_path = Path(__file__).with_name(
-        "config.yaml"
-    )
+    config_path = CONFIG_PATH
 
     args, resolved_scenario = load_and_apply_config(
         args,
