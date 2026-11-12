@@ -31,6 +31,8 @@ if "READTHEDOCS" not in os.environ:
     import pandas as pd
     import pypsa
 
+    from etrago.execute.grid_optimization import get_redispatch_timeseries
+
     logger = logging.getLogger(__name__)
 
 __copyright__ = (
@@ -41,6 +43,57 @@ __copyright__ = (
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, ClaraBuettner, KathiEsterl"
+
+
+def _redispatch_timeseries(self):
+    """Return the time series of the redispatch components
+
+    The time series stored in self.redispatch_timeseries are used. They are
+    set after the grid optimization (run_lopf) and the temporal
+    disaggregation if the market optimization is active. If they are not set,
+    e.g. for a network imported from csv files, they are taken from
+    self.network.
+
+    Returns
+    -------
+    dict or None
+        Time series of the redispatch components, see
+        get_redispatch_timeseries. None if redispatch was not considered.
+
+    """
+    if self.redispatch_timeseries is not None:
+        return self.redispatch_timeseries
+    return get_redispatch_timeseries(self.network)
+
+
+def calc_redispatch_cost(self):
+    """Function that calculates the costs of the redispatch components
+
+    The costs are calculated from the time series of the 'ramp_up' and
+    'ramp_down' generators and links, see _redispatch_timeseries.
+
+    Returns
+    -------
+    float or None
+        Redispatch costs in EUR, None if redispatch was not considered
+
+    """
+    timeseries = _redispatch_timeseries(self)
+    if timeseries is None:
+        return None
+
+    weightings = self.network.snapshot_weightings.objective
+    costs = 0.0
+    for component, p in [("Generator", "p"), ("Link", "p0")]:
+        if component in timeseries:
+            costs += (
+                timeseries[component][p]
+                .mul(weightings, axis=0)
+                .mul(timeseries[component]["marginal_cost"])
+                .sum()
+                .sum()
+            )
+    return costs
 
 
 def _calc_storage_expansion(self):
@@ -1006,179 +1059,83 @@ def calc_etrago_results(self):
             _calc_network_expansion(self)[1].sum() / ext_dc_lines.p_nom.sum()
         )
 
-    if not network.generators[
-        network.generators.index.str.contains("ramp")
-    ].empty:
-        network = self.network
-        gen_idx = network.generators[
-            network.generators.index.str.contains("ramp")
-        ].index
-        gen = (
-            network.generators_t.p[gen_idx]
-            .mul(network.snapshot_weightings.objective, axis=0)
-            .mul(network.generators_t.marginal_cost[gen_idx])
-            .sum()
-            .sum(axis=0)
-        )
-
-        link_idx = network.links[
-            network.links.index.str.contains("ramp")
-        ].index
-        link = (
-            network.links_t.p0[link_idx]
-            .mul(network.snapshot_weightings.objective, axis=0)
-            .mul(
-                pypsa.descriptors.get_switchable_as_dense(
-                    network, "Link", "marginal_cost"
-                )[link_idx]
-            )
-            .sum(axis=0)
-            .sum()
-        )
-        self.results.value["redispatch costs"] = gen + link
+    redispatch_cost = calc_redispatch_cost(self)
+    if redispatch_cost is not None:
+        self.results.value["redispatch costs"] = redispatch_cost
     else:
         self.results = self.results.drop(index="redispatch costs")
 
 
-def total_redispatch(network, only_de=True, plot=False):
+def total_redispatch(self, only_de=True, plot=False):
+    """Calculate the redispatch volume and potential
 
-    if only_de:
-        ramp_up = network.generators[
-            (network.generators.index.str.contains("ramp_up"))
-            & (
-                network.generators.bus.isin(
-                    network.buses[network.buses.country == "DE"].index.values
-                )
+    The time series of the redispatch components are taken from
+    etrago.redispatch_timeseries, see _redispatch_timeseries.
+
+    Parameters
+    ----------
+    only_de : bool, optional
+        Only consider redispatch components in Germany. The default is True.
+    plot : bool, optional
+        Plot the redispatch and its potential over time. The default is False.
+
+    Returns
+    -------
+    dict or None
+        Annual volume in MWh ('total'), hourly redispatch in MW
+        ('timeseries') and hourly potential in MW ('potential') for
+        'ramp_up' and 'ramp_down'. None if no redispatch components are found.
+
+    """
+    network = self.network
+    redispatch_timeseries = _redispatch_timeseries(self)
+    if redispatch_timeseries is None:
+        logger.warning("No redispatch components found.")
+        return None
+
+    de_buses = network.buses.index[network.buses.country == "DE"]
+
+    result = {}
+    for direction, limit in [
+        ("ramp_up", "p_max_pu"),
+        ("ramp_down", "p_min_pu"),
+    ]:
+        dispatch_t = pd.Series(0.0, index=network.snapshots)
+        potential_t = pd.Series(0.0, index=network.snapshots)
+
+        # Generators: feed-in p, links: feed-in on the electrical side (-p1)
+        for component, p, sign, bus in [
+            ("Generator", "p", 1, "bus"),
+            ("Link", "p1", -1, "bus0"),
+        ]:
+            if component not in redispatch_timeseries:
+                continue
+            data = redispatch_timeseries[component]
+            static = data["static"]
+
+            idx = static.index[static.index.str.endswith(" " + direction)]
+            if only_de:
+                idx = idx[static.loc[idx, bus].isin(de_buses)]
+
+            dispatch_t += data[p][idx].sum(axis=1) * sign
+            potential_t += (
+                data[limit][idx].mul(static.loc[idx, "p_nom"]).sum(axis=1)
             )
-        ]
 
-        ramp_up_links = network.links[
-            (network.links.index.str.contains("ramp_up"))
-            & (
-                network.links.bus0.isin(
-                    network.buses[network.buses.country == "DE"].index.values
-                )
-            )
-        ]
-        ramp_down = network.generators[
-            (network.generators.index.str.contains("ramp_down"))
-            & (
-                network.generators.bus.isin(
-                    network.buses[network.buses.country == "DE"].index.values
-                )
-            )
-        ]
+        if plot:
+            fig, ax = plt.subplots(figsize=(15, 5))
+            potential_t.plot(ax=ax, kind="area", color="lightblue")
+            dispatch_t.plot(ax=ax, color="blue")
 
-        ramp_down_links = network.links[
-            (network.links.index.str.contains("ramp_down"))
-            & (
-                network.links.bus0.isin(
-                    network.buses[network.buses.country == "DE"].index.values
-                )
-            )
-        ]
+        result[direction] = {
+            # Annual redispatch in MWh
+            "total": dispatch_t.mul(
+                network.snapshot_weightings.generators
+            ).sum(),
+            # Hourly redispatch in MW
+            "timeseries": dispatch_t,
+            # Hourly redispatch potential in MW
+            "potential": potential_t,
+        }
 
-    else:
-        ramp_up = network.generators[
-            network.generators.index.str.contains("ramp_up")
-        ]
-
-        ramp_up_links = network.links[
-            network.links.index.str.contains("ramp_up")
-        ]
-        ramp_down = network.generators[
-            network.generators.index.str.contains("ramp_down")
-        ]
-        ramp_down_links = network.links[
-            network.links.index.str.contains("ramp_down")
-        ]
-
-    # Annual ramp up in MWh
-    total_ramp_up = (
-        network.links_t.p1[ramp_up_links.index]
-        .sum(axis=1)
-        .mul(network.snapshot_weightings.generators)
-        .sum()
-        * (-1)
-        + network.generators_t.p[ramp_up.index]
-        .sum(axis=1)
-        .mul(network.snapshot_weightings.generators)
-        .sum()
-    )
-
-    # Hourly ramp up during the year in MW
-    total_ramp_up_t = network.links_t.p1[ramp_up_links.index].sum(axis=1) * (
-        -1
-    ) + network.generators_t.p[ramp_up.index].sum(axis=1)
-
-    # Hourly ramp up potential during the year in MW
-    total_ramp_up_potential = network.get_switchable_as_dense(
-        "Link", "p_max_pu"
-    )[ramp_up_links.index].mul(ramp_up_links.p_nom).sum(
-        axis=1
-    ) + network.get_switchable_as_dense(
-        "Generator", "p_max_pu"
-    )[
-        ramp_up.index
-    ].mul(
-        ramp_up.p_nom
-    ).sum(
-        axis=1
-    )
-
-    if plot:
-        # Plot potential and accutual ramp up
-        fig, ax = plt.subplots(figsize=(15, 5))
-        total_ramp_up_potential.plot(ax=ax, kind="area", color="lightblue")
-        total_ramp_up_t.plot(ax=ax, color="blue")
-
-    # Annual ramp down in MWh
-    total_ramp_down = (
-        network.links_t.p1[ramp_down_links.index]
-        .sum(axis=1)
-        .mul(network.snapshot_weightings.generators)
-        .sum()
-        * (-1)
-        + network.generators_t.p[ramp_down.index]
-        .sum(axis=1)
-        .mul(network.snapshot_weightings.generators)
-        .sum()
-    )
-
-    # Hourly ramp down during the year in MW
-    total_ramp_down_t = network.links_t.p1[ramp_down_links.index].sum(
-        axis=1
-    ) * (-1) + network.generators_t.p[ramp_down.index].sum(axis=1)
-
-    # Hourly ramp down potential during the year in MW
-    total_ramp_down_potential = network.get_switchable_as_dense(
-        "Link", "p_min_pu"
-    )[ramp_down_links.index].mul(ramp_down_links.p_nom).sum(
-        axis=1
-    ) + network.get_switchable_as_dense(
-        "Generator", "p_min_pu"
-    )[
-        ramp_down.index
-    ].mul(
-        ramp_down.p_nom
-    ).sum(
-        axis=1
-    )
-
-    if plot:
-        fig, ax = plt.subplots(figsize=(15, 5))
-        total_ramp_down_potential.plot(ax=ax, kind="area", color="lightblue")
-        total_ramp_down_t.plot(ax=ax, color="blue")
-
-    return {
-        "ramp_up": {
-            "total": total_ramp_up,
-            "timeseries": total_ramp_up_t,
-            "potential": total_ramp_up_potential,
-        },
-        "ramp_down": {
-            "total": total_ramp_down,
-            "timeseries": total_ramp_down_t,
-            "potential": total_ramp_down_potential,
-        },
-    }
+    return result
