@@ -185,6 +185,9 @@ args = {
         "Threads": 8,  # was 4; servers here have 8 physical cores
         "ScaleFlag": 2,  # aggressive scaling for wide coefficient ranges
     },
+    # Overrides of solver_options for the grid stage only. Crossover on the
+    # full-year grid model adds 5-9 h per solve; the market stages keep it.
+    "grid_solver_options": {"Crossover": 0},
 
     # Numerical clean-up of the grid (redispatch) model. Defaults in
     # execute/grid_optimization.py keep the original behaviour.

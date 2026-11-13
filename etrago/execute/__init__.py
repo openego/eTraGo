@@ -149,9 +149,16 @@ def run_lopf(etrago, extra_functionality, method):
             raise Exception("LOPF not solved.")
 
     elif method["formulation"] == "linopy":
+        # Grid-stage overrides of the solver options. Crossover on the
+        # full-year grid model takes 5-9 h after a 40 min barrier, so it
+        # can be switched off here while the market stages keep it.
+        solver_options = {
+            **etrago.args["solver_options"],
+            **(etrago.args.get("grid_solver_options") or {}),
+        }
         status, condition = etrago.network.optimize(
             solver_name=etrago.args["solver"],
-            solver_options=etrago.args["solver_options"],
+            solver_options=solver_options,
             extra_functionality=extra_functionality,
         )
         # Numerical failures of the large grid model: retry with safer
@@ -171,10 +178,7 @@ def run_lopf(etrago, extra_functionality, method):
             )
             status, condition = etrago.network.optimize(
                 solver_name=etrago.args["solver"],
-                solver_options={
-                    **etrago.args["solver_options"],
-                    **extra_options,
-                },
+                solver_options={**solver_options, **extra_options},
                 extra_functionality=extra_functionality,
             )
         if status != "ok":
