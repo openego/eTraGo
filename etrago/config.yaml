@@ -288,6 +288,17 @@ selection:
   #
   biogas_route_case: "hybrid_raw_swfl_transport"
 
+
+  # ---------------------------------------------------------------------------
+  # 8. BIOMETHANE OFFTAKE (road, shipping bio-LNG, SAF feedstock)
+  # ---------------------------------------------------------------------------
+  #
+  # "none" keeps the standard runs unchanged (and their result names).
+  # Any other case adds capped biomethane sales from the central storage and
+  # switches the biomethane -> HGV route off. See offtake_cases below.
+  #
+  offtake_case: "none"
+
 # ---------------------------------------------------------------------------
 
 # Each batch entry overrides only the values shown in that entry. All other
@@ -490,6 +501,69 @@ co2_sale_cases:
     additional_cost_eur_per_t: 0.0
     marketable_fraction: 1.0
     co2_yield_t_per_mwh_biomethane: 0.18941  # 55,000 tCO2/a / 290,373 MWh_Hs/a
+
+# -----------------------------------------------------------------------------
+# BIOMETHANE OFFTAKE CASES
+# -----------------------------------------------------------------------------
+# Optional biomethane sales from biogas_sh_storage_ch4_bus to regional
+# transport-fuel buyers (Ellund market study, see
+# data/PyPSA-DE_PyPSA-Eur_Transport_Aviation_Shipping_Ellund_EN.docx).
+#
+#   - Volumes are market ceilings, not must-serve loads. Each stream becomes
+#     one Link with a flat cap p_nom = annual_gwh * 1000 / 8760 MW, so the
+#     cap holds in every rolling-horizon window. The public gas grid takes
+#     whatever is left.
+#   - Volumes and prices are in MWh_Hs (HHV), the model's biomethane basis,
+#     so no LHV conversion is applied.
+#   - Revenue on the Link = willingness to pay - delivery cost. The WTP values
+#     already include the GHG-quota value (road: manure-based biomethane), so
+#     the THG credit of the HGV route is not added on top.
+#   - Any active case switches the biomethane -> HGV route off; the road
+#     stream replaces it and the eGon H2 HGV demand stays on hydrogen.
+#   - CO2 is not offtaken here: it is already sold at upgrading
+#     (co2_sale_cases).
+#   - delivery_cost_eur_per_mwh_hs is a placeholder for liquefaction,
+#     compression and transport (open whether the WTP is ex-plant or
+#     delivered).
+offtake_cases:
+
+  none:
+    description: >
+      No offtake. Standard runs.
+    active: false
+    delivery_cost_eur_per_mwh_hs: 0.0
+    streams: {}
+
+  central_2035:
+    description: >
+      Ellund market study, central case 2035, WTP taken as ex-plant.
+    active: true
+    delivery_cost_eur_per_mwh_hs: 0.0
+    streams:
+      road:      {annual_gwh: 25.0,  wtp_eur_per_mwh_hs: 135.0}
+      shipping:  {annual_gwh: 120.0, wtp_eur_per_mwh_hs: 150.0}
+      saf:       {annual_gwh: 75.0,  wtp_eur_per_mwh_hs: 125.0}
+
+  central_2035_delivery_20:
+    description: >
+      As central_2035, but 20 EUR/MWh_Hs is deducted for liquefaction,
+      compression and transport (WTP read as a delivered price).
+    active: true
+    delivery_cost_eur_per_mwh_hs: 20.0
+    streams:
+      road:      {annual_gwh: 25.0,  wtp_eur_per_mwh_hs: 135.0}
+      shipping:  {annual_gwh: 120.0, wtp_eur_per_mwh_hs: 150.0}
+      saf:       {annual_gwh: 75.0,  wtp_eur_per_mwh_hs: 125.0}
+
+  central_2030:
+    description: >
+      Ellund market study, central volumes 2030 (2035 prices kept).
+    active: true
+    delivery_cost_eur_per_mwh_hs: 0.0
+    streams:
+      road:      {annual_gwh: 40.0,  wtp_eur_per_mwh_hs: 135.0}
+      shipping:  {annual_gwh: 75.0,  wtp_eur_per_mwh_hs: 150.0}
+      saf:       {annual_gwh: 30.0,  wtp_eur_per_mwh_hs: 125.0}
 
 # -----------------------------------------------------------------------------
 # BIOGAS.SH SUPPORT CASES

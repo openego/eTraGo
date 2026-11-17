@@ -8,6 +8,7 @@ Created on Tue Sep 29 16:30:25 2026
 
 #!/usr/bin/env python3
 
+import argparse
 import os
 import subprocess
 import sys
@@ -15,6 +16,7 @@ from pathlib import Path
 
 from scenario_config import (
     expand_scenario_matrix,
+    expand_scenario_runs,
     load_config,
 )
 
@@ -34,6 +36,7 @@ ENVIRONMENT_VARIABLES = {
     "swfl_unit_case": "ETRAGO_SWFL_UNIT_CASE",
     "biomethane_use_case": "ETRAGO_BIOMETHANE_USE_CASE",
     "biogas_route_case": "ETRAGO_BIOGAS_ROUTE_CASE",
+    "offtake_case": "ETRAGO_OFFTAKE_CASE",
 }
 
 
@@ -103,6 +106,14 @@ def run_scenario(record, index, total):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Run the scenario batch.")
+    parser.add_argument(
+        "--runs",
+        help="YAML file with an explicit run list (e.g. offtake_runs.yaml) "
+        "instead of scenario_matrix in config.yaml.",
+    )
+    cli = parser.parse_args()
+
     config = load_config(CONFIG_PATH)
 
     batch_config = config.get("batch", {})
@@ -113,7 +124,10 @@ def main():
             "in config.yaml."
         )
 
-    scenarios = expand_scenario_matrix(config)
+    if cli.runs:
+        scenarios = expand_scenario_runs(config, ROOT / cli.runs)
+    else:
+        scenarios = expand_scenario_matrix(config)
 
     if not scenarios:
         raise RuntimeError(

@@ -4566,6 +4566,103 @@ def apply_biogas_sh_transport_route(
 
     return created
 
+def apply_biogas_sh_offtake(self):
+    """
+    Add the optional biomethane offtake (road, shipping bio-LNG, SAF).
+
+    Runs after gas clustering, next to the HGV transport route:
+
+        biogas_sh_storage_ch4_bus
+            |  one Link per stream, p_nom = annual cap / 8760,
+            |  marginal_cost = -(WTP - delivery cost)
+            v
+        biogas_sh_offtake_bus  --  free sink (Generator, p in [-P, 0])
+
+    The caps are market ceilings: the optimiser sells up to the cap when the
+    net price beats the other uses of the biomethane. Production cost,
+    upgrading and the CO2 credit stay upstream, as for the HGV route.
+    """
+    settings = (self.args.get("biogas_sh", {}) or {}).get("offtake") or {}
+    if not _as_bool(settings.get("active", False), False):
+        return []
+
+    network = self.network
+    source_bus = str(settings.get("source_bus", "biogas_sh_storage_ch4_bus"))
+    if source_bus not in network.buses.index:
+        raise ValueError(
+            f"Offtake source bus {source_bus!r} not found after clustering."
+        )
+
+    streams = settings.get("streams") or {}
+    sink_bus = "biogas_sh_offtake_bus"
+    sink_carrier = "biogas_sh_offtake"
+
+    _ensure_carrier(network, sink_carrier)
+    if sink_bus not in network.buses.index:
+        bus_attrs = {
+            "x": float(network.buses.at[source_bus, "x"]),
+            "y": float(network.buses.at[source_bus, "y"]),
+        }
+        if "country" in network.buses.columns:
+            bus_attrs["country"] = network.buses.at[source_bus, "country"]
+        network.add("Bus", sink_bus, carrier=sink_carrier, **bus_attrs)
+
+    created = []
+    total_p_nom = 0.0
+    print("\nBIOGAS.SH BIOMETHANE OFFTAKE")
+    print("------------------------------------------------------------")
+    print(f"  case: {settings.get('case')}, delivery cost "
+          f"{float(settings.get('delivery_cost_eur_per_mwh_hs', 0.0)):.1f} "
+          "EUR/MWh_Hs")
+
+    for name, stream in streams.items():
+        p_nom = float(stream["p_nom_mw"])
+        revenue = float(stream["net_revenue_eur_per_mwh_hs"])
+        if p_nom <= 0:
+            continue
+        link = f"biogas_sh_offtake_{name}"
+        carrier = f"biogas_sh_offtake_{name}"
+        _ensure_carrier(network, carrier)
+        _remove_component_if_exists(network, "Link", link)
+        network.add(
+            "Link",
+            link,
+            bus0=source_bus,
+            bus1=sink_bus,
+            carrier=carrier,
+            p_nom=p_nom,
+            p_nom_extendable=False,
+            efficiency=1.0,
+            p_min_pu=0.0,
+            p_max_pu=1.0,
+            marginal_cost=-revenue,
+            capital_cost=0.0,
+        )
+        created.append(link)
+        total_p_nom += p_nom
+        print(f"  {name:<10} {float(stream['annual_gwh']):6.1f} GWh/a cap, "
+              f"{p_nom:6.2f} MW, net revenue {revenue:6.1f} EUR/MWh_Hs")
+
+    sink = "biogas_sh_offtake_sink"
+    _remove_component_if_exists(network, "Generator", sink)
+    network.add(
+        "Generator",
+        sink,
+        bus=sink_bus,
+        carrier=sink_carrier,
+        p_nom=total_p_nom,
+        p_nom_extendable=False,
+        p_min_pu=-1.0,
+        p_max_pu=0.0,
+        marginal_cost=0.0,
+        capital_cost=0.0,
+    )
+    print(f"  total cap {total_p_nom:.2f} MW "
+          f"({total_p_nom * 8.76:.1f} GWh/a at full use)")
+    print("------------------------------------------------------------\n")
+    return created
+
+
 def apply_biogas_sh_assets(
     self,
 ) -> None:

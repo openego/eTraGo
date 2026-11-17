@@ -87,6 +87,7 @@ def _selection_with_environment_overrides(
             "ETRAGO_BIOMETHANE_USE_CASE"
         ),
         "biogas_route_case": "ETRAGO_BIOGAS_ROUTE_CASE",
+        "offtake_case": "ETRAGO_OFFTAKE_CASE",
     }
 
     for key, variable in environment_variables.items():
@@ -95,6 +96,72 @@ def _selection_with_environment_overrides(
             selection[key] = override
 
     return selection
+
+
+SCENARIO_NAME_DIMENSIONS = (
+    "support_case",
+    "fossil_gas_price_case",
+    "biomethane_price_case",
+    "co2_sale_case",
+    "heat_pump_case",
+    "swfl_unit_case",
+    "biomethane_use_case",
+    "biogas_route_case",
+)
+
+
+def _offtake_case_name(selection: Mapping[str, str]) -> str:
+    return str(selection.get("offtake_case") or "none")
+
+
+def _scenario_name(selection: Mapping[str, str]) -> str:
+    """Join the selection into the run name.
+
+    The offtake case is appended only when it is not "none", so the names
+    (and result folders) of the standard runs stay unchanged.
+    """
+    name = "__".join(selection[key] for key in SCENARIO_NAME_DIMENSIONS)
+    offtake = _offtake_case_name(selection)
+    if offtake != "none":
+        name += f"__offtake_{offtake}"
+    return name
+
+
+def _offtake_case(
+    config: Mapping[str, Any],
+    selection: Mapping[str, str],
+) -> Dict[str, Any]:
+    """Selected offtake case; "none" also works without offtake_cases."""
+    name = _offtake_case_name(selection)
+    cases = config.get("offtake_cases") or {}
+    if name == "none" and name not in cases:
+        return {"active": False, "delivery_cost_eur_per_mwh_hs": 0.0,
+                "streams": {}}
+    return dict(_named_case(config, "offtake_cases", name))
+
+
+def _validate_offtake_case(case: Mapping[str, Any]) -> None:
+    streams = case.get("streams") or {}
+    if not isinstance(streams, Mapping):
+        raise ScenarioConfigError("offtake_cases.*.streams must be a mapping.")
+    if bool(case.get("active", False)) and not streams:
+        raise ScenarioConfigError("An active offtake case needs streams.")
+    delivery = float(case.get("delivery_cost_eur_per_mwh_hs", 0.0))
+    if delivery < 0:
+        raise ScenarioConfigError(
+            "offtake delivery_cost_eur_per_mwh_hs must be non-negative."
+        )
+    for name, stream in streams.items():
+        if not isinstance(stream, Mapping):
+            raise ScenarioConfigError(f"offtake stream {name} must be a mapping.")
+        if float(stream.get("annual_gwh", -1)) < 0:
+            raise ScenarioConfigError(
+                f"offtake stream {name}: annual_gwh missing or negative."
+            )
+        if "wtp_eur_per_mwh_hs" not in stream:
+            raise ScenarioConfigError(
+                f"offtake stream {name}: wtp_eur_per_mwh_hs missing."
+            )
 
 
 def _validate_selection(
@@ -149,6 +216,8 @@ def _validate_selection(
         "support_cases",
         selection["support_case"],
     )
+
+    _validate_offtake_case(_offtake_case(config, selection))
 
     # Validate support-policy parameters.
     eeg_active = bool(
@@ -957,21 +1026,7 @@ def _resolve_config_core(
     # SCENARIO NAME
     # ============================================================
 
-    ordered_dimensions = (
-        "support_case",
-        "fossil_gas_price_case",
-        "biomethane_price_case",
-        "co2_sale_case",
-        "heat_pump_case",
-        "swfl_unit_case",
-        "biomethane_use_case",
-        "biogas_route_case",
-    )
-
-    scenario_name = "__".join(
-        selection[key]
-        for key in ordered_dimensions
-    )
+    scenario_name = _scenario_name(selection)
 
     # ============================================================
     # RESOLVED CONFIGURATION
@@ -1168,13 +1223,23 @@ def _resolve_config_core(
         # BIOGAS ROUTES
         # ========================================================
 
-        "biogas_routes": copy.deepcopy(
+        "biogas_routes": _routes_for_offtake(
             _named_case(
                 config,
                 "biogas_route_cases",
                 selection["biogas_route_case"],
-            )
+            ),
+            _offtake_case(config, selection),
         ),
+
+        # ========================================================
+        # BIOMETHANE OFFTAKE
+        # ========================================================
+
+        "offtake": {
+            "case": _offtake_case_name(selection),
+            **copy.deepcopy(_offtake_case(config, selection)),
+        },
 
         # ========================================================
         # TECHNICAL PARAMETERS
@@ -1199,6 +1264,48 @@ def _resolve_config_core(
             )
         ),
     }
+
+def _routes_for_offtake(
+    routes: Mapping[str, Any],
+    offtake: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """An active offtake case replaces the biomethane -> HGV route."""
+    routes = copy.deepcopy(dict(routes))
+    if bool(offtake.get("active", False)) and routes.get(
+        "add_biomethane_transport_supply", False
+    ):
+        routes["add_biomethane_transport_supply"] = False
+        print(
+            "Offtake case active: biomethane -> HGV route switched off "
+            "(the road offtake replaces it; H2 HGV demand stays on H2)."
+        )
+    return routes
+
+
+def _apply_offtake_config(args, resolved) -> None:
+    """Copy the selected offtake case into args.biogas_sh.offtake."""
+    biogas = _mutable_mapping(args, "biogas_sh", "args")
+    offtake = resolved.get("offtake") or {}
+    active = bool(offtake.get("active", False))
+    delivery = float(offtake.get("delivery_cost_eur_per_mwh_hs", 0.0))
+    streams = {}
+    for name, stream in (offtake.get("streams") or {}).items():
+        annual_gwh = float(stream["annual_gwh"])
+        wtp = float(stream["wtp_eur_per_mwh_hs"])
+        streams[str(name)] = {
+            "annual_gwh": annual_gwh,
+            "wtp_eur_per_mwh_hs": wtp,
+            "p_nom_mw": annual_gwh * 1000.0 / 8760.0,
+            "net_revenue_eur_per_mwh_hs": wtp - delivery,
+        }
+    biogas["offtake"] = {
+        "active": active and bool(streams),
+        "case": str(offtake.get("case", "none")),
+        "delivery_cost_eur_per_mwh_hs": delivery,
+        "source_bus": "biogas_sh_storage_ch4_bus",
+        "streams": streams,
+    }
+
 
 def _mutable_mapping(
     mapping: MutableMapping[str, Any],
@@ -2591,6 +2698,11 @@ def apply_config_to_args(
     )
     
     _apply_biomethane_transport_config(
+        args,
+        resolved,
+    )
+
+    _apply_offtake_config(
         args,
         resolved,
     )
@@ -5316,6 +5428,31 @@ def scenario_summary(
             "Central biomethane storage:     "
             f"{yes_no(technical_biogas['storage']['active'])}"
         ),
+        (
+            "Biomethane -> HGV route:        "
+            f"{yes_no(biogas_routes.get('add_biomethane_transport_supply', False))}"
+        ),
+        "",
+        "BIOMETHANE OFFTAKE",
+        "------------------------------------------------------------",
+        (
+            "Offtake case:                   "
+            f"{(resolved.get('offtake') or {}).get('case', 'none')}"
+        ),
+        *[
+            (
+                f"  {name:<10} {float(s['annual_gwh']):6.1f} GWh/a, "
+                f"{float(s['annual_gwh']) * 1000 / 8760:5.2f} MW, "
+                f"WTP {float(s['wtp_eur_per_mwh_hs']):.0f} EUR/MWh_Hs"
+            )
+            for name, s in (
+                (resolved.get('offtake') or {}).get('streams') or {}
+            ).items()
+        ],
+        (
+            "Offtake delivery cost:          "
+            f"{float((resolved.get('offtake') or {}).get('delivery_cost_eur_per_mwh_hs', 0.0)):.1f} EUR/MWh_Hs"
+        ),
     ]
 
     if effective_run:
@@ -5416,21 +5553,47 @@ def expand_scenario_matrix(
         selection.update(record)
         _validate_selection(config, selection)
 
-        record["scenario_name"] = "__".join(
-            selection[key]
-            for key in (
-                    "support_case",
-                    "fossil_gas_price_case",
-                    "biomethane_price_case",
-                    "co2_sale_case",
-                    "heat_pump_case",
-                    "swfl_unit_case",
-                    "biomethane_use_case",
-                    "biogas_route_case",
-            )
-        )
+        record["scenario_name"] = _scenario_name(selection)
         records.append(record)
 
+    return records
+
+
+def expand_scenario_runs(
+    config: Mapping[str, Any],
+    path: str | Path,
+) -> list[Dict[str, str]]:
+    """Read an explicit run list (YAML) and validate each run.
+
+    The file holds ``runs:``, a list of selection overrides. Everything not
+    given in a run is taken from ``selection`` in the main config (and from
+    the ETRAGO_* environment overrides).
+    """
+    with Path(path).open(encoding="utf-8") as handle:
+        content = yaml.safe_load(handle) or {}
+    runs = content.get("runs") if isinstance(content, Mapping) else None
+    if not isinstance(runs, list) or not runs:
+        raise ScenarioConfigError(f"{path}: 'runs' must be a non-empty list.")
+
+    base_selection = _selection_with_environment_overrides(config)
+    records: list[Dict[str, str]] = []
+    for number, run in enumerate(runs, start=1):
+        if not isinstance(run, Mapping):
+            raise ScenarioConfigError(f"{path}: run {number} is not a mapping.")
+        record = {str(k): str(v) for k, v in run.items() if k != "label"}
+        unknown = set(record) - set(SCENARIO_NAME_DIMENSIONS) - {"offtake_case"}
+        if unknown:
+            raise ScenarioConfigError(
+                f"{path}: run {number} has unknown keys: {sorted(unknown)}"
+            )
+        selection = dict(base_selection)
+        selection.update(record)
+        _validate_selection(config, selection)
+        # Pin every dimension, so the run does not depend on the shell.
+        record = {key: selection[key] for key in SCENARIO_NAME_DIMENSIONS}
+        record["offtake_case"] = _offtake_case_name(selection)
+        record["scenario_name"] = _scenario_name(selection)
+        records.append(record)
     return records
 
 

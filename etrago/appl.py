@@ -73,6 +73,7 @@ if "READTHEDOCS" not in os.environ:
     from etrago.tools.biogas_sh import (
         apply_biogas_sh_assets,
         apply_biogas_sh_transport_route,
+        apply_biogas_sh_offtake,
         validate_biogas_sh_storage_topology,
     )
 
@@ -1883,6 +1884,10 @@ def run_etrago(args, json_path):
 
 
     apply_biogas_sh_transport_route(
+        etrago
+    )
+
+    apply_biogas_sh_offtake(
         etrago
     )
 

@@ -1,0 +1,53 @@
+# Biomethane offtake runs (road, shipping bio-LNG, SAF feedstock).
+#
+#   python run_scenario_matrix.py --runs offtake_runs.yaml
+#
+# Each run overrides "selection" in config.yaml; every dimension is pinned
+# here so the runs match the main batch (follow-on + flex, plan_2035,
+# hybrid_raw_swfl_transport). The baseline without offtake is the main-batch
+# run with the same selection and offtake_case "none".
+
+runs:
+  - label: "A  main result"
+    support_case: "followon_eeg_flex"
+    fossil_gas_price_case: "legacy_egon"
+    biomethane_price_case: "project_92_9"
+    co2_sale_case: "medium_60"
+    heat_pump_case: "two"
+    swfl_unit_case: "plan_2035"
+    biomethane_use_case: "off"
+    biogas_route_case: "hybrid_raw_swfl_transport"
+    offtake_case: "central_2035"
+
+  - label: "B  WTP read as delivered price (-20 EUR/MWh)"
+    support_case: "followon_eeg_flex"
+    fossil_gas_price_case: "legacy_egon"
+    biomethane_price_case: "project_92_9"
+    co2_sale_case: "medium_60"
+    heat_pump_case: "two"
+    swfl_unit_case: "plan_2035"
+    biomethane_use_case: "off"
+    biogas_route_case: "hybrid_raw_swfl_transport"
+    offtake_case: "central_2035_delivery_20"
+
+  - label: "C  2030 volumes"
+    support_case: "followon_eeg_flex"
+    fossil_gas_price_case: "legacy_egon"
+    biomethane_price_case: "project_92_9"
+    co2_sale_case: "medium_60"
+    heat_pump_case: "two"
+    swfl_unit_case: "plan_2035"
+    biomethane_use_case: "off"
+    biogas_route_case: "hybrid_raw_swfl_transport"
+    offtake_case: "central_2030"
+
+  - label: "D  crisis gas price"
+    support_case: "followon_eeg_flex"
+    fossil_gas_price_case: "crisis_2035"
+    biomethane_price_case: "project_92_9"
+    co2_sale_case: "medium_60"
+    heat_pump_case: "two"
+    swfl_unit_case: "plan_2035"
+    biomethane_use_case: "off"
+    biogas_route_case: "hybrid_raw_swfl_transport"
+    offtake_case: "central_2035"
