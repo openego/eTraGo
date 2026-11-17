@@ -1197,6 +1197,23 @@ args = {
 
 
 
+def _plain_str_columns(network):
+    """Turn numpy strings in object columns into plain str.
+
+    xarray refuses to write a column that mixes numpy.str_ and str (e.g.
+    generators.biogas_sh_route after clustering), and the netCDF export
+    would fail at the very end of a run.
+    """
+    import numpy as np
+
+    for component in network.iterate_components():
+        frame = component.df
+        for column in frame.columns[frame.dtypes == object]:
+            frame[column] = frame[column].map(
+                lambda v: str(v) if isinstance(v, np.str_) else v
+            )
+
+
 def run_etrago(args, json_path):
     """Function to conduct optimization considering the following arguments.
 
@@ -1947,6 +1964,8 @@ def run_etrago(args, json_path):
         )
 
         network_path = result_directory / "network.nc"
+
+        _plain_str_columns(etrago.network)
 
         etrago.network.export_to_netcdf(
             str(network_path)
