@@ -4576,7 +4576,7 @@ def apply_biogas_sh_offtake(self):
             |  one Link per stream, p_nom = annual cap / 8760,
             |  marginal_cost = -(WTP - delivery cost)
             v
-        biogas_sh_offtake_bus  --  free sink (Generator, p in [-P, 0])
+        biogas_sh_offtake_bus  --  free sink (Store, standing loss 100 %/h)
 
     The caps are market ceilings: the optimiser sells up to the cap when the
     net price beats the other uses of the biomethane. Production cost,
@@ -4643,17 +4643,22 @@ def apply_biogas_sh_offtake(self):
         print(f"  {name:<10} {float(stream['annual_gwh']):6.1f} GWh/a cap, "
               f"{p_nom:6.2f} MW, net revenue {revenue:6.1f} EUR/MWh_Hs")
 
+    # Sink: a Store that loses its whole content every hour, so it takes up
+    # to total_p_nom MW in each snapshot and carries no state between hours
+    # or rolling-horizon windows. (A Generator with p_min_pu = -1 does not
+    # survive the market-model clustering: its p_min_pu is reset to 0.)
     sink = "biogas_sh_offtake_sink"
-    _remove_component_if_exists(network, "Generator", sink)
+    _remove_component_if_exists(network, "Store", sink)
     network.add(
-        "Generator",
+        "Store",
         sink,
         bus=sink_bus,
         carrier=sink_carrier,
-        p_nom=total_p_nom,
-        p_nom_extendable=False,
-        p_min_pu=-1.0,
-        p_max_pu=0.0,
+        e_nom=total_p_nom,
+        e_nom_extendable=False,
+        e_cyclic=False,
+        e_initial=0.0,
+        standing_loss=1.0,
         marginal_cost=0.0,
         capital_cost=0.0,
     )
