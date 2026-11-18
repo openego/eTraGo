@@ -1,0 +1,27 @@
+# Reruns of the plan_2035 batch: run 2 (killed in grid-stage crossover) and
+# run 3 (skipped because of an old pre-fix result folder).
+#
+#   python run_scenario_matrix.py --runs post_eeg_rerun.yaml
+
+runs:
+  - label: "run 2"
+    support_case: "post_eeg"
+    fossil_gas_price_case: "high_2035"
+    biomethane_price_case: "project_92_9"
+    co2_sale_case: "medium_60"
+    heat_pump_case: "two"
+    swfl_unit_case: "plan_2035"
+    biomethane_use_case: "off"
+    biogas_route_case: "hybrid_raw_swfl_transport"
+    offtake_case: "none"
+
+  - label: "run 3"
+    support_case: "post_eeg"
+    fossil_gas_price_case: "crisis_2035"
+    biomethane_price_case: "project_92_9"
+    co2_sale_case: "medium_60"
+    heat_pump_case: "two"
+    swfl_unit_case: "plan_2035"
+    biomethane_use_case: "off"
+    biogas_route_case: "hybrid_raw_swfl_transport"
+    offtake_case: "none"
