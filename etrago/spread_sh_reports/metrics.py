@@ -59,7 +59,10 @@ class ScenarioMetrics:
     # Topology & zones
     # ------------------------------------------------------------------
     def build_topology(self):
-        self.zone_gdf = geo.zones(self.data_dir, self.sc.key)
+        self.zone_source = self.args["method"]["market_optimization"].get(
+            "market_zone_shapes", "Basic"
+        )
+        self.zone_gdf = geo.zones(self.data_dir, self.sc.key, self.zone_source)
         self.zone_label = dict(zip(self.zone_gdf.zone, self.zone_gdf.label))
 
         gb = self.grid.static("buses")

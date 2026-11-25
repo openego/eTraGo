@@ -105,6 +105,18 @@ CONNECT_FOCUS_CAVERNS="${CONNECT_FOCUS_CAVERNS:-false}"
 H2_RETROFIT_SHARE="${H2_RETROFIT_SHARE:-0.6}"
 H2_RETROFIT_COST="${H2_RETROFIT_COST:-8.3}"
 
+# Bidding-zone polygons for DE2-DE5
+# ZONE_SHAPES: "Basic" (Zenodo record 14833526, used up to the 16.11.2026
+#              round) or "Reconstructed" (reconstructed ACER zones, zones
+#              numbered J1 = 1, ...; run names get the tag "zrecon").
+#              Case-insensitive.
+ZONE_SHAPES="${ZONE_SHAPES:-Basic}"
+case "${ZONE_SHAPES,,}" in
+    basic) ZONE_SHAPES="Basic"; ZONE_TAG="" ;;
+    reconstructed) ZONE_SHAPES="Reconstructed"; ZONE_TAG="_zrecon" ;;
+    *) echo "ERROR: ZONE_SHAPES must be Basic or Reconstructed, found '$ZONE_SHAPES'."; exit 1 ;;
+esac
+
 # Preserve the original configuration
 CONFIG_BACKUP="$(mktemp)"
 cp "$CONFIG" "$CONFIG_BACKUP"
@@ -124,7 +136,7 @@ for ZONE in "${ZONES[@]}"; do
     echo "Starting run for ${ZONE}"
     echo "=========================================="
 
-    RUN_NAME="${ZONE}_ac${AC_CLUSTERS}_focus${FOCUS_CLUSTERS}_s${SNAPSHOTS}_$(date +%Y%m%d_%H%M%S)"
+    RUN_NAME="${ZONE}_ac${AC_CLUSTERS}_focus${FOCUS_CLUSTERS}_s${SNAPSHOTS}${ZONE_TAG}_$(date +%Y%m%d_%H%M%S)"
     RUN_DIR="results_${RUN_NAME}"
 
     if [ -e "$RUN_DIR" ]; then
@@ -155,6 +167,7 @@ for ZONE in "${ZONES[@]}"; do
     CONNECT_FOCUS_CAVERNS="$CONNECT_FOCUS_CAVERNS" \
     H2_RETROFIT_SHARE="$H2_RETROFIT_SHARE" \
     H2_RETROFIT_COST="$H2_RETROFIT_COST" \
+    ZONE_SHAPES="$ZONE_SHAPES" \
     CONFIG="$CONFIG" \
     python - <<'PY'
 import json
@@ -262,6 +275,11 @@ if not 0.0 < retrofit_share <= 1.0 or retrofit_cost < 0.0:
 market["h2_retrofit_capacity_share"] = retrofit_share
 market["h2_retrofit_capital_cost"] = retrofit_cost
 
+zone_shapes = os.environ["ZONE_SHAPES"].strip()
+if zone_shapes not in ("Basic", "Reconstructed"):
+    raise SystemExit(f"ERROR: ZONE_SHAPES must be Basic or Reconstructed, found {zone_shapes!r}.")
+market["market_zone_shapes"] = zone_shapes
+
 args["start_snapshot"] = int(os.environ["START_SNAPSHOT"])
 args["end_snapshot"] = int(os.environ["SNAPSHOTS"])
 args["skip_snapshots"] = 5
@@ -353,6 +371,7 @@ with config_path.open("w", encoding="utf-8") as handle:
 
 print("Effective settings:")
 print("  market_zones:", market["market_zones"])
+print("  market_zone_shapes:", market["market_zone_shapes"])
 print("  total AC clusters:", electricity["n_clusters"])
 print("  focus AC clusters:", n_clusters_focus)
 print("  snapshots:", args["start_snapshot"], "-", args["end_snapshot"])

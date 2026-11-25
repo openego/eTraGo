@@ -32,6 +32,14 @@ ZONE_SHAPEFILES = {
     "DE4": "shapes_biddingzones/BZR_config_13_DE4.shp",
     "DE5": "shapes_biddingzones/BZR_config_14_DE5.shp",
 }
+# Reconstructed ACER zones (market_zone_shapes = "Reconstructed" in args.json),
+# downloaded by etrago.tools.market_zones into the same folder.
+RECONSTRUCTED_ZONE_FILES = {
+    "DE2": "shapes_biddingzones/BZR_config_2_DE2_rekonstruiert_20261111.gpkg",
+    "DE3": "shapes_biddingzones/BZR_config_12_DE3_rekonstruiert_20261111.gpkg",
+    "DE4": "shapes_biddingzones/BZR_config_13_DE4_rekonstruiert_20261111.gpkg",
+    "DE5": "shapes_biddingzones/BZR_config_14_DE5_rekonstruiert_20261111.gpkg",
+}
 FOCUS_SHAPE = "shapes_focus_region/vg250_focus_region.geojson"
 COUNTRY_SHAPE = "shapes_europe/ne_110m_admin_0_countries.shp"
 

@@ -7,7 +7,13 @@ import geopandas as gpd
 import numpy as np
 from shapely.geometry import MultiPolygon, Point, Polygon
 
-from .config import COUNTRY_SHAPE, FOCUS_SHAPE, MODEL_COUNTRIES, ZONE_SHAPEFILES
+from .config import (
+    COUNTRY_SHAPE,
+    FOCUS_SHAPE,
+    MODEL_COUNTRIES,
+    RECONSTRUCTED_ZONE_FILES,
+    ZONE_SHAPEFILES,
+)
 
 DE_CENTER = (10.45, 51.16)
 COMPASS = ["East", "North-east", "North", "North-west", "West", "South-west",
@@ -55,8 +61,12 @@ def _compass(lon, lat):
 
 
 @lru_cache(maxsize=None)
-def zones(data_dir, key):
+def zones(data_dir, key, source="Basic"):
     """Zone polygons for a configuration.
+
+    ``source`` is ``market_zone_shapes`` from the run's args.json: "Basic"
+    (default, Zenodo files, runs up to 16.11.2026) or "Reconstructed"
+    (case-insensitive).
 
     Returns a GeoDataFrame with ``zone`` (stable id e.g. ``DE3-Z1``),
     ``label`` (readable name) and ``geometry``. For the status quo the single
@@ -74,7 +84,16 @@ def zones(data_dir, key):
             geometry=[geom], crs="EPSG:4326",
         )
 
-    raw = gpd.read_file(data_dir / ZONE_SHAPEFILES[key]).to_crs(epsg=4326)
+    files = (RECONSTRUCTED_ZONE_FILES if str(source).lower() == "reconstructed"
+             else ZONE_SHAPEFILES)
+    if not (data_dir / files[key]).exists():
+        raise FileNotFoundError(
+            f"{data_dir / files[key]} not found. It is downloaded by the model "
+            "run; copy it from the server or call "
+            "etrago.tools.market_zones.load_market_zones_from_zenodo"
+            f"({key!r}, source={source!r})."
+        )
+    raw = gpd.read_file(data_dir / files[key]).to_crs(epsg=4326)
     raw = raw.dissolve(by="id", as_index=False)
     rows = []
     for _, row in raw.iterrows():

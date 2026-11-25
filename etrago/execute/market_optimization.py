@@ -242,6 +242,9 @@ def build_market_model(self, unit_commitment=False):
         busmap, medoid_idx = create_market_zone_busmap(
             net,
             market_zones,
+            source=self.args["method"]["market_optimization"].get(
+                "market_zone_shapes", "Basic"
+            ),
         )
 
     else:

@@ -123,13 +123,105 @@ def download_market_zone_shapefile(market_zones):
     return cache_dir / f"{base}.shp"
 
 
-def load_market_zones_from_zenodo(market_zones):
+# Reconstructed zone files (T. Noldin, 11.11.2026): whole ding0 MV grid
+# districts following their eGon2035 110 kV bus, zones numbered as in ACER
+# Decision 11/2022 (J1 = 1, ..., J5 = 5). One GeoPackage per configuration.
+RECONSTRUCTED_MARKET_ZONE_URL = (
+    "https://cloud.fossilexit.net/s/CgggMcBSM4GsaxK/download"
+    "?path=/20261112_BZR_configs_reconstructed&files={filename}"
+)
+
+RECONSTRUCTED_MARKET_ZONE_FILES = {
+    "DE2": {
+        "file": "BZR_config_2_DE2_rekonstruiert_20261111.gpkg",
+        "md5": "9ea2a670903166c55dbb821adf28a3d0",
+    },
+    "DE3": {
+        "file": "BZR_config_12_DE3_rekonstruiert_20261111.gpkg",
+        "md5": "54a01a946d71908ba1857a4f5f70cd3d",
+    },
+    "DE4": {
+        "file": "BZR_config_13_DE4_rekonstruiert_20261111.gpkg",
+        "md5": "49ca5e3c4d8da020faa91ba7ef74d955",
+    },
+    "DE5": {
+        "file": "BZR_config_14_DE5_rekonstruiert_20261111.gpkg",
+        "md5": "67806fec745fbeafec6871efc627b59c",
+    },
+}
+
+MARKET_ZONE_SOURCES = ("Basic", "Reconstructed")
+
+
+def download_reconstructed_market_zone_file(market_zones):
+    """
+    Download the reconstructed GeoPackage of one configuration (MD5-checked)
+    into etrago/data/shapes_biddingzones and return its path.
+    """
+    if market_zones not in RECONSTRUCTED_MARKET_ZONE_FILES:
+        raise ValueError(
+            "Invalid market_zones setting. "
+            "Allowed values are: 'DE2', 'DE3', 'DE4', 'DE5'."
+        )
+
+    cache_dir = _market_zone_cache_dir()
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    info = RECONSTRUCTED_MARKET_ZONE_FILES[market_zones]
+    target = cache_dir / info["file"]
+
+    if target.exists() and _md5sum(target) == info["md5"]:
+        return target
+
+    if target.exists():
+        logger.warning("MD5 mismatch for %s. Downloading it again.", target)
+    logger.info("Downloading %s.", info["file"])
+    urlretrieve(
+        RECONSTRUCTED_MARKET_ZONE_URL.format(filename=info["file"]), target
+    )
+
+    actual_md5 = _md5sum(target)
+    if actual_md5 != info["md5"]:
+        raise RuntimeError(
+            f"MD5 check failed for {info['file']}. "
+            f"Expected {info['md5']}, got {actual_md5}."
+        )
+
+    return target
+
+
+def load_market_zones_from_zenodo(market_zones, source="Basic"):
     """
     Load market-zone geometries for DE2, DE3, DE4 or DE5.
-    """
-    shapefile_path = download_market_zone_shapefile(market_zones)
 
-    zones = gpd.read_file(shapefile_path).to_crs(epsg=4326)
+    source (case-insensitive): "Basic" (shapefiles of Zenodo record
+    14833526, used up to the 16.11.2026 round) or "Reconstructed"
+    (GeoPackages of the reconstructed ACER zones, zones numbered J1 = 1, ...).
+    """
+    source = {s.lower(): s for s in MARKET_ZONE_SOURCES}.get(
+        str(source).lower(), source
+    )
+    if source not in MARKET_ZONE_SOURCES:
+        raise ValueError(
+            "market_zone_shapes must be 'Basic' or 'Reconstructed', "
+            f"found {source!r}"
+        )
+
+    if source == "Reconstructed":
+        path = download_reconstructed_market_zone_file(market_zones)
+    else:
+        path = download_market_zone_shapefile(market_zones)
+
+    logger.info(
+        "Market zones %s from %s (source %s, md5 %s)",
+        market_zones,
+        path.name,
+        source,
+        _md5sum(path),
+    )
+
+    zones = gpd.read_file(path).to_crs(epsg=4326)
+    zones["id"] = zones["id"].astype(int)
     zones = zones.explode(index_parts=False).reset_index(drop=True)
 
     return zones
@@ -186,7 +278,7 @@ def assign_market_zones_to_bus_dataframe(buses, zones):
     return geo_buses
 
 
-def create_market_zone_busmap(net, market_zones):
+def create_market_zone_busmap(net, market_zones, source="Basic"):
     """
     Use inside build_market_model().
 
@@ -194,7 +286,7 @@ def create_market_zone_busmap(net, market_zones):
     - busmap
     - medoid_idx
     """
-    zones = load_market_zones_from_zenodo(market_zones)
+    zones = load_market_zones_from_zenodo(market_zones, source=source)
     geo_buses = assign_market_zones_to_bus_dataframe(net.buses, zones)
 
     net.buses["cluster"] = geo_buses["cluster"].reindex(net.buses.index)
@@ -209,7 +301,9 @@ def create_market_zone_busmap(net, market_zones):
     return busmap, medoid_idx
 
 
-def assign_market_zone_column_to_network(network, market_zones):
+def assign_market_zone_column_to_network(
+    network, market_zones, source="Basic"
+):
     """
     Use inside standalone assign_market_zones_to_buses().
 
@@ -221,7 +315,7 @@ def assign_market_zone_column_to_network(network, market_zones):
         print("market_zones='none': no market-zone shapefile assigned.")
         return network
 
-    zones = load_market_zones_from_zenodo(market_zones)
+    zones = load_market_zones_from_zenodo(market_zones, source=source)
     geo_buses = assign_market_zones_to_bus_dataframe(network.buses, zones)
 
     network.buses["zone"] = geo_buses["id"].reindex(network.buses.index)
