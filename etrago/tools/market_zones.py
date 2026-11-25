@@ -190,13 +190,13 @@ def download_reconstructed_market_zone_file(market_zones):
     return target
 
 
-def load_market_zones_from_zenodo(market_zones, source="Basic"):
+def load_market_zones_from_zenodo(market_zones, source="Reconstructed"):
     """
     Load market-zone geometries for DE2, DE3, DE4 or DE5.
 
-    source (case-insensitive): "Basic" (shapefiles of Zenodo record
-    14833526, used up to the 16.11.2026 round) or "Reconstructed"
-    (GeoPackages of the reconstructed ACER zones, zones numbered J1 = 1, ...).
+    source (case-insensitive): "Reconstructed" (default; GeoPackages of the
+    reconstructed ACER zones, zones numbered J1 = 1, ...) or "Basic"
+    (shapefiles of Zenodo record 14833526, used up to the 16.11.2026 round).
     """
     source = {s.lower(): s for s in MARKET_ZONE_SOURCES}.get(
         str(source).lower(), source
@@ -278,7 +278,7 @@ def assign_market_zones_to_bus_dataframe(buses, zones):
     return geo_buses
 
 
-def create_market_zone_busmap(net, market_zones, source="Basic"):
+def create_market_zone_busmap(net, market_zones, source="Reconstructed"):
     """
     Use inside build_market_model().
 
@@ -302,7 +302,7 @@ def create_market_zone_busmap(net, market_zones, source="Basic"):
 
 
 def assign_market_zone_column_to_network(
-    network, market_zones, source="Basic"
+    network, market_zones, source="Reconstructed"
 ):
     """
     Use inside standalone assign_market_zones_to_buses().

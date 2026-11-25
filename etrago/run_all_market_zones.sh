@@ -106,11 +106,11 @@ H2_RETROFIT_SHARE="${H2_RETROFIT_SHARE:-0.6}"
 H2_RETROFIT_COST="${H2_RETROFIT_COST:-8.3}"
 
 # Bidding-zone polygons for DE2-DE5
-# ZONE_SHAPES: "Basic" (Zenodo record 14833526, used up to the 16.11.2026
-#              round) or "Reconstructed" (reconstructed ACER zones, zones
-#              numbered J1 = 1, ...; run names get the tag "zrecon").
-#              Case-insensitive.
-ZONE_SHAPES="${ZONE_SHAPES:-Basic}"
+# ZONE_SHAPES: "Reconstructed" (default since 25.11.2026: reconstructed ACER
+#              zones, zones numbered J1 = 1, ...; run names get the tag
+#              "zrecon") or "Basic" (Zenodo record 14833526, used up to the
+#              16.11.2026 round). Case-insensitive.
+ZONE_SHAPES="${ZONE_SHAPES:-Reconstructed}"
 case "${ZONE_SHAPES,,}" in
     basic) ZONE_SHAPES="Basic"; ZONE_TAG="" ;;
     reconstructed) ZONE_SHAPES="Reconstructed"; ZONE_TAG="_zrecon" ;;

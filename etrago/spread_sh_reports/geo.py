@@ -61,12 +61,13 @@ def _compass(lon, lat):
 
 
 @lru_cache(maxsize=None)
-def zones(data_dir, key, source="Basic"):
+def zones(data_dir, key, source="Reconstructed"):
     """Zone polygons for a configuration.
 
-    ``source`` is ``market_zone_shapes`` from the run's args.json: "Basic"
-    (default, Zenodo files, runs up to 16.11.2026) or "Reconstructed"
-    (case-insensitive).
+    ``source`` is ``market_zone_shapes`` from the run's args.json:
+    "Reconstructed" (default) or "Basic" (Zenodo files, runs up to
+    16.11.2026); case-insensitive. ScenarioMetrics passes "Basic" for runs
+    without the entry.
 
     Returns a GeoDataFrame with ``zone`` (stable id e.g. ``DE3-Z1``),
     ``label`` (readable name) and ``geometry``. For the status quo the single
