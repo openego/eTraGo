@@ -45,7 +45,7 @@ def get_ac_nodes_germany(self):
     ].index
 
 
-def distribution_grid_buses_and_links(self, mv_grids, seperate_dg_link=True):
+def distribution_grid_buses_and_links(self, mv_grids, seperate_dg_link=False):
     """Adds buses and links modeling simplified distribution grids.
     The parametrization is derived from bottom-up simulations of distribution
     grids with eDisGo/eGo.
@@ -90,8 +90,7 @@ def distribution_grid_buses_and_links(self, mv_grids, seperate_dg_link=True):
     # Create link between transmission an distribution grid
     # Either one bidirectional link is created or two unidirectional.
     # Two links allow setting different starting capacities for load and
-    # feedin case in the distribution grid. The expansion is coupled end
-    # always extends the capacity in both directions.
+    # feedin case in the distribution grid.
     if seperate_dg_link:
         self.network.madd(
             "Link",
@@ -108,7 +107,7 @@ def distribution_grid_buses_and_links(self, mv_grids, seperate_dg_link=True):
             ).values,
             p_nom_extendable=True,
             capital_cost=edisgo_results.loc[
-                mv_grids.bus_id, "capital_cost_worst_case"
+                mv_grids.bus_id, "capital_cost_load"
             ].values,
             marginal_cost=0.1,
             p_min_pu=0,
@@ -123,8 +122,16 @@ def distribution_grid_buses_and_links(self, mv_grids, seperate_dg_link=True):
             p_nom_min=edisgo_results.loc[mv_grids.bus_id, "p_nom_feedin"]
             .abs()
             .values,
+            p_nom_max=(
+                edisgo_results.loc[mv_grids.bus_id, "p_nom_feedin"].abs()
+                + (edisgo_results.loc[mv_grids.bus_id, "p_nom_feedin"].abs() * 4).clip(
+                    lower=200.0
+                )
+            ).values,
             p_nom_extendable=True,
-            capital_cost=0,
+            capital_cost=edisgo_results.loc[
+                mv_grids.bus_id, "capital_cost_feedin"
+            ].values,
             marginal_cost=0.1,
             p_min_pu=0,
         )

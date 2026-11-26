@@ -3843,11 +3843,6 @@ class Constraints:
 
         """
 
-        if (self.args["method"]["distribution_grids"] != False) & (
-            self.apply_on == "grid_model"
-        ):
-            couple_distribution_links(self, network, snapshots)
-
         if "CH4" in network.buses.carrier.values:
             if self.args["method"]["formulation"] == "pyomo":
 
